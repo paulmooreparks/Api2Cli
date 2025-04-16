@@ -3,13 +3,13 @@
 # The XferKit API-Management CLI Tool
 
 <p>
-  <a href="https://github.com/paulmooreparks/Xfer">
+  <a href="https://github.com/paulmooreparks/XferKit">
     <img alt="XferKit CLI Version" src="https://img.shields.io/badge/XferKit_CLI-0.2.1-green">
   </a>
-  <a href="https://github.com/paulmooreparks/Xfer">
+  <a href="https://github.com/paulmooreparks/XferKit">
     <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/paulmooreparks/Xfer">
   </a>
-  <a href="https://github.com/yourusername/xferkit">
+  <a href="https://github.com/paulmooreparks/XferKit">
     <img alt="GitHub issues" src="https://img.shields.io/github/issues/paulmooreparks/Xfer">
   </a>
   <a href="https://opensource.org/licenses/MIT">
@@ -44,7 +44,7 @@ They're coming. I've been designing on the fly, and to this point my Kanban boar
 
 ## XferLang and Cliffer
 
-This repository was originally the home for the [Xfer data-transfer language (or XferLang)](https://github.com/paulmooreparks/Xfer/blob/master/ParksComputing.Xfer.Lang). That project still exists, but I'm now using XferLang to implement the configuration for the XferKit CLI tool as well as for some internal data transfer tasks. The [core language specification](ParksComputing.Xfer.Lang/README.md) has moved into the folder that contains the assembly for the language implementation.
+This repository was originally the home for the [Xfer data-transfer language (or XferLang)](https://github.com/paulmooreparks/Xfer/). That project still exists, but I'm now using XferLang to implement the configuration for the XferKit CLI tool as well as for some internal data transfer tasks. The [core language specification](ParksComputing.Xfer.Lang/README.md) has moved into the folder that contains the assembly for the language implementation.
 
 The XferKit CLI tool uses the [Cliffer CLI Library](https://github.com/paulmooreparks/Cliffer), another project I own, to implement the CLI interface.
 
