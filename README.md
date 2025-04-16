@@ -4,7 +4,7 @@
 
 <p>
   <a href="https://github.com/paulmooreparks/Xfer">
-    <img alt="XferKit CLI Version" src="https://img.shields.io/badge/XferKit_CLI-0.1.0-green">
+    <img alt="XferKit CLI Version" src="https://img.shields.io/badge/XferKit_CLI-0.2.1-green">
   </a>
   <a href="https://github.com/paulmooreparks/Xfer">
     <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/paulmooreparks/Xfer">

@@ -5,29 +5,14 @@ VisualStudioVersion = 17.10.35201.131
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{47A4F442-5258-4AC2-83D0-7D4063BB4A7D}"
 	ProjectSection(SolutionItems) = preProject
-		experiments.xfer = experiments.xfer
 		LICENSE.txt = LICENSE.txt
 		README.md = README.md
-		sample.xfer = sample.xfer
-		test.xfer = test.xfer
-		xfer.bnf = xfer.bnf
-		xfertest.xfer = xfertest.xfer
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "schemas", "schemas", "{99E409EE-BBEC-406C-ACB0-7B4DD2F0B711}"
-	ProjectSection(SolutionItems) = preProject
-		schemas\address.xfer = schemas\address.xfer
-		schemas\blog_post.xfer = schemas\blog_post.xfer
-		schemas\blog_post_inline.xfer = schemas\blog_post_inline.xfer
-		schemas\person.xfer = schemas\person.xfer
-		schemas\user_profile.xfer = schemas\user_profile.xfer
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".xk", ".xk", "{93AE49E2-9F10-4BFD-B83E-B6FA00834823}"
 	ProjectSection(SolutionItems) = preProject
 		.xk\.env = .xk\.env
 		.xk\globalInitScript.js = .xk\globalInitScript.js
-		.xk\store.xfer = .xk\store.xfer
 		.xk\workspaces.xfer = .xk\workspaces.xfer
 	EndProjectSection
 EndProject
@@ -84,7 +69,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{99E409EE-BBEC-406C-ACB0-7B4DD2F0B711} = {47A4F442-5258-4AC2-83D0-7D4063BB4A7D}
 		{93AE49E2-9F10-4BFD-B83E-B6FA00834823} = {47A4F442-5258-4AC2-83D0-7D4063BB4A7D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
