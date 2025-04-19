@@ -10,7 +10,7 @@ namespace ParksComputing.XferKit.Workspace.Services;
 public interface IWorkspaceService {
     BaseConfig BaseConfig { get; }
     IEnumerable<string> WorkspaceList { get; }
-    WorkspaceConfig ActiveWorkspace { get; }
+    WorkspaceDefinition ActiveWorkspace { get; }
     string CurrentWorkspaceName { get; }
     void SetActiveWorkspace(string workspaceName);
 }

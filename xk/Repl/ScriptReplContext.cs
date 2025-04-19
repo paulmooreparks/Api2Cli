@@ -40,6 +40,16 @@ internal class ScriptReplContext : DefaultReplContext
         return $"{command.Name}> ";
     }
 
+    public override string GetEntryMessage()
+    {
+        if (_workspaceService.BaseConfig.Properties.TryGetValue("hideReplMessages", out var value) && value is bool hideReplMessages && hideReplMessages == true)
+        {
+            return string.Empty;
+        }
+
+        return base.GetEntryMessage();
+    }
+
     public override void OnEntry()
     {
         base.OnEntry();

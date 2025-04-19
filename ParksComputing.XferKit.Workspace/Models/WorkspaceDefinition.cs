@@ -1,37 +1,16 @@
 ﻿using ParksComputing.Xfer.Lang.Attributes;
-using ParksComputing.Xfer.Lang.Elements;
 
 namespace ParksComputing.XferKit.Workspace.Models;
 
-public class WorkspaceConfig {
-    [XferProperty("name")]
-    public string? Name { get; set; }
-    [XferProperty("description")]
-    public string? Description { get; set; }
+public class WorkspaceDefinition : FolderDefinition {
     [XferProperty("extend")]
     public string? Extend { get; set; }
     [XferProperty("isHidden")]
     public bool IsHidden { get; set; } = false;
     [XferProperty("base")]
-    public WorkspaceConfig? Base { get; set; }
-    [XferProperty("baseUrl")]
-    public string? BaseUrl { get; set; }
-    [XferProperty("initScript")]
-    public string? InitScript { get; set; }
-    [XferProperty("preRequest")]
-    public string? PreRequest { get; set; }
-    [XferProperty("postResponse")]
-    public string? PostResponse { get; set; }
-    [XferProperty("properties")]
-    public Dictionary<string, object> Properties { get; set; } = [];
-    [XferProperty("requests")]
-    public Dictionary<string, RequestDefinition> Requests { get; set; } = [];
-    [XferProperty("scripts")]
-    public Dictionary<string, ScriptDefinition> Scripts { get; set; } = [];
-    [XferProperty("macros")]
-    public Dictionary<string, MacroDefinition> Macros { get; set; } = [];
+    public WorkspaceDefinition? Base { get; set; }
 
-    internal void Merge(WorkspaceConfig? parentWorkspace) {
+    internal void Merge(WorkspaceDefinition? parentWorkspace) {
         if (parentWorkspace is null) {
             return;
         }

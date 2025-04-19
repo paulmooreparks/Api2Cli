@@ -16,14 +16,17 @@ namespace ParksComputing.XferKit.Cli.Commands.StoreCommand;
 [Command("store", "Manage the key/value store")]
 internal class StoreCommand {
     private readonly IServiceProvider _serviceProvider;
+    private readonly IWorkspaceService _workspaceService;
     private readonly IStoreService _store;
 
     public StoreCommand(
         IServiceProvider serviceProvider,
+        IWorkspaceService workspaceService,
         IStoreService store
         ) 
     {
         _serviceProvider = serviceProvider;
+        _workspaceService = workspaceService;
         _store = store;
     }
 
@@ -33,6 +36,7 @@ internal class StoreCommand {
         ) 
     {
         var replContext = new SubcommandReplContext(
+            _workspaceService,
             new CommandSplitter()
             );
 

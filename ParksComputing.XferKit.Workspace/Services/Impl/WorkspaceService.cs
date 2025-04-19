@@ -18,7 +18,7 @@ internal class WorkspaceService : IWorkspaceService
     private readonly IAppDiagnostics<WorkspaceService> _diags;
 
     public BaseConfig BaseConfig { get; protected set; }
-    public WorkspaceConfig ActiveWorkspace { get; protected set; }
+    public WorkspaceDefinition ActiveWorkspace { get; protected set; }
     public string WorkspaceFilePath { get; protected set; }
     public string CurrentWorkspaceName => BaseConfig?.ActiveWorkspace ?? string.Empty;
 
@@ -43,7 +43,7 @@ internal class WorkspaceService : IWorkspaceService
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _diags = appDiagnostics ?? throw new ArgumentNullException(nameof(appDiagnostics));
 
-        ActiveWorkspace = new WorkspaceConfig();
+        ActiveWorkspace = new WorkspaceDefinition();
         WorkspaceFilePath = _settingsService.ConfigFilePath;
         _packageDirectory = _settingsService.PluginDirectory ?? string.Empty;
 
@@ -58,7 +58,7 @@ internal class WorkspaceService : IWorkspaceService
         if (!string.IsNullOrEmpty(workspaceName)) {
             if (BaseConfig.Workspaces is not null) {
                 if (string.Equals(workspaceName, "/")) {
-                    ActiveWorkspace = new WorkspaceConfig();
+                    ActiveWorkspace = new WorkspaceDefinition();
                     BaseConfig.ActiveWorkspace = string.Empty;
                 }
                 else if (BaseConfig.Workspaces.ContainsKey(workspaceName)) {
@@ -73,9 +73,9 @@ internal class WorkspaceService : IWorkspaceService
         if (!File.Exists(WorkspaceFilePath)) {
             var xferDocument = new XferDocument();
 
-            var dict = new Dictionary<string, WorkspaceConfig>();
+            var dict = new Dictionary<string, WorkspaceDefinition>();
 
-            var defaultConfig = new WorkspaceConfig {
+            var defaultConfig = new WorkspaceDefinition {
                 Name = "default",
                 BaseUrl = string.Empty,
             };
@@ -107,7 +107,7 @@ internal class WorkspaceService : IWorkspaceService
             baseConfig = XferConvert.Deserialize<BaseConfig>(xfer);
 
             if (baseConfig.Workspaces is null) {
-                baseConfig.Workspaces = new Dictionary<string, WorkspaceConfig>();
+                baseConfig.Workspaces = new Dictionary<string, WorkspaceDefinition>();
             }
 
             if (baseConfig.ActiveWorkspace is null) {

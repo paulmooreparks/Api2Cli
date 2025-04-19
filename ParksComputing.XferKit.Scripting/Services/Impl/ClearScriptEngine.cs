@@ -297,7 +297,7 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
         _engine.AddHostObject(itemName, HostItemFlags.None, target);
     }
 
-    protected void DefineInitScript(WorkspaceConfig workspace, dynamic workspaceObj) {
+    protected void DefineInitScript(WorkspaceDefinition workspace, dynamic workspaceObj) {
         if (workspace.InitScript is not null) {
             var scriptCode = GetScriptContent(workspace.InitScript);
             var scriptBody = $@"function __initScript__{workspace.Name}(workspace) {{ {scriptCode} }}";
@@ -310,7 +310,7 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
         }
     }
 
-    protected void CallInitScript(WorkspaceConfig workspace, dynamic workspaceObj) {
+    protected void CallInitScript(WorkspaceDefinition workspace, dynamic workspaceObj) {
         if (workspace.InitScript is not null) {
             var scriptCall = $@"__initScript__{workspace.Name}";
             Invoke(scriptCall, workspaceObj);

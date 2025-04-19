@@ -83,7 +83,7 @@ public class XferKitApi : DynamicObject {
         _workspaceService.SetActiveWorkspace(workspaceName);
     }
 
-    public WorkspaceConfig activeWorkspace => _workspaceService.ActiveWorkspace;
+    public WorkspaceDefinition activeWorkspace => _workspaceService.ActiveWorkspace;
 
     public bool TrySetProperty(string name, object? value) {
         return _properties.TryAdd(name, value);

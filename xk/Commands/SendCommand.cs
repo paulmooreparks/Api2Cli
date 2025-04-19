@@ -111,7 +111,7 @@ public class SendCommand {
             return Result.Error;
         }
 
-        if (!_ws.BaseConfig.Workspaces.TryGetValue(workspaceName, out WorkspaceConfig? workspace)) {
+        if (!_ws.BaseConfig.Workspaces.TryGetValue(workspaceName, out WorkspaceDefinition? workspace)) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Workspace name '{workspaceName}' not found in current configuration.");
             return Result.Error;
         }

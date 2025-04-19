@@ -1,5 +1,6 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Invocation;
+using System.Text;
 
 using Cliffer;
 using ParksComputing.XferKit.Cli.Services;
@@ -22,6 +23,14 @@ internal class WorkspaceReplContext : DefaultReplContext
     {
         _commandSplitter = commandSplitter;
         _workspaceService = workspaceService;
+    }
+
+    public override string GetEntryMessage() {
+        if (_workspaceService.BaseConfig.Properties.TryGetValue("hideReplMessages", out var value) && value is bool hideReplMessages && hideReplMessages == true) {
+            return string.Empty;
+        }
+
+        return base.GetEntryMessage();
     }
 
     override public string GetPrompt(Command command, InvocationContext context) {

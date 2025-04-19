@@ -142,7 +142,7 @@ xk.{scriptName} = __script__{scriptName};
 
         var workspaceColl = _xk.workspaces as IDictionary<string, object>;
 
-        foreach (var workspaceKvp in _workspaceService.BaseConfig?.Workspaces ?? new Dictionary<string, Workspace.Models.WorkspaceConfig>()) {
+        foreach (var workspaceKvp in _workspaceService.BaseConfig?.Workspaces ?? new Dictionary<string, Workspace.Models.WorkspaceDefinition>()) {
             var workspaceName = workspaceKvp.Key;
             var workspaceConfig = workspaceKvp.Value;
             var workspace = workspaceColl![workspaceName] as dynamic;

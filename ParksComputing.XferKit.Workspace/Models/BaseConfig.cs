@@ -15,7 +15,7 @@ public class BaseConfig
     [XferProperty("properties")]
     public Dictionary<string, object> Properties { get; set; } = [];
     [XferProperty("workspaces")]
-    public Dictionary<string, WorkspaceConfig> Workspaces { get; set; } = [];
+    public Dictionary<string, WorkspaceDefinition> Workspaces { get; set; } = [];
     [XferProperty("macros")]
     public Dictionary<string, MacroDefinition> Macros { get; set; } = [];
     [XferProperty("scripts")]
