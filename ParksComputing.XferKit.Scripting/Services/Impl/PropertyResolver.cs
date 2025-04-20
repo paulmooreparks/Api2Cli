@@ -7,14 +7,15 @@ using ParksComputing.XferKit.Api;
 namespace ParksComputing.XferKit.Scripting.Services.Impl;
 
 public class PropertyResolver : IPropertyResolver {
-    private readonly IXferScriptEngine _scriptEngine;
-    private readonly XferKitApi? _base;
+    private readonly XferKitApi _xk;
     private readonly IDictionary<string, dynamic?>? _workspaces;
 
-    public PropertyResolver(IXferScriptEngine scriptEngine) {
-        _scriptEngine = scriptEngine;
-        _base = _scriptEngine.Script.xk as XferKitApi;
-        _workspaces = _base?.workspaces as IDictionary<string, dynamic?>;
+    public PropertyResolver(
+        XferKitApi apiRoot
+        ) 
+    {
+        _xk = apiRoot;
+        _workspaces = _xk.workspaces as IDictionary<string, dynamic?>;
     }
 
     public object? ResolveProperty(
@@ -32,7 +33,7 @@ public class PropertyResolver : IPropertyResolver {
         string? requestPart = null;
         string? propertyPart = null;
 
-        if (_base is null) {
+        if (_xk is null) {
             return defaultValue;
         }
 
@@ -42,7 +43,7 @@ public class PropertyResolver : IPropertyResolver {
             if (parts.Length == 1) {
                 propertyPart = parts[0];
 
-                if (_base.TryGetProperty(propertyPart, out object? value)) {
+                if (_xk.TryGetProperty(propertyPart, out object? value)) {
                     return value?.ToString() ?? defaultValue;
                 }
 
@@ -112,10 +113,10 @@ public class PropertyResolver : IPropertyResolver {
                 }
                 else if (currentWorkspace is not null) {
                     currentWorkspace = null;
-                    current = _base;
+                    current = _xk;
                 }
                 else {
-                    if (_base.TryGetProperty(part, out current)) {
+                    if (_xk.TryGetProperty(part, out current)) {
                         // Move from base ➔ base
                         return current ?? defaultValue;
                     }

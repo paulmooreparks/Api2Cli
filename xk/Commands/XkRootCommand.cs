@@ -232,7 +232,7 @@ xk.workspaces.{workspaceName}.{scriptName} = __script__{workspaceName}__{scriptN
 
                 var requestCommand = new Command(requestName, $"[request] {description}");
                 requestCommand.IsHidden = workspaceConfig.IsHidden;
-                var requestHandler = new SendCommand(Utility.GetService<IHttpService>()!, _xk, _workspaceService, Utility.GetService<IXferScriptEngine>()!, Utility.GetService<IPropertyResolver>());
+                var requestHandler = new SendCommand(Utility.GetService<IHttpService>()!, _xk, _workspaceService, Utility.GetService<IXferScriptEngine>()!, Utility.GetService<IPropertyResolver>(), Utility.GetService<ISettingsService>());
                 var requestObj = requests![requestName] as IDictionary<string, object>;
                 var requestCaller = new RequestCaller(_rootCommand, requestHandler, workspaceName, requestName, workspaceKvp.Value.BaseUrl);
 #pragma warning disable CS8974 // Converting method group to non-delegate type

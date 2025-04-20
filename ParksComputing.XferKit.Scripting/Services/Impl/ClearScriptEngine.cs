@@ -17,6 +17,7 @@ using System.Dynamic;
 using ParksComputing.XferKit.Api;
 using ParksComputing.XferKit.Diagnostics.Services;
 using ParksComputing.XferKit.Workspace;
+using ParksComputing.XferKit.Scripting.Extensions;
 
 namespace ParksComputing.XferKit.Scripting.Services.Impl;
 
@@ -25,6 +26,7 @@ internal class ClearScriptEngine : IXferScriptEngine {
     private readonly IWorkspaceService _workspaceService;
     private readonly ISettingsService _settingsService;
     private readonly IAppDiagnostics<ClearScriptEngine> _diags;
+    private readonly IPropertyResolver _propertyResolver;
     private readonly XferKitApi _xk;
 
     // private Engine _engine = new Engine(options => options.AllowClr());
@@ -40,6 +42,7 @@ internal class ClearScriptEngine : IXferScriptEngine {
         IStoreService storeService,
         ISettingsService settingsService,
         IAppDiagnostics<ClearScriptEngine> appDiagnostics,
+        IPropertyResolver propertyResolver,
         XferKitApi apiRoot
         ) 
     {
@@ -48,6 +51,7 @@ internal class ClearScriptEngine : IXferScriptEngine {
         _packageService.PackagesUpdated += PackagesUpdated;
         _settingsService = settingsService;
         _diags = appDiagnostics;
+        _propertyResolver = propertyResolver;
         _xk = apiRoot;
         var assemblies = LoadPackageAssemblies();
         InitializeScriptEnvironment(assemblies);
@@ -95,8 +99,7 @@ internal class ClearScriptEngine : IXferScriptEngine {
         _engine.AddHostType("Console", typeof(Console));
         _engine.AddHostType("Task", typeof(Task));
         _engine.AddHostType("console", typeof(ConsoleScriptObject));
-        _engine.AddHostObject("log", new Action<string>(ConsoleScriptObject.log));
-        _engine.AddHostObject("workspaceService", _workspaceService);
+        // _engine.AddHostObject("workspaceService", _workspaceService);
         _engine.AddHostObject("btoa", new Func<string, string>(s => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s))));
         _engine.AddHostObject("atob", new Func<string, string>(s => System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(s))));
 
@@ -194,6 +197,7 @@ function __postResponse(workspace, request) {{
 
                 _workspaceCache.Add(workspaceName, workspaceObj);
                 (_xk.workspaces as IDictionary<string, object?>)!.Add(workspaceName, workspaceObj);
+                _xk[workspaceName] = workspaceObj;
 
                 try {
                     _engine.Execute($@"
@@ -285,6 +289,7 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
                     var requests = workspaceObj.requests as IDictionary<string, object>;
                     requests?.Add(requestName, requestObj);
                     _requestCache.Add($"{workspaceName}.{requestName}", requestObj);
+                    (workspaceObj as IDictionary<string, object?>)!.Add(requestName, requestObj);
                 }
 
                 DefineInitScript(workspace, workspaceObj);
@@ -337,7 +342,7 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
 
         var workspace = _workspaceCache[workspaceName];
         var requests = workspace.requests as IDictionary<string, object>;
-        var request = requests?[requestName] as dynamic; // _requestCache[$"{workspaceName}.{requestName}"];
+        var request = requests?[requestName] as dynamic;
 
         if (request is null) {
             return;
@@ -519,27 +524,7 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
         var xferSettingsDirectory = _settingsService.XferSettingsDirectory;
 
         try {
-            if (scriptValue.Trim().StartsWith(XferKit.Workspace.Constants.ScriptFilePrefix)) {
-                var filePath = scriptValue.Trim().Substring(XferKit.Workspace.Constants.ScriptFilePrefixLength).Trim();
-
-                // If the path is relative, it will now be resolved from XferSettingsDirectory
-                if (!Path.IsPathRooted(filePath)) {
-                    if (!string.IsNullOrWhiteSpace(xferSettingsDirectory) && Directory.Exists(xferSettingsDirectory)) {
-                        Directory.SetCurrentDirectory(xferSettingsDirectory);
-                    }
-
-                    filePath = Path.GetFullPath(filePath);
-                }
-
-                if (File.Exists(filePath)) {
-                    return File.ReadAllText(filePath);
-                }
-                else {
-                    throw new FileNotFoundException($"Script file not found: {filePath}");
-                }
-            }
-
-            // If it's not a file reference, return inline script
+            scriptValue = scriptValue.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService);
             return scriptValue;
         }
         catch (Exception ex) {

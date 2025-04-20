@@ -9,11 +9,10 @@ using Cliffer;
 using ParksComputing.XferKit.Workspace.Models;
 using ParksComputing.XferKit.Workspace.Services;
 using ParksComputing.XferKit.Scripting.Services;
+using ParksComputing.XferKit.Scripting.Extensions;
 
 using ParksComputing.XferKit.Api;
-using ParksComputing.XferKit.Cli.Services;
 using ParksComputing.XferKit.Workspace;
-using ParksComputing.XferKit.Cli.Extensions;
 using Microsoft.ClearScript;
 using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
@@ -27,6 +26,7 @@ public class SendCommand {
     private readonly IWorkspaceService _ws;
     private readonly IXferScriptEngine _scriptEngine;
     private readonly IPropertyResolver _propertyResolver;
+    private readonly ISettingsService _settingsService;
 
     public object? CommandResult { get; private set; } = null;
 
@@ -35,7 +35,8 @@ public class SendCommand {
         XferKitApi xk,
         IWorkspaceService workspaceService,
         IXferScriptEngine scriptEngine,
-        IPropertyResolver? propertyResolver
+        IPropertyResolver? propertyResolver,
+        ISettingsService? settingsService
         ) 
     {
         if (httpService is null) {
@@ -51,6 +52,12 @@ public class SendCommand {
         }
 
         _propertyResolver = propertyResolver;
+
+        if (settingsService is null) {
+            throw new ArgumentNullException(nameof(settingsService), "Settings service cannot be null.");
+        }
+
+        _settingsService = settingsService;
     }
 
     public int Handler(
@@ -165,13 +172,13 @@ public class SendCommand {
         }
 
         if (payload != null) {
-            payload = payload.ReplaceXferKitPlaceholders(_scriptEngine, _propertyResolver, workspaceName, requestName, argsDict);
+            payload = payload.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
         }
 
         var method = definition.Method?.ToUpper() ?? string.Empty;
         var endpoint = definition.Endpoint ?? string.Empty;
 
-        endpoint = endpoint.ReplaceXferKitPlaceholders(_scriptEngine, _propertyResolver, workspaceName, requestName, argsDict);
+        endpoint = endpoint.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
 
         var cfgParameters = definition.Parameters ?? Enumerable.Empty<string>();
         var mergedParams = new Dictionary<string, string?>();
@@ -183,7 +190,7 @@ public class SendCommand {
             var value = parts.Length > 1 ? parts[1] : null; // Handle standalone values
 
             if (value is not null) {
-                value = value.ReplaceXferKitPlaceholders(_scriptEngine, _propertyResolver, workspaceName, requestName, argsDict);
+                value = value.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
             }
 
             mergedParams.TryAdd(key, value);
@@ -197,7 +204,7 @@ public class SendCommand {
                 var value = parts.Length > 1 ? parts[1] : null;
 
                 if (value is not null) {
-                    value = value.ReplaceXferKitPlaceholders(_scriptEngine, _propertyResolver, workspaceName, requestName, argsDict);
+                    value = value.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
                 }
 
                 // Always overwrite since command-line parameters take precedence
@@ -213,7 +220,7 @@ public class SendCommand {
 
         foreach (var kvp in definition.Headers) {
             var configValue = kvp.Value?.ToString() ?? string.Empty;
-            configValue = configValue.ReplaceXferKitPlaceholders(_scriptEngine, _propertyResolver, workspaceName, requestName, argsDict);
+            configValue = configValue.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
             configHeaders[kvp.Key] = configValue;
         }
 
@@ -223,7 +230,7 @@ public class SendCommand {
                 if (parts.Length == 2) {
                     var configKey = parts[0].Trim();
                     var configValue = parts[1]?.Trim() ?? string.Empty;
-                    configValue = configValue.ReplaceXferKitPlaceholders(_scriptEngine, _propertyResolver, workspaceName, requestName, argsDict);
+                    configValue = configValue.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
                     configHeaders[configKey] = configValue;
                 }
             }
@@ -234,7 +241,7 @@ public class SendCommand {
         foreach (var kvp in definition.Cookies) {
             var configKey = kvp.Key;
             var configValue = kvp.Value ?? string.Empty;
-            configValue = configValue.ReplaceXferKitPlaceholders(_scriptEngine, _propertyResolver, workspaceName, requestName, argsDict);
+            configValue = configValue.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
             configCookies[configKey] = configValue;
         }
 
@@ -244,7 +251,7 @@ public class SendCommand {
                 if (parts.Length == 2) {
                     var configKey = parts[0].Trim();
                     var configValue = parts[1]?.Trim() ?? string.Empty;
-                    configValue = configValue.ReplaceXferKitPlaceholders(_scriptEngine, _propertyResolver, workspaceName, requestName, argsDict);
+                    configValue = configValue.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
                     configCookies[configKey] = configValue;
                 }
             }
@@ -311,7 +318,7 @@ public class SendCommand {
                     }
 
                     var finalPayload = payload ?? definition.Payload ?? string.Empty;
-                    finalPayload = finalPayload.ReplaceXferKitPlaceholders(_scriptEngine, _propertyResolver, workspaceName, requestName, argsDict);
+                    finalPayload = finalPayload.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
                     result = postCommand.Execute(baseUrl, endpoint, finalPayload, finalHeaders);
 
                     try {
