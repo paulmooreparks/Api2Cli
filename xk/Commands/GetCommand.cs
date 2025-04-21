@@ -1,15 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Cliffer;
 
-using Cliffer;
-
-using ParksComputing.XferKit.Cli.Services;
-using ParksComputing.XferKit.Workspace.Services;
-using ParksComputing.XferKit.Http.Services;
-using System.Net;
 using ParksComputing.XferKit.Api;
 using ParksComputing.XferKit.Workspace;
 

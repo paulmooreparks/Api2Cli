@@ -46,8 +46,6 @@ public static class StringExtensions {
 
                 try { 
                     if (!Path.IsPathRooted(filePath)) {
-                        var currDir = Directory.GetCurrentDirectory;
-
                         if (!string.IsNullOrWhiteSpace(xferSettingsDirectory) && Directory.Exists(xferSettingsDirectory)) {
                             Directory.SetCurrentDirectory(xferSettingsDirectory);
                         }

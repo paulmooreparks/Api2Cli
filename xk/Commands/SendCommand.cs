@@ -319,7 +319,7 @@ public class SendCommand {
 
                     var finalPayload = payload ?? definition.Payload ?? string.Empty;
                     finalPayload = finalPayload.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
-                    result = postCommand.Execute(baseUrl, endpoint, finalPayload, finalHeaders);
+                    result = postCommand.Execute(endpoint, baseUrl, finalHeaders, finalPayload);
 
                     try {
                         CommandResult = _scriptEngine.InvokePostResponse(

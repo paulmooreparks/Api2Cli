@@ -40,7 +40,8 @@ internal class XkRootCommand {
         XferKitApi xferKitApi,
         IScriptCliBridge scriptCliBridge,
         [OptionParam("--recursive")] Option recursionOption
-        ) {
+        ) 
+    {
         _serviceProvider = serviceProvider;
         _workspaceService = workspaceService;
         _rootCommand = rootCommand;
@@ -149,7 +150,7 @@ xk.{scriptName} = __script__{scriptName};
 
             var workspaceCommand = new Command(workspaceName, $"[workspace] {workspaceConfig.Description}");
             workspaceCommand.IsHidden = workspaceConfig.IsHidden;
-            var workspaceHandler = new WorkspaceCommand(workspaceName, _serviceProvider, _workspaceService);
+            var workspaceHandler = new WorkspaceCommand(workspaceName, _rootCommand, _serviceProvider, _workspaceService);
 
             workspaceCommand.Handler = CommandHandler.Create(async Task<int> (InvocationContext invocationContext) => {
                 return await workspaceHandler.Execute(workspaceCommand, invocationContext);

@@ -177,4 +177,12 @@ public class HttpService : IHttpService {
 
         return await _httpClient.SendAsync(request);
     }
+
+    public HttpResponseMessage Put(string baseUrl, string endpoint, string? payload, IEnumerable<string>? headers) {
+        throw new NotImplementedException();
+    }
+
+    public HttpResponseMessage Delete(string baseUrl, string endpoint, IEnumerable<string>? headers) {
+        throw new NotImplementedException();
+    }
 }

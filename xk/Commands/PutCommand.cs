@@ -1,32 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Net.Http.Headers;
 
 using Cliffer;
 
-using ParksComputing.XferKit.Cli.Services;
-using ParksComputing.XferKit.Workspace.Services;
-using ParksComputing.XferKit.Http.Services;
 using ParksComputing.XferKit.Api;
 using ParksComputing.XferKit.Workspace;
 
 namespace ParksComputing.XferKit.Cli.Commands;
 
-[Command("post", "Send resources to the specified API endpoint via a POST request.")]
-[Argument(typeof(string), "endpoint", "The endpoint to send the POST request to.")]
-[Option(typeof(string), "--baseurl", "The base URL of the API to send HTTP requests to.", new[] { "-b" }, IsRequired = false)]
+[Command("put", "Send resources to the specified API endpoint via a PUT request.")]
+[Argument(typeof(string), "endpoint", "The endpoint to send the PUT request to.")]
+[Option(typeof(string), "--baseurl", "The base URL of the API.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(IEnumerable<string>), "--headers", "Headers to include in the request.", new[] { "-h" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
 [Option(typeof(string), "--payload", "Content to send with the request. If input is redirected, content can also be read from standard input.", new[] { "-p" }, Arity = ArgumentArity.ZeroOrOne)]
-internal class PostCommand {
+internal class PutCommand {
     private readonly XferKitApi _xk;
 
     public string ResponseContent { get; protected set; } = string.Empty;
     public int StatusCode { get; protected set; } = 0;
-    public System.Net.Http.Headers.HttpResponseHeaders? Headers { get; protected set; } = default;
+    public HttpResponseHeaders? Headers { get; protected set; }
 
-    public PostCommand(
+    public PutCommand(
         XferKitApi xk
         ) 
     {
@@ -34,11 +28,11 @@ internal class PostCommand {
     }
 
     public int Execute(
-        [ArgumentParam("endpoint")] string? endpoint,
+        [ArgumentParam("endpoint")] string endpoint,
         [OptionParam("--baseurl")] string? baseUrl,
-        [OptionParam("--headers")] IEnumerable<string> headers,
+        [OptionParam("--headers")] IEnumerable<string>? headers,
         [OptionParam("--payload")] string? payload
-        ) 
+    ) 
     {
         // Validate URL format
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
@@ -51,6 +45,7 @@ internal class PostCommand {
         }
 
         baseUrl = baseUri.ToString();
+        var paramList = new List<string>();
 
         if (string.IsNullOrEmpty(payload) && Console.IsInputRedirected) {
             var payloadString = Console.In.ReadToEnd();
@@ -59,26 +54,33 @@ internal class PostCommand {
 
         int result = Result.Success;
 
-        try {
-            var response = _xk.http.post(baseUrl, payload, headers);
+        try { 
+            var response = _xk.http.put(baseUrl ?? "", endpoint, payload, headers);
+
+            if (response != null) {
+                Headers = response.Headers;
+                using var reader = new System.IO.StreamReader(response.Content.ReadAsStream());
+                ResponseContent = reader.ReadToEnd();
+                StatusCode = (int)response.StatusCode;
+            }
 
             if (response is null) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUrl}");
                 result = Result.Error;
             }
             else if (!response.IsSuccessStatusCode) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} {(int)response.StatusCode} {response.ReasonPhrase} at {baseUrl}");
+                Console.Error.WriteLine($"{Constants.ErrorChar} Error: {response.StatusCode} - {ResponseContent}");
                 result = Result.Error;
             }
-
-            Headers = _xk.http.headers;
-            ResponseContent = _xk.http.responseContent;
-            StatusCode = _xk.http.statusCode;
-            // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
+            else {
+                if (!string.IsNullOrEmpty(ResponseContent)) {
+                    Console.WriteLine(ResponseContent);
+                }
+            }
         }
-        catch (HttpRequestException ex) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Error: HTTP request failed - {ex.Message}");
-            return Result.Error;
+        catch (Exception ex) {
+            Console.Error.WriteLine($"{Constants.ErrorChar} Error: {ex.Message}");
+            result = Result.Error;
         }
 
         return result;

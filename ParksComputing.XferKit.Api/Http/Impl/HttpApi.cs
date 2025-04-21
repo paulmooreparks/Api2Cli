@@ -23,40 +23,11 @@ internal class HttpApi : IHttpApi
         _httpService = httpService;
     }
 
-    public async Task<HttpResponseMessage?> getAsync(
-        string baseUrl,
-        IEnumerable<string>? queryParameters,
-        IEnumerable<string>? headers
-        )
-    {
-        var cookieContainer = new CookieContainer();
-        var handler = new HttpClientHandler() {
-            CookieContainer = cookieContainer,
-            UseCookies = true
-        };
-
-        var response = await _httpService.GetAsync(
-            baseUrl,
-            queryParameters,
-            headers
-            );
-
-        if (response != null) {
-            this.headers = response.Headers;
-            responseContent = await response.Content.ReadAsStringAsync();
-            statusCode = (int)response.StatusCode;
-            // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
-        }
-
-        return response;
-    }
-
     public HttpResponseMessage? get(
         string baseUrl,
         IEnumerable<string>? queryParameters,
         IEnumerable<string>? headers
-        )
-    {
+        ) {
         var cookieContainer = new CookieContainer();
         var handler = new HttpClientHandler() {
             CookieContainer = cookieContainer,
@@ -82,9 +53,9 @@ internal class HttpApi : IHttpApi
         return response;
     }
 
-    public async Task<HttpResponseMessage?> postAsync(
+    public async Task<HttpResponseMessage?> getAsync(
         string baseUrl,
-        string? payload,
+        IEnumerable<string>? queryParameters,
         IEnumerable<string>? headers
         )
     {
@@ -94,9 +65,9 @@ internal class HttpApi : IHttpApi
             UseCookies = true
         };
 
-        var response = await _httpService.PostAsync(
+        var response = await _httpService.GetAsync(
             baseUrl,
-            payload,
+            queryParameters,
             headers
             );
 
@@ -134,6 +105,34 @@ internal class HttpApi : IHttpApi
             using (var reader = new StreamReader(stream)) {
                 responseContent = reader.ReadToEnd();
             }
+            statusCode = (int)response.StatusCode;
+            // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
+        }
+
+        return response;
+    }
+
+    public async Task<HttpResponseMessage?> postAsync(
+        string baseUrl,
+        string? payload,
+        IEnumerable<string>? headers
+        )
+    {
+        var cookieContainer = new CookieContainer();
+        var handler = new HttpClientHandler() {
+            CookieContainer = cookieContainer,
+            UseCookies = true
+        };
+
+        var response = await _httpService.PostAsync(
+            baseUrl,
+            payload,
+            headers
+            );
+
+        if (response != null) {
+            this.headers = response.Headers;
+            responseContent = await response.Content.ReadAsStringAsync();
             statusCode = (int)response.StatusCode;
             // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
         }

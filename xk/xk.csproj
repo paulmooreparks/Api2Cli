@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>ParksComputing.XferKit.Cli</RootNamespace>
-    <Version>0.2.2-prerelease</Version>
+    <Version>0.2.3-prerelease</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,7 +16,6 @@
   <ItemGroup>
     <ProjectReference Include="..\ParksComputing.XferKit.Api\ParksComputing.XferKit.Api.csproj" />
     <ProjectReference Include="..\ParksComputing.XferKit.Diagnostics\ParksComputing.XferKit.Diagnostics.csproj" />
-    <ProjectReference Include="..\ParksComputing.XferKit.Http\ParksComputing.XferKit.Http.csproj" />
     <ProjectReference Include="..\ParksComputing.XferKit.Scripting\ParksComputing.XferKit.Scripting.csproj" />
     <ProjectReference Include="..\ParksComputing.XferKit.Workspace\ParksComputing.XferKit.Workspace.csproj" />
   </ItemGroup>

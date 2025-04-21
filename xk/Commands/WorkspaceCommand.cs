@@ -21,6 +21,7 @@ using ParksComputing.XferKit.Cli.Repl;
 namespace ParksComputing.XferKit.Cli.Commands;
 
 internal class WorkspaceCommand {
+    private readonly System.CommandLine.RootCommand _rootCommand;
     private readonly IServiceProvider _serviceProvider;
     private readonly IWorkspaceService _workspaceService;
 
@@ -28,11 +29,13 @@ internal class WorkspaceCommand {
 
     public WorkspaceCommand(
         string workspaceName,
+        System.CommandLine.RootCommand rootCommand,
         IServiceProvider serviceProvider,
         IWorkspaceService workspaceService
         ) 
     { 
         WorkspaceName = workspaceName;
+        _rootCommand = rootCommand;
         _serviceProvider = serviceProvider;
         _workspaceService = workspaceService;
     }
@@ -45,8 +48,9 @@ internal class WorkspaceCommand {
         _workspaceService.SetActiveWorkspace(WorkspaceName);
 
         var replContext = new WorkspaceReplContext(
-            new CommandSplitter(),
-            _workspaceService
+            _rootCommand,
+            _workspaceService,
+            new CommandSplitter()
             );
 
         var result = await command.Repl(
