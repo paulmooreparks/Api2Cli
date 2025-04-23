@@ -110,7 +110,6 @@ public class SendCommand {
         object?[]? objArguments
         ) 
     {
-        bool isConsoleRedirected = Console.IsInputRedirected;
         var reqSplit = requestName.Split('.');
 
         if (_ws == null || _ws.BaseConfig == null || _ws.BaseConfig.Workspaces == null) {
@@ -132,6 +131,10 @@ public class SendCommand {
         var argsDict = new Dictionary<string, object?>();
         var extraArgs = new List<object?>();
 
+        var argumentKeys = request.Arguments.Keys.ToList();
+
+        int i = 0;
+
         if (tokenArguments is not null && tokenArguments.Any()) {
             using var enumerator = tokenArguments.GetEnumerator();
 
@@ -146,10 +149,11 @@ public class SendCommand {
                 var argValue = enumerator.Current.Value;
                 argsDict[argName] = argValue;
                 extraArgs.Add(argValue);
+
+                i++;
             }
         }
         else if (objArguments is not null && objArguments.Length > 0) {
-            int i = 0;
             foreach (var argKvp in request.Arguments) {
                 var arg = argKvp.Value;
                 var argName = argKvp.Key;
@@ -165,10 +169,12 @@ public class SendCommand {
             }
         }
 
-        if (payload is null && isConsoleRedirected) {
-            var payloadString = Console.In.ReadToEnd();
-            payload = payloadString.Trim();
-            isConsoleRedirected = false;
+        if (Console.IsInputRedirected && i < argumentKeys.Count) {
+            var argValue = Console.In.ReadToEnd().Trim();
+            var argName = argumentKeys[i];
+            var argDef = request.Arguments[argName];
+            argsDict[argName] = argValue;
+            extraArgs.Add(argValue);
         }
 
         if (payload != null) {

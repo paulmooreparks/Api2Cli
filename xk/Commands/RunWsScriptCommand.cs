@@ -112,8 +112,9 @@ internal class RunWsScriptCommand {
             }
         }
 
+        int i = 0;
+
         if (tokenArguments is not null && tokenArguments.Any()) {
-            int i = 0;
             using var enumerator = tokenArguments.GetEnumerator();
 
             foreach (var token in tokenArguments) {
@@ -156,8 +157,6 @@ internal class RunWsScriptCommand {
             }
         }
         else if (args is not null) {
-            int i = 0;
-
             foreach (var arg in args) {
                 if (i >= argumentDefinitions.Count()) {
                     scriptParams.Add(arg);
@@ -194,30 +193,32 @@ internal class RunWsScriptCommand {
 
                 i++;
             }
+        }
 
-            if (i < argumentDefinitions.Count && Console.IsInputRedirected) {
-                var argString = Console.In.ReadToEnd().Trim();
-                var argType = argumentDefinitions[i].Name;
+        if (Console.IsInputRedirected && i < argumentDefinitions.Count) {
+            var argString = Console.In.ReadToEnd().Trim();
+            var argType = argumentDefinitions[i].Type;
 
-                if (argType == "string") {
-                    scriptParams.Add(argString);
-                }
-                else if (argType == "stringArray") {
-                    scriptParams.Add(argString);
-                }
-                else if (argType == "number") {
-                    scriptParams.Add(Convert.ToDouble(argString));
-                }
-                else if (argType == "boolean") {
-                    scriptParams.Add(Convert.ToBoolean(argString));
-                }
-                else if (argType == "object") {
-                    scriptParams.Add(argString);
-                }
-                else {
-                    scriptParams.Add(argString);
-                }
+            if (argType == "string") {
+                scriptParams.Add(argString);
             }
+            else if (argType == "stringArray") {
+                scriptParams.Add(argString);
+            }
+            else if (argType == "number") {
+                scriptParams.Add(Convert.ToDouble(argString));
+            }
+            else if (argType == "boolean") {
+                scriptParams.Add(Convert.ToBoolean(argString));
+            }
+            else if (argType == "object") {
+                scriptParams.Add(argString);
+            }
+            else {
+                scriptParams.Add(argString);
+            }
+
+            ++i;
         }
 
         string scriptBody = string.Empty;
