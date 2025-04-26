@@ -21,12 +21,14 @@ internal class XkReplContext : DefaultReplContext
     public override string[] GetPopCommands() => [];
 
     public XkReplContext(
+        System.CommandLine.RootCommand rootCommand,
         IServiceProvider serviceProvider,
         IWorkspaceService workspaceService,
         ICommandSplitter commandSplitter,
         Option recursionOption
         )
     {
+        ParentCommand = rootCommand;
         _serviceProvider = serviceProvider;
         _workspaceService = workspaceService;
         _commandSplitter = commandSplitter;

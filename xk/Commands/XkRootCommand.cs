@@ -48,7 +48,7 @@ internal class XkRootCommand {
         _scriptEngine = scriptEngine;
         _xk = xferKitApi;
         _recursionOption = recursionOption;
-        _replContext = new XkReplContext(_serviceProvider, _workspaceService, splitter, _recursionOption);
+        _replContext = new XkReplContext(_rootCommand, _serviceProvider, _workspaceService, splitter, _recursionOption);
         _scriptCliBridge = scriptCliBridge;
         _scriptCliBridge.RootCommand = rootCommand;
 
