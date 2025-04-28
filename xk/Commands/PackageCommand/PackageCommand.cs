@@ -4,12 +4,13 @@ using System.CommandLine.Invocation;
 using Cliffer;
 
 using ParksComputing.XferKit.Cli.Services.Impl;
+using ParksComputing.XferKit.Workspace;
 using ParksComputing.XferKit.Workspace.Services;
 
-namespace ParksComputing.XferKit.Cli.Commands.StoreCommand;
+namespace ParksComputing.XferKit.Cli.Commands.PackageCommand;
 
-[Command("store", "Manage the key/value store")]
-internal class StoreCommand(
+[Command("package", "Install, update, list, and remove packages.")]
+internal class PackageCommand(
     IServiceProvider serviceProvider,
     IWorkspaceService workspaceService
     ) 

@@ -15,34 +15,28 @@ using ParksComputing.XferKit.Workspace;
 namespace ParksComputing.XferKit.Cli.Commands;
 
 [Command("post", "Send resources to the specified API endpoint via a POST request.")]
-[Argument(typeof(string), "endpoint", "The endpoint to send the POST request to.")]
+[Argument(typeof(string), "payload", "Content to send with the request. If input is redirected, content can also be read from standard input.")]
+[Option(typeof(string), "--endpoint", "The endpoint to send the POST request to.", new[] { "-e" }, IsRequired = false, Arity = ArgumentArity.ExactlyOne)]
 [Option(typeof(string), "--baseurl", "The base URL of the API to send HTTP requests to.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(IEnumerable<string>), "--headers", "Headers to include in the request.", new[] { "-h" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
-[Option(typeof(string), "--payload", "Content to send with the request. If input is redirected, content can also be read from standard input.", new[] { "-p" }, Arity = ArgumentArity.ZeroOrOne)]
-internal class PostCommand {
-    private readonly XferKitApi _xk;
-
+internal class PostCommand(
+    XferKitApi xk
+    ) 
+{
     public string ResponseContent { get; protected set; } = string.Empty;
     public int StatusCode { get; protected set; } = 0;
     public System.Net.Http.Headers.HttpResponseHeaders? Headers { get; protected set; } = default;
 
-    public PostCommand(
-        XferKitApi xk
-        ) 
-    {
-        _xk = xk;
-    }
-
     public int Execute(
-        [ArgumentParam("endpoint")] string? endpoint,
+        [ArgumentParam("payload")] string? payload,
+        [OptionParam("--endpoint")] string? endpoint,
         [OptionParam("--baseurl")] string? baseUrl,
-        [OptionParam("--headers")] IEnumerable<string> headers,
-        [OptionParam("--payload")] string? payload
+        [OptionParam("--headers")] IEnumerable<string> headers
         ) 
     {
         // Validate URL format
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
-            baseUrl ??= _xk.activeWorkspace.BaseUrl;
+            baseUrl ??= xk.activeWorkspace.BaseUrl;
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
@@ -60,7 +54,7 @@ internal class PostCommand {
         int result = Result.Success;
 
         try {
-            var response = _xk.http.post(baseUrl, payload, headers);
+            var response = xk.http.post(baseUrl, payload, headers);
 
             if (response is null) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUrl}");
@@ -71,9 +65,9 @@ internal class PostCommand {
                 result = Result.Error;
             }
 
-            Headers = _xk.http.headers;
-            ResponseContent = _xk.http.responseContent;
-            StatusCode = _xk.http.statusCode;
+            Headers = xk.http.headers;
+            ResponseContent = xk.http.responseContent;
+            StatusCode = xk.http.statusCode;
             // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
         }
         catch (HttpRequestException ex) {

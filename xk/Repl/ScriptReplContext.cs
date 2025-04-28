@@ -24,7 +24,7 @@ internal class ScriptReplContext : DefaultReplContext
         IXferScriptEngine scriptEngine,
         ICommandSplitter commandSplitter,
         IWorkspaceService workspaceService
-        )
+        ) 
     {
         _scriptEngine = scriptEngine;
         _commandSplitter = commandSplitter;

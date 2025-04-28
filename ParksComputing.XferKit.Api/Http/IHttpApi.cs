@@ -11,8 +11,10 @@ public interface IHttpApi {
     Task<HttpResponseMessage?> getAsync(string baseUrl, IEnumerable<string>? queryParameters, IEnumerable<string>? headers);
     HttpResponseMessage? post(string baseUrl, string? payload, IEnumerable<string>? headers);
     Task<HttpResponseMessage?> postAsync(string baseUrl, string? payload, IEnumerable<string>? headers);
-    HttpResponseMessage? put(string baseUrl, string endpoint, string? payload, IEnumerable<string>? headers);
-    Task<HttpResponseMessage?> putAsync(string baseUrl, string endpoint, string? payload, IEnumerable<string>? headers);
-    HttpResponseMessage? delete(string baseUrl, string endpoint, IEnumerable<string>? headers);
-    Task<HttpResponseMessage?> deleteAsync(string baseUrl, string endpoint, IEnumerable<string>? headers);
+    HttpResponseMessage? put(string baseUrl, string? payload, IEnumerable<string>? headers);
+    Task<HttpResponseMessage?> putAsync(string baseUrl, string? payload, IEnumerable<string>? headers);
+    HttpResponseMessage? patch(string baseUrl, string? payload, IEnumerable<string>? headers);
+    Task<HttpResponseMessage?> patchAsync(string baseUrl, string? payload, IEnumerable<string>? headers);
+    HttpResponseMessage? delete(string baseUrl, IEnumerable<string>? headers);
+    Task<HttpResponseMessage?> deleteAsync(string baseUrl, IEnumerable<string>? headers);
 }

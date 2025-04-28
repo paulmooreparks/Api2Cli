@@ -142,7 +142,6 @@ internal class HttpApi : IHttpApi
 
     public async Task<HttpResponseMessage?> putAsync(
         string baseUrl,
-        string endpoint,
         string? payload,
         IEnumerable<string>? headers
         )
@@ -155,7 +154,6 @@ internal class HttpApi : IHttpApi
 
         var response = await _httpService.PutAsync(
             baseUrl,
-            endpoint,
             payload,
             headers
         );
@@ -172,17 +170,42 @@ internal class HttpApi : IHttpApi
 
     public HttpResponseMessage? put(
         string baseUrl,
-        string endpoint,
         string? payload,
         IEnumerable<string>? headers
         )
     {
-        return putAsync(baseUrl, endpoint, payload, headers).GetAwaiter().GetResult();
+        return putAsync(baseUrl, payload, headers).GetAwaiter().GetResult();
+    }
+
+    public async Task<HttpResponseMessage?> patchAsync(string baseUrl, string? payload, IEnumerable<string>? headers) {
+        var cookieContainer = new CookieContainer();
+        var handler = new HttpClientHandler() {
+            CookieContainer = cookieContainer,
+            UseCookies = true
+        };
+
+        var response = await _httpService.PatchAsync(
+            baseUrl,
+            payload,
+            headers
+        );
+
+        if (response != null) {
+            this.headers = response.Headers;
+            responseContent = await response.Content.ReadAsStringAsync();
+            statusCode = (int)response.StatusCode;
+            // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
+        }
+
+        return response;
+    }
+
+    public HttpResponseMessage? patch(string baseUrl, string? payload, IEnumerable<string>? headers) {
+        return patchAsync(baseUrl, payload, headers).GetAwaiter().GetResult();
     }
 
     public async Task<HttpResponseMessage?> deleteAsync(
         string baseUrl,
-        string endpoint,
         IEnumerable<string>? headers
         )
     {
@@ -194,17 +217,15 @@ internal class HttpApi : IHttpApi
 
         return await _httpService.DeleteAsync(
             baseUrl,
-            endpoint,
             headers
         );
     }
 
     public HttpResponseMessage? delete(
         string baseUrl,
-        string endpoint,
         IEnumerable<string>? headers
         )
     {
-        return deleteAsync(baseUrl, endpoint, headers).GetAwaiter().GetResult();
+        return deleteAsync(baseUrl, headers).GetAwaiter().GetResult();
     }
 }

@@ -16,8 +16,6 @@ internal class WorkspaceReplContext : DefaultReplContext
     private readonly IWorkspaceService _workspaceService;
 
     public override string[] GetExitCommands() => ["exit"];
-    // public override string[] GetPopCommands() => ["/"];
-    public override string[] GetHelpCommands() => ["-?", "-h", "--help", "?", "help", "/?"];
 
     public WorkspaceReplContext(
         System.CommandLine.RootCommand rootCommand,
@@ -25,7 +23,6 @@ internal class WorkspaceReplContext : DefaultReplContext
         ICommandSplitter commandSplitter
         )
     {
-        ParentCommand = rootCommand;
         _workspaceService = workspaceService;
         _commandSplitter = commandSplitter;
     }

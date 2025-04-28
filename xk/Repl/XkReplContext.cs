@@ -28,7 +28,6 @@ internal class XkReplContext : DefaultReplContext
         Option recursionOption
         )
     {
-        ParentCommand = rootCommand;
         _serviceProvider = serviceProvider;
         _workspaceService = workspaceService;
         _commandSplitter = commandSplitter;

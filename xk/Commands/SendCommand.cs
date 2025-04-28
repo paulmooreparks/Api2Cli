@@ -177,7 +177,11 @@ public class SendCommand {
             extraArgs.Add(argValue);
         }
 
-        if (payload != null) {
+        if (!string.IsNullOrEmpty(baseUrl)) {
+            baseUrl = baseUrl.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
+        }
+
+        if (!string.IsNullOrEmpty(payload)) {
             payload = payload.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
         }
 
@@ -296,7 +300,7 @@ public class SendCommand {
                         Console.Error.WriteLine($"{Constants.ErrorChar} Error: Unable to find GET command.");
                         return Result.Error;
                     }
-                    result = getCommand.Execute(baseUrl, endpoint, finalParameters, finalHeaders, finalCookies, isQuiet: true);
+                    result = getCommand.Execute(endpoint, baseUrl, finalParameters, finalHeaders, finalCookies, isQuiet: true);
 
                     try {
                         CommandResult = _scriptEngine.InvokePostResponse(
@@ -325,7 +329,7 @@ public class SendCommand {
 
                     var finalPayload = payload ?? definition.Payload ?? string.Empty;
                     finalPayload = finalPayload.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
-                    result = postCommand.Execute(endpoint, baseUrl, finalHeaders, finalPayload);
+                    result = postCommand.Execute(finalPayload, endpoint, baseUrl, finalHeaders);
 
                     try {
                         CommandResult = _scriptEngine.InvokePostResponse(

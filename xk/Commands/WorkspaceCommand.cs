@@ -42,10 +42,14 @@ internal class WorkspaceCommand {
 
     public async Task<int> Execute(
         Command command,
-        InvocationContext context
+        InvocationContext context,
+        string? baseUrl
         ) 
     {
         _workspaceService.SetActiveWorkspace(WorkspaceName);
+        var workspace = _workspaceService.ActiveWorkspace;
+        var tmpBaseUrl = workspace.BaseUrl;
+        workspace.BaseUrl = baseUrl;
 
         var replContext = new WorkspaceReplContext(
             _rootCommand,
@@ -59,6 +63,7 @@ internal class WorkspaceCommand {
             replContext
             );
 
+        workspace.BaseUrl = tmpBaseUrl;
         _workspaceService.SetActiveWorkspace(string.Empty);
         return result;
     }

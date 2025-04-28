@@ -140,12 +140,14 @@ public class HttpService : IHttpService {
         return response;
     }
 
-    public async Task<HttpResponseMessage> PutAsync(string baseUrl, string endpoint, string? payload, IEnumerable<string>? headers) {
+    public HttpResponseMessage Put(string baseUrl, string? payload, IEnumerable<string>? headers) {
+        throw new NotImplementedException();
+    }
+
+    public async Task<HttpResponseMessage> PutAsync(string baseUrl, string? payload, IEnumerable<string>? headers) {
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
             throw new HttpRequestException($"Error: Invalid base URL: {baseUrl}");
         }
-
-        var fullUrl = new Uri(baseUri, endpoint).ToString();
 
         string? contentType = headers?
             .FirstOrDefault(h => h.StartsWith("Content-Type:", StringComparison.OrdinalIgnoreCase))
@@ -156,7 +158,7 @@ public class HttpService : IHttpService {
             contentType = "application/octet-stream";
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Put, fullUrl) {
+        using var request = new HttpRequestMessage(HttpMethod.Put, baseUri) {
             Content = new StringContent(payload ?? "", Encoding.UTF8, contentType ?? "text/plain")
         };
 
@@ -165,24 +167,45 @@ public class HttpService : IHttpService {
         return await _httpClient.SendAsync(request);
     }
 
-    public async Task<HttpResponseMessage> DeleteAsync(string baseUrl, string endpoint, IEnumerable<string>? headers) {
+    public HttpResponseMessage Patch(string baseUrl, string? payload, IEnumerable<string>? headers) {
+        throw new NotImplementedException();
+    }
+
+    public async Task<HttpResponseMessage> PatchAsync(string baseUrl, string? payload, IEnumerable<string>? headers) {
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
             throw new HttpRequestException($"Error: Invalid base URL: {baseUrl}");
         }
 
-        var fullUrl = new Uri(baseUri, endpoint).ToString();
+        string? contentType = headers?
+            .FirstOrDefault(h => h.StartsWith("Content-Type:", StringComparison.OrdinalIgnoreCase))
+            ?.Split(':', 2)[1]
+            .Trim();
 
-        using var request = new HttpRequestMessage(HttpMethod.Delete, fullUrl);
+        if (string.IsNullOrEmpty(contentType) && !string.IsNullOrEmpty(payload)) {
+            contentType = "application/octet-stream";
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Patch, baseUri) {
+            Content = new StringContent(payload ?? "", Encoding.UTF8, contentType ?? "text/plain")
+        };
+
         AddHeaders(request, headers);
 
         return await _httpClient.SendAsync(request);
     }
 
-    public HttpResponseMessage Put(string baseUrl, string endpoint, string? payload, IEnumerable<string>? headers) {
-        throw new NotImplementedException();
+    public async Task<HttpResponseMessage> DeleteAsync(string baseUrl, IEnumerable<string>? headers) {
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
+            throw new HttpRequestException($"Error: Invalid base URL: {baseUrl}");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Delete, baseUri);
+        AddHeaders(request, headers);
+
+        return await _httpClient.SendAsync(request);
     }
 
-    public HttpResponseMessage Delete(string baseUrl, string endpoint, IEnumerable<string>? headers) {
+    public HttpResponseMessage Delete(string baseUrl, IEnumerable<string>? headers) {
         throw new NotImplementedException();
     }
 }

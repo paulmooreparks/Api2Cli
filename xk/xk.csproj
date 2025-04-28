@@ -6,11 +6,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>ParksComputing.XferKit.Cli</RootNamespace>
-    <Version>0.2.5-prerelease</Version>
+    <Version>0.2.6-prerelease</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Cliffer\ClifferLib\Cliffer.csproj" />
+    <PackageReference Include="Cliffer" Version="0.4.16-prerelease" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ParksComputing.XferKit.Api\ParksComputing.XferKit.Api.csproj" />
     <ProjectReference Include="..\ParksComputing.XferKit.Diagnostics\ParksComputing.XferKit.Diagnostics.csproj" />
     <ProjectReference Include="..\ParksComputing.XferKit.Scripting\ParksComputing.XferKit.Scripting.csproj" />

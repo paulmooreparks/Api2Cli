@@ -152,8 +152,24 @@ xk.{scriptName} = __script__{scriptName};
             workspaceCommand.IsHidden = workspaceConfig.IsHidden;
             var workspaceHandler = new WorkspaceCommand(workspaceName, _rootCommand, _serviceProvider, _workspaceService);
 
+            var baseurlOption = new Option<string>(["--baseurl", "-b"], "The base URL of the API to send HTTP requests to.");
+            baseurlOption.IsRequired = false;
+            workspaceCommand.AddOption(baseurlOption);
+
             workspaceCommand.Handler = CommandHandler.Create(async Task<int> (InvocationContext invocationContext) => {
-                return await workspaceHandler.Execute(workspaceCommand, invocationContext);
+                var baseUrlArg = workspaceCommand.Options.FirstOrDefault(a => a.Name == "baseurl");
+                var baseUrl = workspaceConfig.BaseUrl;
+
+                if (baseUrlArg is not null) {
+                    baseUrl = invocationContext.ParseResult.GetValueForOption(baseUrlArg)?.ToString() ?? workspaceConfig.BaseUrl;
+                }
+
+                if (string.IsNullOrEmpty(baseUrl)) {
+                    Console.Error.WriteLine($"{ParksComputing.XferKit.Workspace.Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
+                    return Result.ErrorInvalidArgument;
+                }
+
+                return await workspaceHandler.Execute(workspaceCommand, invocationContext, baseUrl);
             });
 
             _rootCommand.AddCommand(workspaceCommand);
@@ -240,9 +256,9 @@ xk.workspaces.{workspaceName}.{scriptName} = __script__{workspaceName}__{scriptN
                 requestObj!["execute"] = requestCaller.RunRequest;
 #pragma warning restore CS8974 // Converting method group to non-delegate type
 
-                var baseurlOption = new Option<string>(["--baseurl", "-b"], "The base URL of the API to send HTTP requests to.");
-                baseurlOption.IsRequired = false;
-                requestCommand.AddOption(baseurlOption);
+                var reqBaseurlOption = new Option<string>(["--baseurl", "-b"], "The base URL of the API to send HTTP requests to.");
+                reqBaseurlOption.IsRequired = false;
+                requestCommand.AddOption(reqBaseurlOption);
 
                 var parameterOption = new Option<IEnumerable<string>>(["--parameters", "-p"], "Query parameters to include in the request. If input is redirected, parameters can also be read from standard input.");
                 parameterOption.AllowMultipleArgumentsPerToken = true;
@@ -286,7 +302,19 @@ xk.workspaces.{workspaceName}.{scriptName} = __script__{workspaceName}__{scriptN
                 }
 
                 requestCommand.Handler = CommandHandler.Create(int (InvocationContext invocationContext) => {
-                    return requestHandler.Handler(invocationContext, workspaceName, requestName, workspaceConfig.BaseUrl, null, null, null, null, null, null);
+                    var baseUrlArg = workspaceCommand.Options.FirstOrDefault(a => a.Name == "baseurl");
+                    var baseUrl = workspaceConfig.BaseUrl;
+
+                    if (baseUrlArg is not null) {
+                        baseUrl = invocationContext.ParseResult.GetValueForOption(baseUrlArg)?.ToString() ?? workspaceConfig.BaseUrl;
+                    }
+
+                    if (string.IsNullOrEmpty(baseUrl)) {
+                        Console.Error.WriteLine($"{ParksComputing.XferKit.Workspace.Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
+                        return Result.ErrorInvalidArgument;
+                    }
+
+                    return requestHandler.Handler(invocationContext, workspaceName, requestName, baseUrl, null, null, null, null, null, null);
                 });
 
                 workspaceCommand.AddCommand(requestCommand);

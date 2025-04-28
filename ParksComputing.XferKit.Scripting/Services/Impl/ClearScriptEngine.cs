@@ -172,7 +172,7 @@ function __postResponse(workspace, request) {{
                 workspaceObj.name = workspace.Name ?? workspaceName;
                 workspaceObj.extend = workspace.Extend;
                 workspaceObj.baseWorkspace = workspace.Base;
-                workspaceObj.baseUrl = workspace.BaseUrl ?? "";
+                workspaceObj.baseUrl = workspace.BaseUrl; //?.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService) ?? "";
                 workspaceObj.requests = new ExpandoObject() as dynamic;
 
                 foreach (var kvp in workspace.Properties) {

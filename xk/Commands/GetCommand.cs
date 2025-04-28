@@ -6,29 +6,23 @@ using ParksComputing.XferKit.Workspace;
 namespace ParksComputing.XferKit.Cli.Commands;
 
 [Command("get", "Retrieve resources from the specified API endpoint via a GET request.")]
-[Argument(typeof(string), "endpoint", "The endpoint to send the GET request to.")]
+[Option(typeof(string), "--endpoint", "The endpoint to send the GET request to.", new[] { "-e" }, IsRequired = false, Arity = ArgumentArity.ExactlyOne)]
 [Option(typeof(string), "--baseurl", "The base URL of the API to send HTTP requests to.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(IEnumerable<string>), "--parameters", "Query parameters to include in the request. If input is redirected, parameters can also be read from standard input.", new[] { "-p" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
 [Option(typeof(IEnumerable<string>), "--headers", "Headers to include in the request.", new[] { "-h" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
 [Option(typeof(IEnumerable<string>), "--cookies", "Cookies to include in the request.", new[] { "-c" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
 [Option(typeof(bool), "--quiet", "If true, suppress echo of the response to the console.", new[] { "-q" }, Arity = ArgumentArity.ZeroOrOne, IsRequired = false)]
-internal class GetCommand {
-    private readonly XferKitApi _xk;
-
+internal class GetCommand(
+    XferKitApi xk
+    ) 
+{
     public string ResponseContent { get; protected set; } = string.Empty;
     public int StatusCode { get; protected set; } = 0;
     public System.Net.Http.Headers.HttpResponseHeaders? Headers { get; protected set; } = default;
 
-    public GetCommand(
-        XferKitApi xk
-        ) 
-    { 
-        _xk = xk;
-    }
-
     public int Execute(
+        [OptionParam("--endpoint")] string endpoint,
         [OptionParam("--baseurl")] string? baseUrl,
-        [ArgumentParam("endpoint")] string endpoint,
         [OptionParam("--parameters")] IEnumerable<string> parameters,
         [OptionParam("--headers")] IEnumerable<string> headers,
         [OptionParam("--cookies")] IEnumerable<string> cookies,
@@ -37,7 +31,7 @@ internal class GetCommand {
     {
         // Validate URL format
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
-            baseUrl ??= _xk.activeWorkspace.BaseUrl;
+            baseUrl ??= xk.activeWorkspace.BaseUrl;
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
@@ -64,7 +58,7 @@ internal class GetCommand {
         int result = Result.Success;
 
         try {
-            var response = _xk.http.get(baseUrl, paramList, headers);
+            var response = xk.http.get(baseUrl, paramList, headers);
 
             if (response is null) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUrl}");
@@ -75,9 +69,9 @@ internal class GetCommand {
                 result = Result.Error;
             }
 
-            Headers = _xk.http.headers;
-            ResponseContent = _xk.http.responseContent;
-            StatusCode = _xk.http.statusCode;
+            Headers = xk.http.headers;
+            ResponseContent = xk.http.responseContent;
+            StatusCode = xk.http.statusCode;
             // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
 
             if (!isQuiet) {
