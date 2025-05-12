@@ -20,6 +20,7 @@ internal class StoreCommand(
         ) 
     {
         var replContext = new SubcommandReplContext(
+            command,
             workspaceService,
             new CommandSplitter()
             );

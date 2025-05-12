@@ -15,18 +15,18 @@ internal class UpdateCommand(
         [ArgumentParam("packageName")] string packageName
         ) 
     {
-        var packageInstallResult = await xferKitApi.package.updateAsync(packageName);
+        var packageInstallResult = await xferKitApi.package.UpdateAsync(packageName);
 
         if (packageInstallResult == null) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Unexpected error updating package '{packageName}'.");
             return Result.Error;
         }
 
-        if (packageInstallResult.success) {
-            Console.WriteLine($"{Constants.SuccessChar} {packageInstallResult.message}");
+        if (packageInstallResult.Success) {
+            Console.WriteLine($"{Constants.SuccessChar} {packageInstallResult.Message}");
         }
         else {
-            Console.Error.WriteLine($"{Constants.ErrorChar} {packageInstallResult.message}");
+            Console.Error.WriteLine($"{Constants.ErrorChar} {packageInstallResult.Message}");
             return Result.Error;
         }
 

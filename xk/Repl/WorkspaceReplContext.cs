@@ -15,24 +15,27 @@ internal class WorkspaceReplContext : DefaultReplContext
     private readonly ICommandSplitter _commandSplitter;
     private readonly IWorkspaceService _workspaceService;
 
-    public override string[] GetExitCommands() => ["exit"];
+    public override string[] ExitCommands => ["exit"];
 
     public WorkspaceReplContext(
+        System.CommandLine.Command currentCommand,
         System.CommandLine.RootCommand rootCommand,
         IWorkspaceService workspaceService,
         ICommandSplitter commandSplitter
-        )
+        ) : base(currentCommand)
     {
         _workspaceService = workspaceService;
         _commandSplitter = commandSplitter;
     }
 
-    public override string GetEntryMessage() {
-        if (_workspaceService.BaseConfig.Properties.TryGetValue("hideReplMessages", out var value) && value is bool hideReplMessages && hideReplMessages == true) {
-            return string.Empty;
-        }
+    public override string EntryMessage {
+        get {
+            if (_workspaceService.BaseConfig.Properties.TryGetValue("hideReplMessages", out var value) && value is bool hideReplMessages && hideReplMessages == true) {
+                return string.Empty;
+            }
 
-        return base.GetEntryMessage();
+            return base.EntryMessage;
+        }
     }
 
     override public string GetPrompt(Command command, InvocationContext context) {

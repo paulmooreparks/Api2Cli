@@ -7,6 +7,7 @@ namespace ParksComputing.XferKit.Scripting.Services;
 
 public interface IXferScriptEngine {
     public dynamic Script { get; }
+    void InitializeScriptEnvironment();
     void SetValue(string name, object? value);
     string ExecuteScript(string? script);
     object? EvaluateScript(string? script);

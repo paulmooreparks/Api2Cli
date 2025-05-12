@@ -15,7 +15,7 @@ internal class InstallCommand(
         [ArgumentParam("packageName")] string packageName
         )
     {
-        var packageInstallResult = await xferKitApi.package.installAsync(packageName);
+        var packageInstallResult = await xferKitApi.package.InstallAsync(packageName);
 
         if (packageInstallResult == null)
         {
@@ -23,13 +23,13 @@ internal class InstallCommand(
             return Result.Error;
         }
 
-        if (packageInstallResult.success)
+        if (packageInstallResult.Success)
         {
-            Console.WriteLine($"{Constants.SuccessChar} Installed {packageInstallResult.packageName} {packageInstallResult.version} to {packageInstallResult.path}");
+            Console.WriteLine($"{Constants.SuccessChar} Installed {packageInstallResult.PackageName} {packageInstallResult.Version} to {packageInstallResult.Path}");
         }
         else
         {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Failed to install package '{packageName}': {packageInstallResult.message}");
+            Console.Error.WriteLine($"{Constants.ErrorChar} Failed to install package '{packageName}': {packageInstallResult.Message}");
             return Result.Error;
         }
 

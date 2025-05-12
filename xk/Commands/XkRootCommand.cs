@@ -12,6 +12,7 @@ using System.Diagnostics;
 using ParksComputing.XferKit.Cli.Services.Impl;
 using ParksComputing.XferKit.Cli.Repl;
 using ParksComputing.XferKit.Http.Services;
+using ParksComputing.XferKit.Workspace;
 
 
 namespace ParksComputing.XferKit.Cli.Commands;
@@ -28,6 +29,7 @@ internal class XkRootCommand {
     private readonly IXferScriptEngine _scriptEngine;
     private readonly XferKitApi _xk;
     private readonly IScriptCliBridge _scriptCliBridge;
+    private readonly ISettingsService _settingsService;
 
     private string _currentWorkspaceName = string.Empty;
 
@@ -39,6 +41,7 @@ internal class XkRootCommand {
         IXferScriptEngine scriptEngine,
         XferKitApi xferKitApi,
         IScriptCliBridge scriptCliBridge,
+        ISettingsService settingsService,
         [OptionParam("--recursive")] Option recursionOption
         ) 
     {
@@ -50,6 +53,7 @@ internal class XkRootCommand {
         _recursionOption = recursionOption;
         _replContext = new XkReplContext(_rootCommand, _serviceProvider, _workspaceService, splitter, _recursionOption);
         _scriptCliBridge = scriptCliBridge;
+        _settingsService = settingsService;
         _scriptCliBridge.RootCommand = rootCommand;
 
 #if false
@@ -71,7 +75,36 @@ function myFunction(baseUrl, page) {{
 #endif
     }
 
+    private void LoadEnvironmentVariables(string? environmentFilePath) {
+        if (File.Exists(environmentFilePath)) {
+            var lines = File.ReadAllLines(environmentFilePath);
+
+            foreach (var line in lines) {
+                var trimmedLine = line.Trim();
+
+                if (string.IsNullOrWhiteSpace(trimmedLine) || trimmedLine.StartsWith('#')) {
+                    continue;
+                }
+
+                var parts = trimmedLine.Split('=', 2);
+
+                if (parts.Length == 2) {
+                    var key = parts[0].Trim();
+                    var value = parts[1].Trim().Trim('"');
+                    Environment.SetEnvironmentVariable(key, value);
+                }
+            }
+        }
+    }
+
     public void ConfigureWorkspaces() {
+        // TODO: I'll eventually add parameters here to limit what configuration info is loaded 
+        // and processed in order to speed up initialization. This will be important in scenarios 
+        // where xk is being called from a script.
+
+        LoadEnvironmentVariables(_settingsService.EnvironmentFilePath);
+        _scriptEngine.InitializeScriptEnvironment();
+
         if (_workspaceService.BaseConfig is not null) {
             foreach (var macro in _workspaceService.BaseConfig.Macros) {
                 var macroCommand = new Macro($"{macro.Key}", $"[macro] {macro.Value.Description}", macro.Value.Command);
@@ -166,7 +199,7 @@ xk.{scriptName} = __script__{scriptName};
 
                 if (string.IsNullOrEmpty(baseUrl)) {
                     Console.Error.WriteLine($"{ParksComputing.XferKit.Workspace.Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
-                    return Result.ErrorInvalidArgument;
+                    return Result.InvalidArguments;
                 }
 
                 return await workspaceHandler.Execute(workspaceCommand, invocationContext, baseUrl);
@@ -311,7 +344,7 @@ xk.workspaces.{workspaceName}.{scriptName} = __script__{workspaceName}__{scriptN
 
                     if (string.IsNullOrEmpty(baseUrl)) {
                         Console.Error.WriteLine($"{ParksComputing.XferKit.Workspace.Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
-                        return Result.ErrorInvalidArgument;
+                        return Result.InvalidArguments;
                     }
 
                     return requestHandler.Handler(invocationContext, workspaceName, requestName, baseUrl, null, null, null, null, null, null);
@@ -337,9 +370,6 @@ xk.workspaces.{workspaceName}.{scriptName} = __script__{workspaceName}__{scriptN
         InvocationContext context
         ) 
     {
-        if ( workspace is not null) {
-        }
-
         if (baseUrl is not null) {
             _workspaceService.ActiveWorkspace.BaseUrl = baseUrl;
         }

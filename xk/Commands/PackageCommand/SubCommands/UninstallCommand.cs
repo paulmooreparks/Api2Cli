@@ -15,18 +15,18 @@ internal class UninstallCommand(
         [ArgumentParam("packageName")] string packageName
         ) 
     {
-        var uninstallResult = await xferKitApi.package.uninstallAsync(packageName);
+        var uninstallResult = await xferKitApi.package.UninstallAsync(packageName);
 
         if (uninstallResult == null) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Unexpected error uninstalling package '{packageName}'.");
             return Result.Error;
         }
 
-        if (uninstallResult.success) {
-            Console.WriteLine($"{Constants.SuccessChar} {uninstallResult.message}");
+        if (uninstallResult.Success) {
+            Console.WriteLine($"{Constants.SuccessChar} {uninstallResult.Message}");
         }
         else {
-            Console.Error.WriteLine($"{Constants.ErrorChar} {uninstallResult.message}");
+            Console.Error.WriteLine($"{Constants.ErrorChar} {uninstallResult.Message}");
             return Result.Error;
         }
 

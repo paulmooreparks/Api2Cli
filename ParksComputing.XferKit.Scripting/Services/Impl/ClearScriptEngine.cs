@@ -53,8 +53,6 @@ internal class ClearScriptEngine : IXferScriptEngine {
         _diags = appDiagnostics;
         _propertyResolver = propertyResolver;
         _xk = apiRoot;
-        var assemblies = LoadPackageAssemblies();
-        InitializeScriptEnvironment(assemblies);
     }
 
     public dynamic Script => _engine.Script;
@@ -88,7 +86,9 @@ internal class ClearScriptEngine : IXferScriptEngine {
     private readonly Dictionary<string, dynamic> _workspaceCache = new ();
     private readonly Dictionary<string, dynamic> _requestCache = new ();
 
-    private void InitializeScriptEnvironment(IEnumerable<Assembly> assemblies) {
+    public void InitializeScriptEnvironment() {
+        var assemblies = LoadPackageAssemblies();
+
         // _engine = new Engine(options => options.AllowClr(assemblies.ToArray()));
         _engine.AddHostObject("host", new ExtendedHostFunctions());
 

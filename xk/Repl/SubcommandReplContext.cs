@@ -11,13 +11,14 @@ internal class SubcommandReplContext : Cliffer.DefaultReplContext {
     private readonly ICommandSplitter _commandSplitter;
     private readonly IWorkspaceService _workspaceService;
 
-    public override string[] GetExitCommands() => ["exit"];
-    public override string[] GetPopCommands() => ["/"];
+    public override string[] ExitCommands => ["exit"];
+    public override string[] PopCommands => ["/"];
 
     public SubcommandReplContext(
+        Command currentCommand,
         IWorkspaceService workspaceService,
         ICommandSplitter commandSplitter
-        ) 
+        ) : base( currentCommand ) 
     {
         _workspaceService = workspaceService;
         _commandSplitter = commandSplitter;
@@ -27,12 +28,14 @@ internal class SubcommandReplContext : Cliffer.DefaultReplContext {
         return $"{command.Name}> ";
     }
 
-    public override string GetEntryMessage() {
-        if (_workspaceService.BaseConfig.Properties.TryGetValue("hideReplMessages", out var value) && value is bool hideReplMessages && hideReplMessages == true) {
-            return string.Empty;
-        }
+    public override string EntryMessage {
+        get {
+            if (_workspaceService.BaseConfig.Properties.TryGetValue("hideReplMessages", out var value) && value is bool hideReplMessages && hideReplMessages == true) {
+                return string.Empty;
+            }
 
-        return base.GetEntryMessage();
+            return base.EntryMessage;
+        }
     }
 
     public override async Task<int> RunAsync(Command command, string[] args) {

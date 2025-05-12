@@ -21,6 +21,7 @@ internal class PackageCommand(
         ) 
     {
         var replContext = new SubcommandReplContext(
+            command,
             workspaceService,
             new CommandSplitter()
             );

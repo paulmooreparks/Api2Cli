@@ -32,7 +32,6 @@ internal class Program {
             .ConfigureServices(services => {
                 services.AddXferKitWorkspaceServices();
                 services.AddXferKitHttpServices();
-                services.AddXferKitApiServices();
                 services.AddXferKitScriptingServices();
                 services.AddXferKitDiagnosticsServices("XferKit");
                 services.AddSingleton<ICommandSplitter, CommandSplitter>();
@@ -53,9 +52,7 @@ internal class Program {
             .Build();
 
         Cliffer.Macro.CustomMacroArgumentProcessor += CustomMacroArgumentProcessor;
-
         Utility.SetServiceProvider(cli.ServiceProvider);
-
         var rootCommand = cli.RootCommandInstance as XkRootCommand;
 
         if (rootCommand is not null) {

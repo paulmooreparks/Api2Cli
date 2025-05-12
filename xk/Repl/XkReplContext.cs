@@ -18,7 +18,7 @@ internal class XkReplContext : DefaultReplContext
     private readonly Option _recursionOption;
 
     public string Title => "Xfer CLI Application";
-    public override string[] GetPopCommands() => [];
+    public override string[] PopCommands => [];
 
     public XkReplContext(
         System.CommandLine.RootCommand rootCommand,
@@ -26,7 +26,7 @@ internal class XkReplContext : DefaultReplContext
         IWorkspaceService workspaceService,
         ICommandSplitter commandSplitter,
         Option recursionOption
-        )
+        ) : base( rootCommand )
     {
         _serviceProvider = serviceProvider;
         _workspaceService = workspaceService;
@@ -34,12 +34,13 @@ internal class XkReplContext : DefaultReplContext
         _recursionOption = recursionOption;
     }
 
-    public override string GetTitleMessage()
-    {
-        Assembly assembly = Assembly.GetExecutingAssembly();
-        Version? version = assembly.GetName().Version;
-        string versionString = version?.ToString() ?? "Unknown";
-        return $"{Title} v{versionString}";
+    public override string TitleMessage {
+        get {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            Version? version = assembly.GetName().Version;
+            string versionString = version?.ToString() ?? "Unknown";
+            return $"{Title} v{versionString}";
+        }
     }
 
     override public string GetPrompt(Command command, InvocationContext context)
@@ -47,12 +48,14 @@ internal class XkReplContext : DefaultReplContext
         return $"{command.Name}> ";
     }
 
-    public override string GetEntryMessage() {
-        if (_workspaceService.BaseConfig.Properties.TryGetValue("hideReplMessages", out var value) && value is bool hideReplMessages && hideReplMessages == true) {
-            return string.Empty;
-        }
+    public override string EntryMessage {
+        get {
+            if (_workspaceService.BaseConfig.Properties.TryGetValue("hideReplMessages", out var value) && value is bool hideReplMessages && hideReplMessages == true) {
+                return string.Empty;
+            }
 
-        return base.GetEntryMessage();
+            return base.EntryMessage;
+        }
     }
 
     public override string[] PreprocessArgs(string[] args, Command command, InvocationContext context)

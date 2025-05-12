@@ -40,7 +40,7 @@ internal class PostCommand(
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
-                return Result.ErrorInvalidArgument;
+                return Result.InvalidArguments;
             }
         }
 
@@ -54,7 +54,7 @@ internal class PostCommand(
         int result = Result.Success;
 
         try {
-            var response = xk.http.post(baseUrl, payload, headers);
+            var response = xk.http.Post(baseUrl, payload, headers);
 
             if (response is null) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUrl}");
@@ -65,9 +65,9 @@ internal class PostCommand(
                 result = Result.Error;
             }
 
-            Headers = xk.http.headers;
-            ResponseContent = xk.http.responseContent;
-            StatusCode = xk.http.statusCode;
+            Headers = xk.http.Headers;
+            ResponseContent = xk.http.ResponseContent;
+            StatusCode = xk.http.StatusCode;
             // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
         }
         catch (HttpRequestException ex) {

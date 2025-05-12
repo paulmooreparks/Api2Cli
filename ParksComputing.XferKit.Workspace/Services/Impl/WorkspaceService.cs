@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 using ParksComputing.Xfer.Lang;
 using ParksComputing.Xfer.Lang.Attributes;
+using ParksComputing.Xfer.Lang.Elements;
 using ParksComputing.XferKit.Diagnostics.Services;
 using ParksComputing.XferKit.Workspace.Models;
 
@@ -39,7 +40,7 @@ internal class WorkspaceService : IWorkspaceService
         IAppDiagnostics<WorkspaceService> appDiagnostics
         )
     {
-        WorkspaceInitializer.InitializeWorkspace(settingsService);
+        // WorkspaceInitializer.InitializeWorkspace(settingsService);
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _diags = appDiagnostics ?? throw new ArgumentNullException(nameof(appDiagnostics));
 
@@ -103,34 +104,55 @@ internal class WorkspaceService : IWorkspaceService
     private BaseConfig LoadWorkspace() {
         var baseConfig = new BaseConfig();
 
-            var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
-            baseConfig = XferConvert.Deserialize<BaseConfig>(xfer);
+        var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
+        var document = XferParser.Parse(xfer);
 
-            if (baseConfig.Workspaces is null) {
-                baseConfig.Workspaces = new Dictionary<string, WorkspaceDefinition>();
+        if (document is null) {
+            throw new Exception($"Error parsing workspace file '{WorkspaceFilePath}'.");
+        }
+
+        KeyValuePairElement? importsElement = null;
+        ObjectElement? baseConfigElement = null;
+
+        foreach (Element element in document.Root.Values) {
+            if (element is KeyValuePairElement keyValuePairElement) {
+                importsElement = keyValuePairElement;
             }
-
-            if (baseConfig.ActiveWorkspace is null) {
-                // baseConfig.activeWorkspace = "default";
+            else if (element is ObjectElement objectElement) {
+                baseConfigElement = objectElement;
+                baseConfig = XferConvert.Deserialize<BaseConfig>(baseConfigElement);
             }
+        }
 
-            foreach (var workspaceKvp in baseConfig.Workspaces) {
-                var workspace = workspaceKvp.Value;
+        if (baseConfig is null) {
+            throw new Exception($"Error parsing workspace file '{WorkspaceFilePath}'.");
+        }
 
-                if (workspace is not null) {
-                    workspace.Name = workspaceKvp.Key;
+        if (baseConfig.Workspaces is null) {
+            baseConfig.Workspaces = new Dictionary<string, WorkspaceDefinition>();
+        }
 
-                    foreach (var reqKvp in workspace.Requests) {
-                        reqKvp.Value.Name = reqKvp.Key;
-                    }
+        if (baseConfig.ActiveWorkspace is null) {
+            // baseConfig.activeWorkspace = "default";
+        }
 
-                    if (workspace.Extend is not null) {
-                        if (baseConfig.Workspaces.TryGetValue(workspace.Extend, out var parentWorkspace)) {
-                            workspace.Merge(parentWorkspace);
-                        }
+        foreach (var workspaceKvp in baseConfig.Workspaces) {
+            var workspace = workspaceKvp.Value;
+
+            if (workspace is not null) {
+                workspace.Name = workspaceKvp.Key;
+
+                foreach (var reqKvp in workspace.Requests) {
+                    reqKvp.Value.Name = reqKvp.Key;
+                }
+
+                if (workspace.Extend is not null) {
+                    if (baseConfig.Workspaces.TryGetValue(workspace.Extend, out var parentWorkspace)) {
+                        workspace.Merge(parentWorkspace);
                     }
                 }
             }
+        }
 
         return baseConfig;
     }

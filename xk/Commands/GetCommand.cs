@@ -35,7 +35,7 @@ internal class GetCommand(
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
-                return Result.ErrorInvalidArgument;
+                return Result.InvalidArguments;
             }
         }
 
@@ -58,7 +58,7 @@ internal class GetCommand(
         int result = Result.Success;
 
         try {
-            var response = xk.http.get(baseUrl, paramList, headers);
+            var response = xk.http.Get(baseUrl, paramList, headers);
 
             if (response is null) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUrl}");
@@ -69,9 +69,9 @@ internal class GetCommand(
                 result = Result.Error;
             }
 
-            Headers = xk.http.headers;
-            ResponseContent = xk.http.responseContent;
-            StatusCode = xk.http.statusCode;
+            Headers = xk.http.Headers;
+            ResponseContent = xk.http.ResponseContent;
+            StatusCode = xk.http.StatusCode;
             // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
 
             if (!isQuiet) {

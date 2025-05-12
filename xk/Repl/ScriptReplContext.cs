@@ -21,33 +21,34 @@ internal class ScriptReplContext : DefaultReplContext
     private readonly IWorkspaceService _workspaceService;
 
     public ScriptReplContext(
+        Command currentCommand,
         IXferScriptEngine scriptEngine,
         ICommandSplitter commandSplitter,
         IWorkspaceService workspaceService
-        ) 
+        ) : base( currentCommand )
     {
         _scriptEngine = scriptEngine;
         _commandSplitter = commandSplitter;
         _workspaceService = workspaceService;
     }
 
-    public override string[] GetExitCommands() => ["exit"];
-    public override string[] GetPopCommands() => ["quit"];
-    public override string[] GetHelpCommands() => ["-?", "-h", "--help"];
+    public override string[] ExitCommands => ["exit"];
+    public override string[] PopCommands => ["quit"];
+    public override string[] HelpCommands => ["-?", "-h", "--help"];
 
     override public string GetPrompt(Command command, InvocationContext context)
     {
         return $"{command.Name}> ";
     }
 
-    public override string GetEntryMessage()
-    {
-        if (_workspaceService.BaseConfig.Properties.TryGetValue("hideReplMessages", out var value) && value is bool hideReplMessages && hideReplMessages == true)
-        {
-            return string.Empty;
-        }
+    public override string EntryMessage {
+        get {
+            if (_workspaceService.BaseConfig.Properties.TryGetValue("hideReplMessages", out var value) && value is bool hideReplMessages && hideReplMessages == true) {
+                return string.Empty;
+            }
 
-        return base.GetEntryMessage();
+            return base.EntryMessage;
+        }
     }
 
     public override void OnEntry()
@@ -62,7 +63,7 @@ internal class ScriptReplContext : DefaultReplContext
 
     public override async Task<int> RunAsync(Command command, string[] args)
     {
-        var helpCommands = GetHelpCommands();
+        var helpCommands = HelpCommands;
         var isHelp = helpCommands.Contains(args[0]);
 
         if (args.Length > 0 && !isHelp)

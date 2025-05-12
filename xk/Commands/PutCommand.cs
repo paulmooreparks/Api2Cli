@@ -34,7 +34,7 @@ internal class PutCommand(
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
-                return Result.ErrorInvalidArgument;
+                return Result.InvalidArguments;
             }
         }
 
@@ -48,7 +48,7 @@ internal class PutCommand(
         int result = Result.Success;
 
         try { 
-            var response = xk.http.put(baseUrl, payload, headers);
+            var response = xk.http.Put(baseUrl, payload, headers);
 
             if (response is null) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUrl}");
@@ -59,9 +59,9 @@ internal class PutCommand(
                 result = Result.Error;
             }
 
-            Headers = xk.http.headers;
-            ResponseContent = xk.http.responseContent;
-            StatusCode = xk.http.statusCode;
+            Headers = xk.http.Headers;
+            ResponseContent = xk.http.ResponseContent;
+            StatusCode = xk.http.StatusCode;
         }
         catch (Exception ex) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Error: {ex.Message}");

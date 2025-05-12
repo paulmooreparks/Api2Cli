@@ -46,12 +46,14 @@ internal class WorkspaceCommand {
         string? baseUrl
         ) 
     {
+        var tmpWorkspace = _workspaceService.ActiveWorkspace;
         _workspaceService.SetActiveWorkspace(WorkspaceName);
         var workspace = _workspaceService.ActiveWorkspace;
         var tmpBaseUrl = workspace.BaseUrl;
         workspace.BaseUrl = baseUrl;
 
         var replContext = new WorkspaceReplContext(
+            command,
             _rootCommand,
             _workspaceService,
             new CommandSplitter()
@@ -64,7 +66,7 @@ internal class WorkspaceCommand {
             );
 
         workspace.BaseUrl = tmpBaseUrl;
-        _workspaceService.SetActiveWorkspace(string.Empty);
+        _workspaceService.SetActiveWorkspace(tmpWorkspace?.Name ?? "/");
         return result;
     }
 }

@@ -23,13 +23,14 @@ internal class ScriptCommand {
     private readonly IReplContext _replContext;
 
     public ScriptCommand(
+        Command command,
         IXferScriptEngine scriptEngine,
         ICommandSplitter splitter,
         IWorkspaceService workspaceService
         ) 
     {
         _scriptEngine = scriptEngine;
-        _replContext = new ScriptReplContext(scriptEngine, splitter, workspaceService);
+        _replContext = new ScriptReplContext(command, scriptEngine, splitter, workspaceService);
     }
 
     public async Task<int> Execute(
