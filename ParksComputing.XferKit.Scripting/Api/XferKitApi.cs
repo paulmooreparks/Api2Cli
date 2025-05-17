@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
 
+using Microsoft.ClearScript;
+
 using ParksComputing.XferKit.Api.Http;
 using ParksComputing.XferKit.Api.Store;
+using ParksComputing.XferKit.Scripting.Api.FileSystem;
 using ParksComputing.XferKit.Scripting.Api.Package;
 using ParksComputing.XferKit.Scripting.Api.Process;
 using ParksComputing.XferKit.Workspace.Models;
@@ -18,25 +21,37 @@ public class XferKitApi : DynamicObject {
     private readonly Dictionary<string, object?> _properties = new();
     private readonly IWorkspaceService _workspaceService;
 
-    public IEnumerable<string> workspaceList => _workspaceService.WorkspaceList;
-    public string currentWorkspaceName => _workspaceService.CurrentWorkspaceName;
+    [ScriptMember("workspaceList")]
+    public IEnumerable<string> WorkspaceList => _workspaceService.WorkspaceList;
 
-    public IHttpApi http { get; }
+    [ScriptMember("currentWorkspaceName")]
+    public string CurrentWorkspaceName => _workspaceService.CurrentWorkspaceName;
 
-    public IStoreApi store { get; }
+    [ScriptMember("http")]
+    public IHttpApi Http { get; }
 
-    public IPackageApi package { get; }
+    [ScriptMember("store")]
+    public IStoreApi Store { get; }
 
-    public IProcessApi process { get; }
+    [ScriptMember("package")]
+    public IPackageApi Package { get; }
 
-    public dynamic workspaces { get; } = new ExpandoObject() as dynamic;
+    [ScriptMember("process")]
+    public IProcessApi Process { get; }
+
+    [ScriptMember("fileSystem")]
+    public IFileSystemApi FileSystem { get; }
+
+    [ScriptMember("workspaces")]
+    public dynamic Workspaces { get; } = new ExpandoObject() as dynamic;
 
     public XferKitApi(
         IWorkspaceService workspaceService, 
         IHttpApi httpApi,
         IStoreApi storeApi,
         IPackageApi packageApi,
-        IProcessApi processApi
+        IProcessApi processApi,
+        IFileSystemApi fileSystemApi
         ) 
     {
         _workspaceService = workspaceService;
@@ -50,10 +65,11 @@ public class XferKitApi : DynamicObject {
         workspaces = workspacesDict;
 #endif
 
-        http = httpApi;
-        store = storeApi;
-        package = packageApi;
-        process = processApi;
+        Http = httpApi;
+        Store = storeApi;
+        Package = packageApi;
+        Process = processApi;
+        FileSystem = fileSystemApi;
     }
 
 
@@ -79,34 +95,35 @@ public class XferKitApi : DynamicObject {
         }
     }
 
-    public void setActiveWorkspace(string workspaceName) {
+    [ScriptMember("setActiveWorkspace")]
+    public void SetActiveWorkspace(string workspaceName) {
         _workspaceService.SetActiveWorkspace(workspaceName);
     }
 
-    public WorkspaceDefinition activeWorkspace => _workspaceService.ActiveWorkspace;
+    [ScriptMember("activeWorkspace")]
+    public WorkspaceDefinition ActiveWorkspace => _workspaceService.ActiveWorkspace;
 
+    [ScriptMember("trySetProperty")]
     public bool TrySetProperty(string name, object? value) {
         return _properties.TryAdd(name, value);
     }
 
+    [ScriptMember("tryGetProperty")]
     public bool TryGetProperty(string name, out object? value) {
         return _properties.TryGetValue(name, out value);
     }
 
+    [ScriptMember("tryGetMember")]
     public override bool TryGetMember(GetMemberBinder binder, out object? result) {
         return _properties.TryGetValue(binder.Name, out result);
     }
 
-    public bool tryGetMember(GetMemberBinder binder, out object? result) => TryGetMember(binder, out result);
-
+    [ScriptMember("trySetMember")]
     public override bool TrySetMember(SetMemberBinder binder, object? value) {
         _properties[binder.Name] = value;
         return true;
     }
 
-    public bool trySetMember(SetMemberBinder binder, object? value) => TrySetMember(binder, value);
-
+    [ScriptMember("getDynamicMemberNames")]
     public override IEnumerable<string> GetDynamicMemberNames() => _properties.Keys;
-
-    public IEnumerable<string> getDynamicMemberNames() => GetDynamicMemberNames();
 }

@@ -6,6 +6,8 @@ using ParksComputing.XferKit.Api.Http;
 using ParksComputing.XferKit.Api.Http.Impl;
 using ParksComputing.XferKit.Api.Store;
 using ParksComputing.XferKit.Api.Store.Impl;
+using ParksComputing.XferKit.Scripting.Api.FileSystem;
+using ParksComputing.XferKit.Scripting.Api.FileSystem.Impl;
 using ParksComputing.XferKit.Scripting.Api.Package;
 using ParksComputing.XferKit.Scripting.Api.Package.Impl;
 using ParksComputing.XferKit.Scripting.Api.Process;
@@ -23,6 +25,7 @@ public static class ServiceCollectionExtensions {
         services.TryAddSingleton<IStoreApi, StoreApi>();
         services.TryAddSingleton<IPackageApi, PackageApi>();
         services.TryAddSingleton<IProcessApi, ProcessApi>();
+        services.TryAddSingleton<IFileSystemApi, FileSystemApi>();
         services.TryAddSingleton<XferKitApi>();
         return services;
     }

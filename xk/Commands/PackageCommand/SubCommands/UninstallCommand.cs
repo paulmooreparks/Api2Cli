@@ -15,7 +15,7 @@ internal class UninstallCommand(
         [ArgumentParam("packageName")] string packageName
         ) 
     {
-        var uninstallResult = await xferKitApi.package.UninstallAsync(packageName);
+        var uninstallResult = await xferKitApi.Package.UninstallAsync(packageName);
 
         if (uninstallResult == null) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Unexpected error uninstalling package '{packageName}'.");

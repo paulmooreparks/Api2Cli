@@ -105,7 +105,7 @@ internal class RunWsScriptCommand {
         var argumentDefinitions = scriptDefinition.Arguments.Values.ToList();
         
         if (!string.IsNullOrEmpty(workspaceName)) {
-            var workspaces = _scriptEngine.Script.xk.workspaces as IDictionary<string, object?>;
+            var workspaces = _scriptEngine.Script.xk.Workspaces as IDictionary<string, object?>;
             if (workspaces is not null) {
                 var workspaceObj = workspaces[workspaceName];
                 scriptParams.Add(workspaceObj);

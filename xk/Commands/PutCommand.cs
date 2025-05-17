@@ -30,7 +30,7 @@ internal class PutCommand(
     {
         // Validate URL format
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
-            baseUrl ??= xk.activeWorkspace.BaseUrl;
+            baseUrl ??= xk.ActiveWorkspace.BaseUrl;
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
@@ -48,7 +48,7 @@ internal class PutCommand(
         int result = Result.Success;
 
         try { 
-            var response = xk.http.Put(baseUrl, payload, headers);
+            var response = xk.Http.Put(baseUrl, payload, headers);
 
             if (response is null) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUrl}");
@@ -59,9 +59,9 @@ internal class PutCommand(
                 result = Result.Error;
             }
 
-            Headers = xk.http.Headers;
-            ResponseContent = xk.http.ResponseContent;
-            StatusCode = xk.http.StatusCode;
+            Headers = xk.Http.Headers;
+            ResponseContent = xk.Http.ResponseContent;
+            StatusCode = xk.Http.StatusCode;
         }
         catch (Exception ex) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Error: {ex.Message}");

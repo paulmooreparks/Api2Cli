@@ -174,7 +174,7 @@ xk.{scriptName} = __script__{scriptName};
             }
         }
 
-        var workspaceColl = _xk.workspaces as IDictionary<string, object>;
+        var workspaceColl = _xk.Workspaces as IDictionary<string, object>;
 
         foreach (var workspaceKvp in _workspaceService.BaseConfig?.Workspaces ?? new Dictionary<string, Workspace.Models.WorkspaceDefinition>()) {
             var workspaceName = workspaceKvp.Key;

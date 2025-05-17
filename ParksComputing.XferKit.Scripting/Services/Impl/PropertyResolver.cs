@@ -15,7 +15,7 @@ public class PropertyResolver : IPropertyResolver {
         ) 
     {
         _xk = apiRoot;
-        _workspaces = _xk.workspaces as IDictionary<string, dynamic?>;
+        _workspaces = _xk.Workspaces as IDictionary<string, dynamic?>;
     }
 
     public object? ResolveProperty(

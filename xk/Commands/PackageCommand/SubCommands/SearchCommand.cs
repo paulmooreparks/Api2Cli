@@ -15,7 +15,7 @@ internal class SearchCommand(
         [ArgumentParam("packageName")] string packageName
         ) 
     {
-        var searchResult = await xferKitApi.package.SearchAsync(packageName);
+        var searchResult = await xferKitApi.Package.SearchAsync(packageName);
 
         if (searchResult == null) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Unexpected error searching for package '{packageName}'.");

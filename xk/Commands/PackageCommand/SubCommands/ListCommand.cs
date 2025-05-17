@@ -12,7 +12,7 @@ internal class ListCommand(
 {
     public int Execute()
     {
-        var plugins = xferKitApi.package.List;
+        var plugins = xferKitApi.Package.List;
 
         if (plugins.Count() > 0) {
             Console.WriteLine("Installed Plugins:");

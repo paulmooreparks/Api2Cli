@@ -15,7 +15,7 @@ internal class UpdateCommand(
         [ArgumentParam("packageName")] string packageName
         ) 
     {
-        var packageInstallResult = await xferKitApi.package.UpdateAsync(packageName);
+        var packageInstallResult = await xferKitApi.Package.UpdateAsync(packageName);
 
         if (packageInstallResult == null) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Unexpected error updating package '{packageName}'.");

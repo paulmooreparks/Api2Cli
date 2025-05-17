@@ -36,7 +36,7 @@ internal class PostCommand(
     {
         // Validate URL format
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
-            baseUrl ??= xk.activeWorkspace.BaseUrl;
+            baseUrl ??= xk.ActiveWorkspace.BaseUrl;
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
@@ -54,7 +54,7 @@ internal class PostCommand(
         int result = Result.Success;
 
         try {
-            var response = xk.http.Post(baseUrl, payload, headers);
+            var response = xk.Http.Post(baseUrl, payload, headers);
 
             if (response is null) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUrl}");
@@ -65,9 +65,9 @@ internal class PostCommand(
                 result = Result.Error;
             }
 
-            Headers = xk.http.Headers;
-            ResponseContent = xk.http.ResponseContent;
-            StatusCode = xk.http.StatusCode;
+            Headers = xk.Http.Headers;
+            ResponseContent = xk.Http.ResponseContent;
+            StatusCode = xk.Http.StatusCode;
             // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
         }
         catch (HttpRequestException ex) {

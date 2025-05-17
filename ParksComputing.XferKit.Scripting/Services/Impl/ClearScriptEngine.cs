@@ -196,7 +196,7 @@ function __postResponse(workspace, request) {{
                 }
 
                 _workspaceCache.Add(workspaceName, workspaceObj);
-                (_xk.workspaces as IDictionary<string, object?>)!.Add(workspaceName, workspaceObj);
+                (_xk.Workspaces as IDictionary<string, object?>)!.Add(workspaceName, workspaceObj);
                 _xk[workspaceName] = workspaceObj;
 
                 try {

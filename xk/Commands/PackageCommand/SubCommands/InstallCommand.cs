@@ -15,7 +15,7 @@ internal class InstallCommand(
         [ArgumentParam("packageName")] string packageName
         )
     {
-        var packageInstallResult = await xferKitApi.package.InstallAsync(packageName);
+        var packageInstallResult = await xferKitApi.Package.InstallAsync(packageName);
 
         if (packageInstallResult == null)
         {
