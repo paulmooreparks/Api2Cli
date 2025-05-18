@@ -22,7 +22,7 @@ public class RequestDefinition {
     [XferProperty("payload")]
     public string? Payload { get; set; }
     [XferProperty("properties")]
-    public Dictionary<string, object>? Properties { get; set; } = [];
+    public Dictionary<string, object> Properties { get; set; } = [];
     [XferProperty("preRequest")]
     public string? PreRequest { get; set; }
     [XferProperty("postResponse")]

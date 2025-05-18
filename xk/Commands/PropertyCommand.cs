@@ -15,43 +15,35 @@ using ParksComputing.XferKit.Workspace.Services;
 namespace ParksComputing.XferKit.Cli.Commands;
 
 [Command("prop", "List properties in the base configuration and workspaces.")]
-[Argument(typeof(string[]), "property", "One or more property names to retrieve", Cliffer.ArgumentArity.ZeroOrMore)]
+[Argument(typeof(string), "property", "The name of a property to retrieve.", Cliffer.ArgumentArity.ZeroOrOne)]
 internal class PropertyCommand(IWorkspaceService workspaceService, IPropertyResolver propertyResolver)
 {
     public int Execute(
-        [ArgumentParam("property")]string[] propertyNames
+        [ArgumentParam("property")]string propertyName
         ) 
     {
-        if (propertyNames.Any()) {
-            var propValue = propertyResolver.ResolveProperty(propertyNames[0]);
-            Console.WriteLine($"/{propertyNames[0]}: {propValue}");
+        if (!string.IsNullOrEmpty(propertyName)) {
+            var normalized = propertyResolver.NormalizePath(propertyName, workspaceService.CurrentWorkspaceName);
+            var propValue = propertyResolver.ResolveProperty(normalized, workspaceService.CurrentWorkspaceName);
+            Console.WriteLine($"{normalized}: {propValue}");
             return Result.Success;
         }
 
-        // var workspace = workspaceService.ActiveWorkspace;
-        var showAll = propertyNames.Length == 0;
-
         // Loop through BaseConfig properties and output them
         foreach (var prop in workspaceService.BaseConfig.Properties) {
-            if (showAll || propertyNames.Contains(prop.Key, StringComparer.OrdinalIgnoreCase)) {
-                Console.WriteLine($"/{prop.Key}: {prop.Value}");
-            }
+            Console.WriteLine($"/{prop.Key}: {prop.Value}");
         }
         // Loop through workspace properties and output them
         foreach (var workspace in workspaceService.BaseConfig.Workspaces.Values) {
             foreach (var prop in workspace.Properties) {
-                if (showAll || propertyNames.Contains(prop.Key, StringComparer.OrdinalIgnoreCase)) {
-                    Console.WriteLine($"/{workspace.Name}/{prop.Key}: {prop.Value}");
-                }
+                Console.WriteLine($"/{workspace.Name}/{prop.Key}: {prop.Value}");
             }
 
             // Loop through requests and output their properties
             foreach (var request in workspace.Requests.Values) {
                 if (request.Properties is not null) {
                     foreach (var prop in request.Properties) {
-                        if (showAll || propertyNames.Contains(prop.Key, StringComparer.OrdinalIgnoreCase)) {
-                            Console.WriteLine($"/{workspace.Name}/{request.Name}/{prop.Key}: {prop.Value}");
-                        }
+                        Console.WriteLine($"/{workspace.Name}/{request.Name}/{prop.Key}: {prop.Value}");
                     }
                 }
             }

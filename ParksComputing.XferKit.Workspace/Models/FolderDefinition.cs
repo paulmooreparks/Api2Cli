@@ -16,7 +16,7 @@ public class FolderDefinition {
     [XferProperty("postResponse")]
     public string? PostResponse { get; set; }
     [XferProperty("properties")]
-    public Dictionary<string, object> Properties { get; set; } = [];
+    public Dictionary<string, string> Properties { get; set; } = [];
     [XferProperty("folders")]
     public Dictionary<string, FolderDefinition> Folders { get; set; } = [];
     [XferProperty("requests")]

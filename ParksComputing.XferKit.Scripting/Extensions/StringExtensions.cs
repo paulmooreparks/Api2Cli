@@ -37,7 +37,7 @@ public static class StringExtensions {
                 }
             }
             else if (namespacePrefix == "[prop]::") {
-                value = propertyResolver.ResolveProperty(variable, workspaceName, requestName, defaultValue);
+                value = propertyResolver.ResolveProperty(variable, workspaceName, requestName, defaultValue) as string;
             }
             else if (namespacePrefix == "[file]::") {
                 var originalDirectory = Directory.GetCurrentDirectory();

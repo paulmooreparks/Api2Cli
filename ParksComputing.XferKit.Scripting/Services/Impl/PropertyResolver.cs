@@ -3,19 +3,42 @@ using System.Collections.Generic;
 using System.Linq;
 
 using ParksComputing.XferKit.Api;
+using ParksComputing.XferKit.Workspace.Services;
 
 namespace ParksComputing.XferKit.Scripting.Services.Impl;
 
-public class PropertyResolver : IPropertyResolver {
-    private readonly XferKitApi _xk;
-    private readonly IDictionary<string, dynamic?>? _workspaces;
+public class PropertyResolver(IWorkspaceService workspaceService) : IPropertyResolver {
 
-    public PropertyResolver(
-        XferKitApi apiRoot
-        ) 
-    {
-        _xk = apiRoot;
-        _workspaces = _xk.Workspaces as IDictionary<string, dynamic?>;
+    public string NormalizePath(string path, string? currentWorkspace = null, string? currentRequest = null) {
+        if (string.IsNullOrWhiteSpace(path)){
+            return string.Empty;
+        }
+
+        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var stack = new Stack<string>();
+
+        if (!path.StartsWith('/')) {
+            if (!string.IsNullOrEmpty(currentWorkspace)){
+                stack.Push(currentWorkspace);
+            }
+
+            if (!string.IsNullOrEmpty(currentRequest)){
+                stack.Push(currentRequest);
+            }
+        }
+
+        foreach (var part in parts) {
+            if (part == "..") {
+                if (stack.Count > 0){
+                    stack.Pop();
+                }
+            }
+            else if (part != ".") {
+                stack.Push(part);
+            }
+        }
+
+        return "/" + string.Join('/', stack.Reverse());
     }
 
     public object? ResolveProperty(
@@ -23,144 +46,114 @@ public class PropertyResolver : IPropertyResolver {
         string? currentWorkspace = null,
         string? currentRequest = null,
         object? defaultValue = null
-        ) 
-    {
-        if (string.IsNullOrWhiteSpace(path)) {
+    ) {
+        if (string.IsNullOrWhiteSpace(path)){
             return defaultValue;
         }
 
-        string? workspacePart = null;
-        string? requestPart = null;
-        string? propertyPart = null;
+        bool isRooted = path.StartsWith('/');
+        var normalizedPath = NormalizePath(path, currentWorkspace, currentRequest);
+        var parts = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-        if (_xk is null) {
+        // Rooted path: always resolve from base config
+        if (isRooted) {
+            switch (parts.Length) {
+                case 1: {
+                        var key = parts[0];
+                        return workspaceService.BaseConfig.Properties.TryGetValue(key, out var val) ? val ?? defaultValue : defaultValue;
+                }
+                case 2: {
+                        var wsName = parts[0];
+                        var key = parts[1];
+
+                        if (workspaceService.BaseConfig.Workspaces.TryGetValue(wsName, out var ws) &&
+                            ws.Properties.TryGetValue(key, out var val)) {
+                            return val ?? defaultValue;
+                        }
+                        
+                        break;
+                    }
+                case 3: {
+                        var wsName = parts[0];
+                        var reqName = parts[1];
+                        var key = parts[2];
+                        
+                        if (workspaceService.BaseConfig.Workspaces.TryGetValue(wsName, out var ws) &&
+                            ws.Requests.TryGetValue(reqName, out var req) &&
+                            req.Properties.TryGetValue(key, out var val)) {
+                            return val ?? defaultValue;
+                        }
+                        
+                        break;
+                    }
+            }
             return defaultValue;
         }
 
-        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        // Relative path: resolve from current context outward
+        switch (parts.Length) {
+            case 1: {
+                    var key = parts[0];
 
-        if (path.StartsWith('/')) {
-            if (parts.Length == 1) {
-                propertyPart = parts[0];
-
-                if (_xk.TryGetProperty(propertyPart, out object? value)) {
-                    return value?.ToString() ?? defaultValue;
-                }
-
-                return defaultValue;
-            }
-
-            if (parts.Length > 1) {
-                if (_workspaces is null) {
-                    return defaultValue;
-                }
-
-                workspacePart = parts[0];
-
-                if (_workspaces[workspacePart] is not IDictionary<string, dynamic?> workspace) {
-                    return defaultValue;
-                }
-
-                if (parts.Length == 3) {
-                    if (workspace["requests"] is not IDictionary<string, dynamic?> requests) {
-                        return defaultValue;
+                    if (!string.IsNullOrEmpty(currentRequest) &&
+                        !string.IsNullOrEmpty(currentWorkspace) &&
+                        workspaceService.BaseConfig.Workspaces.TryGetValue(currentWorkspace, out var reqWs) &&
+                        reqWs.Requests.TryGetValue(currentRequest, out var reqObj) &&
+                        reqObj.Properties.TryGetValue(key, out var val1)
+                        ) {
+                        return val1 ?? defaultValue;
                     }
 
-                    requestPart = parts[1];
-                    propertyPart = parts[2];
-
-                    if (requests[requestPart] is not IDictionary<string, dynamic?> request) {
-                        return defaultValue;
+                    if (!string.IsNullOrEmpty(currentWorkspace) &&
+                        workspaceService.BaseConfig.Workspaces.TryGetValue(currentWorkspace, out var wsObj) &&
+                        wsObj.Properties.TryGetValue(key, out var val2)
+                        ) {
+                        return val2 ?? defaultValue;
                     }
 
-                    return request[propertyPart] ?? defaultValue;
-                }
-
-                propertyPart = parts[1];
-                return workspace[propertyPart] ?? defaultValue;
-            }
-
-        }
-
-        object? current = null;
-
-        if (!string.IsNullOrEmpty(currentWorkspace) && !string.IsNullOrEmpty(currentRequest)) {
-            if (_workspaces?[currentWorkspace] is not IDictionary<string, dynamic?> workspace) {
-                return defaultValue;
-            }
-
-            if (workspace["requests"] is not IDictionary<string, dynamic?> requests) {
-                return defaultValue;
-            }
-
-            if (requests[currentRequest] is not IDictionary<string, dynamic?> request) {
-                return defaultValue; 
-            }
-
-            current = request;
-        }
-
-        foreach (var part in parts) {
-            if (current is null) {
-                return defaultValue;
-            }
-
-            if (part == "..") {
-                if (currentRequest is not null) {
-                    currentRequest = null;
-                    // Move from request ➔ workspace
-                    current = _workspaces?[currentWorkspace!] as IDictionary<string, dynamic?>;
-                }
-                else if (currentWorkspace is not null) {
-                    currentWorkspace = null;
-                    current = _xk;
-                }
-                else {
-                    if (_xk.TryGetProperty(part, out current)) {
-                        // Move from base ➔ base
-                        return current ?? defaultValue;
+                    if (workspaceService.BaseConfig.Properties.TryGetValue(key, out var val3)) {
+                        return val3 ?? defaultValue;
                     }
-                    else {
-                        return defaultValue;
-                    }
+                    break;
                 }
-            }
-            else {
-                current = TryGetProperty(current, part) ?? defaultValue;
-            }
+
+            case 2: {
+                    var first = parts[0];
+                    var second = parts[1];
+
+                    // In a workspace context, path could refer to a request/property
+                    if (!string.IsNullOrEmpty(currentWorkspace) &&
+                        workspaceService.BaseConfig.Workspaces.TryGetValue(currentWorkspace, out var wsObj) &&
+                        wsObj.Requests.TryGetValue(first, out var req) &&
+                        req.Properties.TryGetValue(second, out var val)
+                        ) {
+                        return val ?? defaultValue;
+                    }
+
+                    // Otherwise, treat first as a workspace and second as a property
+                    if (workspaceService.BaseConfig.Workspaces.TryGetValue(first, out var ws) &&
+                        ws.Properties.TryGetValue(second, out var val2)
+                        ) {
+                        return val2 ?? defaultValue;
+                    }
+                    break;
+                }
+
+            case 3: {
+                    var wsName = parts[0];
+                    var reqName = parts[1];
+                    var key = parts[2];
+
+                    if (workspaceService.BaseConfig.Workspaces.TryGetValue(wsName, out var ws) &&
+                        ws.Requests.TryGetValue(reqName, out var req) &&
+                        req.Properties.TryGetValue(key, out var val)
+                        ) {
+                        return val ?? defaultValue;
+                    }
+                    break;
+                }
         }
 
-        return current ?? defaultValue;
-    }
-
-    public T? ResolveProperty<T>(string path, string? currentWorkspace = null, string? currentRequest = null, T? defaultValue = default) {
-        var result = ResolveProperty(path, currentWorkspace, currentRequest);
-
-        if (result is null) {
-            return defaultValue;
-        }
-
-        try {
-            return result is T typed
-                ? typed
-                : (T)Convert.ChangeType(result, typeof(T));
-        }
-        catch {
-            return defaultValue;
-        }
-    }
-
-    private object? TryGetProperty(object current, string propertyName) {
-        if (current is IDictionary<string, dynamic?> dict) {
-            dict.TryGetValue(propertyName, out var value);
-            return value;
-        }
-
-        if (current is XferKitApi xk) {
-            xk.TryGetProperty(propertyName, out var value);
-            return value;
-        }
-
-        return null;
+        return defaultValue;
     }
 }
