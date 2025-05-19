@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 
 using Cliffer;
 
+using Microsoft.ClearScript;
+
 using ParksComputing.XferKit.Cli.Services.Impl;
 using ParksComputing.XferKit.Scripting.Services;
 using ParksComputing.XferKit.Workspace.Services;
@@ -25,25 +27,25 @@ internal class PropertyCommand(IWorkspaceService workspaceService, IPropertyReso
         if (!string.IsNullOrEmpty(propertyName)) {
             var normalized = propertyResolver.NormalizePath(propertyName, workspaceService.CurrentWorkspaceName);
             var propValue = propertyResolver.ResolveProperty(normalized, workspaceService.CurrentWorkspaceName);
-            Console.WriteLine($"{normalized}: {propValue}");
+            Console.WriteLine($"{normalized} ({propValue?.GetType().Name ?? "null"}): {propValue ?? "null"}");
             return Result.Success;
         }
 
         // Loop through BaseConfig properties and output them
         foreach (var prop in workspaceService.BaseConfig.Properties) {
-            Console.WriteLine($"/{prop.Key}: {prop.Value}");
+            Console.WriteLine($"/{prop.Key} ({prop.Value.GetType().Name}): {prop.Value}");
         }
         // Loop through workspace properties and output them
         foreach (var workspace in workspaceService.BaseConfig.Workspaces.Values) {
             foreach (var prop in workspace.Properties) {
-                Console.WriteLine($"/{workspace.Name}/{prop.Key}: {prop.Value}");
+                Console.WriteLine($"/{workspace.Name}/{prop.Key} ({prop.Value.GetType().Name}): {prop.Value}");
             }
 
             // Loop through requests and output their properties
             foreach (var request in workspace.Requests.Values) {
                 if (request.Properties is not null) {
                     foreach (var prop in request.Properties) {
-                        Console.WriteLine($"/{workspace.Name}/{request.Name}/{prop.Key}: {prop.Value}");
+                        Console.WriteLine($"/{workspace.Name}/{request.Name}/{prop.Key} ({prop.Value.GetType().Name}): {prop.Value}");
                     }
                 }
             }
