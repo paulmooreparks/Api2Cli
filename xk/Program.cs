@@ -62,6 +62,7 @@ internal class Program {
         ClifferEventHandler.OnExit += () => {
         };
 
+        Console.InputEncoding = Encoding.UTF8;
         Console.OutputEncoding = Encoding.UTF8;
 
         return await cli.RunAsync(args);
