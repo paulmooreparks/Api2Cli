@@ -32,4 +32,12 @@ public interface IHttpApi {
     HttpResponseMessage? Delete(string baseUrl, IEnumerable<string>? headers);
     [ScriptMember("deleteAsync")]
     Task<HttpResponseMessage?> DeleteAsync(string baseUrl, IEnumerable<string>? headers);
+    [ScriptMember("head")]
+    HttpResponseMessage? Head(string baseUrl, IEnumerable<string>? headers = null);
+    [ScriptMember("headAsync")]
+    Task<HttpResponseMessage?> HeadAsync(string baseUrl, IEnumerable<string>? headers = null);
+    [ScriptMember("options")]
+    HttpResponseMessage? Options(string baseUrl, IEnumerable<string>? headers = null);
+    [ScriptMember("optionsAsync")]
+    Task<HttpResponseMessage?> OptionsAsync(string baseUrl, IEnumerable<string>? headers = null);
 }

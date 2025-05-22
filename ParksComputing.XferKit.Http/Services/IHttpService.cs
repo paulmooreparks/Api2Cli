@@ -17,4 +17,7 @@ public interface IHttpService {
     Task<HttpResponseMessage> PatchAsync(string baseUrl, string? payload, IEnumerable<string>? headers);
     HttpResponseMessage Delete(string baseUrl, IEnumerable<string>? headers);
     Task<HttpResponseMessage> DeleteAsync(string baseUrl, IEnumerable<string>? headers);
+    Task<HttpResponseMessage?> HeadAsync(string baseUrl, IEnumerable<string>? headers);
+    Task<HttpResponseMessage?> OptionsAsync(string baseUrl, IEnumerable<string>? headers);
+
 }

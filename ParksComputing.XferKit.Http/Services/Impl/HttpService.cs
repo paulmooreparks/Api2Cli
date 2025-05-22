@@ -206,6 +206,57 @@ public class HttpService : IHttpService {
     }
 
     public HttpResponseMessage Delete(string baseUrl, IEnumerable<string>? headers) {
-        throw new NotImplementedException();
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
+            throw new HttpRequestException($"Error: Invalid base URL: {baseUrl}");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Delete, baseUri);
+        AddHeaders(request, headers);
+
+        return _httpClient.Send(request);
+    }
+
+    public HttpResponseMessage Head(string baseUrl, IEnumerable<string>? headers) {
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
+            throw new HttpRequestException($"Error: Invalid base URL: {baseUrl}");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Head, baseUri);
+        AddHeaders(request, headers);
+
+        return _httpClient.Send(request);
+    }
+
+    public async Task<HttpResponseMessage?> HeadAsync(string baseUrl, IEnumerable<string>? headers) {
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
+            throw new HttpRequestException($"Error: Invalid base URL: {baseUrl}");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Head, baseUri);
+        AddHeaders(request, headers);
+
+        return await _httpClient.SendAsync(request);
+    }
+
+    public HttpResponseMessage Options(string baseUrl, IEnumerable<string>? headers) {
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
+            throw new HttpRequestException($"Error: Invalid base URL: {baseUrl}");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Options, baseUri);
+        AddHeaders(request, headers);
+
+        return _httpClient.Send(request);
+    }
+
+    public async Task<HttpResponseMessage?> OptionsAsync(string baseUrl, IEnumerable<string>? headers) {
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
+            throw new HttpRequestException($"Error: Invalid base URL: {baseUrl}");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Options, baseUri);
+        AddHeaders(request, headers);
+
+        return await _httpClient.SendAsync(request);
     }
 }

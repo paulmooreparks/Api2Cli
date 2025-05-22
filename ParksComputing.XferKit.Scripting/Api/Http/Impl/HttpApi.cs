@@ -228,4 +228,67 @@ internal class HttpApi : IHttpApi
     {
         return DeleteAsync(baseUrl, headers).GetAwaiter().GetResult();
     }
+
+    public async Task<HttpResponseMessage?> HeadAsync(
+        string baseUrl,
+        IEnumerable<string>? headers
+    ) {
+        var cookieContainer = new CookieContainer();
+        var handler = new HttpClientHandler() {
+            CookieContainer = cookieContainer,
+            UseCookies = true
+        };
+
+        var response = await _httpService.HeadAsync(
+            baseUrl,
+            headers
+        );
+
+        if (response != null) {
+            this.Headers = response.Headers;
+            // HEAD responses do not have a body
+            ResponseContent = string.Empty;
+            StatusCode = (int)response.StatusCode;
+        }
+
+        return response;
+    }
+
+    public HttpResponseMessage? Head(
+        string baseUrl,
+        IEnumerable<string>? headers
+    ) {
+        return HeadAsync(baseUrl, headers).GetAwaiter().GetResult();
+    }
+
+    public async Task<HttpResponseMessage?> OptionsAsync(
+        string baseUrl,
+        IEnumerable<string>? headers
+    ) {
+        var cookieContainer = new CookieContainer();
+        var handler = new HttpClientHandler() {
+            CookieContainer = cookieContainer,
+            UseCookies = true
+        };
+
+        var response = await _httpService.OptionsAsync(
+            baseUrl,
+            headers
+        );
+
+        if (response != null) {
+            this.Headers = response.Headers;
+            ResponseContent = await response.Content.ReadAsStringAsync();
+            StatusCode = (int)response.StatusCode;
+        }
+
+        return response;
+    }
+
+    public HttpResponseMessage? Options(
+        string baseUrl,
+        IEnumerable<string>? headers
+    ) {
+        return OptionsAsync(baseUrl, headers).GetAwaiter().GetResult();
+    }
 }
