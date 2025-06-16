@@ -1,10 +1,13 @@
-﻿namespace ParksComputing.XferKit.Scripting.Services;
+﻿using System.Collections;
+using System.Reflection;
+
+namespace ParksComputing.XferKit.Scripting.Services;
 
 public class ConsoleScriptObject {
     private static Dictionary<string, int> _counts = new();
     private static int _groupDepth = 0;
 
-    private static string GetIndent() => new string(' ', _groupDepth * 2);
+    private static string Indent => new string(' ', _groupDepth * 2);
 
     private static void Write(params object[] args) {
         if (args == null || args.Length == 0) {
@@ -25,38 +28,37 @@ public class ConsoleScriptObject {
         Console.WriteLine();
     }
 
-    // public static void log(string s) => Console.WriteLine(GetIndent() + s);
     public static void log(params object[] args) {
-        Write(GetIndent());
+        Write(Indent);
         WriteLine(args);
     }
 
     public static void info(params object[] args) {
-        Write(GetIndent());
+        Write(Indent);
         Write("[INFO] ");
         WriteLine(args);
     }
 
     public static void warn(params object[] args) {
-        Write(GetIndent());
+        Write(Indent);
         Write("[WARN] ");
         WriteLine(args);
     }
 
     public static void error(params object[] args) {
-        Console.Error.Write(GetIndent());
+        Console.Error.Write(Indent);
         Console.Error.Write("[ERROR] ");
         Console.Error.WriteLine(args);
     }
 
     public static void debug(params object[] args) {
-        Write(GetIndent());
+        Write(Indent);
         Write("[DEBUG] ");
         WriteLine(args);
     }
 
     public static void trace(params object[] args) {
-        Write(GetIndent());
+        Write(Indent);
         Write("[TRACE] ");
         WriteLine(args);
         WriteLine(Environment.StackTrace);
@@ -64,7 +66,7 @@ public class ConsoleScriptObject {
 
     public static void assert(bool condition, params object[] args) {
         if (!condition) {
-            Console.Error.Write(GetIndent());
+            Console.Error.Write(Indent);
             Console.Error.Write("[ASSERT] ");
             Console.Error.WriteLine((args.Length > 0 ? args : "Assertion failed"));
         }
@@ -75,7 +77,7 @@ public class ConsoleScriptObject {
             _counts[label] = 0;
         }
         _counts[label]++;
-        Write(GetIndent());
+        Write(Indent);
         WriteLine($"{label}: {_counts[label]}");
     }
 
@@ -86,7 +88,7 @@ public class ConsoleScriptObject {
     }
 
     public static void group(string label = "") {
-        Write(GetIndent());
+        Write(Indent);
         WriteLine((string.IsNullOrEmpty(label) ? "[Group]" : $"[Group: {label}]"));
         _groupDepth++;
     }
@@ -98,94 +100,158 @@ public class ConsoleScriptObject {
 
     public static void table(IEnumerable<object> data) {
         if (data == null || !data.Any()) {
-            Write(GetIndent());
+            Write(Indent);
             WriteLine("(empty table)");
             return;
         }
 
         var properties = data.First().GetType().GetProperties();
         if (properties.Length == 0) {
-            Write(GetIndent());
+            Write(Indent);
             WriteLine("(No properties found)");
             return;
         }
 
         // Print header
         var headers = properties.Select(p => p.Name).ToList();
-        Write(GetIndent());
+        Write(Indent);
         WriteLine(string.Join(" | ", headers));
-        Write(GetIndent());
+        Write(Indent);
         WriteLine(new string('-', headers.Sum(h => h.Length + 3)));
 
         // Print rows
         foreach (var row in data) {
             var values = properties.Select(p => p.GetValue(row, null)?.ToString() ?? "").ToList();
-            Write(GetIndent());
+            Write(Indent);
             WriteLine(string.Join(" | ", values));
         }
     }
 
-    public static void dump(object? data, string label = "Dump", int depth = 0) {
+    public static void dump(string label, object data, int depth = 0) {
+        if (string.IsNullOrEmpty(label)) {
+            label = "Dump";
+        }
+
         if (depth > 10) {
-            Write(GetIndent());
+            Write(Indent);
             WriteLine("[ERROR] Maximum recursion depth reached.");
             return;
         }
 
-        Write(GetIndent());
-        WriteLine($"[{label}]");
-        Write(GetIndent());
-        WriteLine(new string('-', label.Length + 2));
+        var type = data.GetType();
 
-        dumpRecursive(data, depth);
+        if (data is string || type.IsPrimitive || type.IsEnum || type == typeof(decimal) || type == typeof(DateTime)) {
+            Write(Indent + $"{label} ");
+            dumpRecursive(data, depth);
+        }
+        else {
+            Write(Indent);
+            WriteLine($"{label} ({type.Name}) {{");
+            try {
+                _groupDepth++;
+                dumpRecursive(data, depth);
+            }
+            finally {
+                _groupDepth--;
+                Write(Indent);
+                WriteLine("}");
+            }
+        }
     }
 
     private static void dumpRecursive(object? data, int depth) {
         if (data == null) {
-            Write(GetIndent());
-            WriteLine("null");
+            WriteLine(Indent + "null");
             return;
         }
 
-        if (data is IDictionary<string, object> dict) {
-            foreach (var kvp in dict) {
-                Write(GetIndent());
-                Write($"{kvp.Key}: ");
+        if (depth > 10) {
+            WriteLine(Indent + "[Max depth]");
+            return;
+        }
 
-                if (kvp.Value is IDictionary<string, object> subDict) {
-                    WriteLine();
-                    _groupDepth++;
-                    dumpRecursive(subDict, depth + 1);
-                    _groupDepth--;
-                }
-                else if (kvp.Value is IEnumerable<object> list) {
-                    WriteLine();
-                    _groupDepth++;
-                    foreach (var item in list) {
-                        dumpRecursive(item, depth + 1);
-                    }
-                    _groupDepth--;
+        var type = data.GetType();
+
+        if (data is string s) {
+            WriteLine(Indent + $"({type.Name}): \"{s}\"");
+            return;
+        }
+
+        if (type.IsPrimitive || type.IsEnum || type == typeof(decimal) || type == typeof(DateTime)) {
+            WriteLine(Indent + $"({type.Name}): {data}");
+            return;
+        }
+
+        if (data is IDictionary dict) {
+            foreach (DictionaryEntry kvp in dict) {
+                var keyType = kvp.Key?.GetType().Name ?? "unknown";
+                var valType = kvp.Value?.GetType().Name ?? "unknown";
+
+                Write(Indent);
+                Write($"{kvp.Key} ({valType}): ");
+
+                if (kvp.Value == null) {
+                    WriteLine("null");
                 }
                 else {
-                    WriteLine(formatValue(kvp.Value));
+                    WriteLine();
+                    try {
+                        _groupDepth++;
+                        dumpRecursive(kvp.Value, depth + 1);
+                    }
+                    finally {
+                        _groupDepth--;
+                    }
                 }
             }
+            return;
         }
-        else if (data is IEnumerable<object> list) {
-            foreach (var item in list) {
+
+        if (data is IEnumerable enumerable && type != typeof(string)) {
+            foreach (var item in enumerable) {
                 dumpRecursive(item, depth + 1);
             }
+            return;
         }
-        else {
-            WriteLine(GetIndent() + formatValue(data));
+
+        var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        if (properties.Length == 0) {
+            WriteLine(Indent + data.ToString());
+            return;
+        }
+
+        foreach (var prop in properties) {
+            var value = prop.GetValue(data);
+            var typeName = prop.PropertyType.Name;
+
+            Write(Indent);
+            Write($"{prop.Name} ({typeName}): ");
+
+            if (value == null) {
+                WriteLine("null");
+            }
+            else if (value is string || value.GetType().IsPrimitive || value is decimal || value is DateTime || value.GetType().IsEnum) {
+                WriteLine(formatValue(value));
+            }
+            else {
+                WriteLine();
+                try {
+                    _groupDepth++;
+                    dumpRecursive(value, depth + 1);
+                }
+                finally {
+                    _groupDepth--;
+                }
+            }
         }
     }
 
     private static string formatValue(object? value) {
         return value switch {
             null => "null",
-            string str => $"\"{str}\"",
-            IEnumerable<object> list => $"[{string.Join(", ", list.Select(formatValue))}]",
+            string s => $"\"{s}\"",
+            IEnumerable enumerable when value is not string =>
+                "[" + string.Join(", ", enumerable.Cast<object>().Select(formatValue)) + "]",
             _ => value.ToString() ?? "null"
         };
     }

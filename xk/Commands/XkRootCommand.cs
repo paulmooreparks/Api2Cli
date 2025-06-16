@@ -262,7 +262,9 @@ function __script__{workspaceName}__{scriptName}(workspace, {paramString}) {{
 {scriptBody}
 }};
 
-xk.workspaces.{workspaceName}.{scriptName} = __script__{workspaceName}__{scriptName};
+xk.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
+    return __script__{workspaceName}__{scriptName}(xk.workspaces.{workspaceName}, {paramString});
+}}
 ");
                 }
                 catch (Exception ex) {
