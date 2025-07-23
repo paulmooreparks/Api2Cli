@@ -137,3 +137,28 @@ jobs:
         name: xk-${{ matrix.os }}-${{ needs.version-and-build.outputs.version }}
         path: ./publish/${{ matrix.os }}
         retention-days: 30
+
+  # Trigger release workflow after successful version increment on main
+  trigger-release:
+    name: Trigger Release Creation
+    needs: [version-and-build, cross-platform-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Trigger Release Workflow
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          await github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: 'release.yml',
+            ref: 'main',
+            inputs: {
+              version: '${{ needs.version-and-build.outputs.version }}',
+              prerelease: 'false'
+            }
+          });
+          console.log('Triggered release workflow for version ${{ needs.version-and-build.outputs.version }}');

@@ -60,15 +60,19 @@
 
 ## 📦 Installation
 
-### Download Pre-built Binaries
+### Pre-built Downloads
 
-Download the latest release for your platform:
+Download the latest release from [GitHub Releases](https://github.com/paulmooreparks/XferKit/releases) for your platform:
 
-- **Windows**: `xk-windows-x64.zip`
-- **Linux**: `xk-linux-x64.tar.gz`
-- **macOS**: `xk-macos-x64.tar.gz`
+#### Portable (No Installation Required)
+- **Windows**: `xk-windows-x64.zip` - Extract and run
+- **Linux**: `xk-linux-x64.tar.gz` - Extract and run
+- **macOS**: `xk-macos-x64.tar.gz` - Extract and run
 
-Extract the archive and add the executable to your PATH.
+#### Installers (Automatic PATH Setup)
+- **Windows**: `xk-VERSION-windows-x64.msi` - Windows Installer
+- **Linux**: `xk-VERSION-linux-x64.deb` - Debian Package (`sudo dpkg -i`)
+- **macOS**: `xk-VERSION-macos-x64.pkg` - macOS Package
 
 ### Build from Source
 

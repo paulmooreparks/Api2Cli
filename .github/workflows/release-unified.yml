@@ -1,11 +1,21 @@
-name: Create Installers
+name: Create Release with Installers
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (leave empty to use auto-generated version from latest build)'
+        required: false
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   get-version:
-    name: Determine Installer Version
+    name: Determine Release Version
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -13,20 +23,26 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Determine Version
+    - name: Get Version
       id: version
       run: |
-        # Get version from project file (latest auto-generated)
-        VERSION=$(grep -oP '<Version>\K[^<]+' xk/xk.csproj)
-        # Remove -prerelease suffix for installers
-        VERSION=$(echo $VERSION | sed 's/-prerelease//')
-        echo "Using auto-generated version: $VERSION"
+        if [[ -n "${{ github.event.inputs.version }}" ]]; then
+          # Use manually provided version
+          VERSION="${{ github.event.inputs.version }}"
+          echo "Using manual version: $VERSION"
+        else
+          # Get version from project file (latest auto-generated)
+          VERSION=$(grep -oP '<Version>\K[^<]+' xk/xk.csproj)
+          # Remove -prerelease suffix for releases
+          VERSION=$(echo $VERSION | sed 's/-prerelease//')
+          echo "Using auto-generated version: $VERSION"
+        fi
 
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Final version: $VERSION"
 
-  create-installers:
-    name: Create ${{ matrix.target }} Installer
+  build-release:
+    name: Build ${{ matrix.target }}
     needs: get-version
     runs-on: ${{ matrix.os }}
 
@@ -36,14 +52,20 @@ jobs:
           - os: windows-latest
             target: windows-x64
             runtime: win-x64
+            extension: .exe
+            archive_type: zip
             installer_type: msi
           - os: ubuntu-latest
             target: linux-x64
             runtime: linux-x64
+            extension: ''
+            archive_type: tar.gz
             installer_type: deb
           - os: macos-latest
             target: macos-x64
             runtime: osx-x64
+            extension: ''
+            archive_type: tar.gz
             installer_type: pkg
 
     steps:
@@ -54,44 +76,56 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Build Application
+    - name: Restore dependencies
+      shell: bash
+      run: dotnet restore XferKit.sln
+
+    - name: Build solution
+      shell: bash
+      run: dotnet build XferKit.sln --configuration Release --no-restore -p:Version=${{ needs.get-version.outputs.version }}
+
+    # Create portable archives (ZIP/TAR.GZ)
+    - name: Publish portable executable
       shell: bash
       run: |
-        # Restore and build the application for this platform
-        VERSION="${{ needs.get-version.outputs.version }}"
-
-        # Determine the runtime identifier
-        if [[ "${{ matrix.target }}" == "windows-x64" ]]; then
-          RUNTIME_ID="win-x64"
-        elif [[ "${{ matrix.target }}" == "linux-x64" ]]; then
-          RUNTIME_ID="linux-x64"
-        else
-          RUNTIME_ID="osx-x64"
-        fi
-
-        echo "Building for runtime: $RUNTIME_ID with version: $VERSION"
-
-        # Restore dependencies
-        dotnet restore XferKit.sln
-
-        # Publish the application
         dotnet publish xk/xk.csproj \
           --configuration Release \
-          --runtime $RUNTIME_ID \
+          --runtime ${{ matrix.runtime }} \
+          --self-contained true \
+          --output ./release/${{ matrix.target }} \
+          -p:PublishSingleFile=true \
+          -p:PublishTrimmed=true \
+          -p:IncludeNativeLibrariesForSelfExtract=true \
+          -p:Version=${{ needs.get-version.outputs.version }}
+
+    - name: Create portable archive (Windows)
+      if: matrix.archive_type == 'zip'
+      shell: pwsh
+      run: |
+        cd ./release/${{ matrix.target }}
+        Compress-Archive -Path * -DestinationPath ../../xk-${{ matrix.target }}.zip
+
+    - name: Create portable archive (Linux/macOS)
+      if: matrix.archive_type == 'tar.gz'
+      shell: bash
+      run: |
+        cd ./release/${{ matrix.target }}
+        tar -czf ../../xk-${{ matrix.target }}.tar.gz *
+
+    # Create platform-specific installers
+    - name: Publish for installer
+      shell: bash
+      run: |
+        dotnet publish xk/xk.csproj \
+          --configuration Release \
+          --runtime ${{ matrix.runtime }} \
           --self-contained false \
-          --output ./publish \
-          -p:Version=$VERSION
-
-        # Create target directory structure
-        mkdir -p xk-${{ matrix.target }}
-        cp -r ./publish/* xk-${{ matrix.target }}/
-
-        echo "Build completed for ${{ matrix.target }}"
-        ls -la xk-${{ matrix.target }}/
+          --output ./installer-build \
+          -p:Version=${{ needs.get-version.outputs.version }}
 
     # Windows MSI Installer
     - name: Create Windows MSI Installer
-      if: matrix.target == 'windows-x64'
+      if: matrix.installer_type == 'msi'
       shell: bash
       run: |
         # Install WiX Toolset
@@ -99,7 +133,7 @@ jobs:
 
         # Create installer directory structure
         mkdir -p installer/bin
-        cp -r xk-${{ matrix.target }}/* installer/bin/
+        cp -r ./installer-build/* installer/bin/
 
         # Find the correct executable name
         if [ -f "installer/bin/xk.exe" ]; then
@@ -113,7 +147,7 @@ jobs:
         cat > installer.wxs << EOF
         <?xml version="1.0" encoding="UTF-8"?>
         <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-          <Package Name="XferKit" 
+          <Package Name="XferKit"
                    Language="1033"
                    Version="${{ needs.get-version.outputs.version }}"
                    Manufacturer="Parks Computing"
@@ -149,7 +183,7 @@ jobs:
 
     # Linux DEB Package
     - name: Create Linux DEB Package
-      if: matrix.target == 'linux-x64'
+      if: matrix.installer_type == 'deb'
       shell: bash
       run: |
         # Create package directory structure
@@ -158,13 +192,13 @@ jobs:
         mkdir -p package/usr/share/doc/xferkit
 
         # Find and copy binary
-        if [ -f "xk-${{ matrix.target }}/xk" ]; then
-          cp xk-${{ matrix.target }}/xk package/usr/local/bin/
-        elif [ -f "xk-${{ matrix.target }}/xk.exe" ]; then
-          cp xk-${{ matrix.target }}/xk.exe package/usr/local/bin/xk
+        if [ -f "./installer-build/xk" ]; then
+          cp ./installer-build/xk package/usr/local/bin/
+        elif [ -f "./installer-build/xk.exe" ]; then
+          cp ./installer-build/xk.exe package/usr/local/bin/xk
         else
           echo "Error: Could not find xk executable"
-          ls -la xk-${{ matrix.target }}/
+          ls -la ./installer-build/
           exit 1
         fi
         chmod +x package/usr/local/bin/xk
@@ -198,20 +232,20 @@ jobs:
 
     # macOS PKG Installer
     - name: Create macOS PKG Installer
-      if: matrix.target == 'macos-x64'
+      if: matrix.installer_type == 'pkg'
       shell: bash
       run: |
         # Create package directory structure
         mkdir -p package-root/usr/local/bin
 
         # Find and copy binary
-        if [ -f "xk-${{ matrix.target }}/xk" ]; then
-          cp xk-${{ matrix.target }}/xk package-root/usr/local/bin/
-        elif [ -f "xk-${{ matrix.target }}/xk.exe" ]; then
-          cp xk-${{ matrix.target }}/xk.exe package-root/usr/local/bin/xk
+        if [ -f "./installer-build/xk" ]; then
+          cp ./installer-build/xk package-root/usr/local/bin/
+        elif [ -f "./installer-build/xk.exe" ]; then
+          cp ./installer-build/xk.exe package-root/usr/local/bin/xk
         else
           echo "Error: Could not find xk executable"
-          ls -la xk-${{ matrix.target }}/
+          ls -la ./installer-build/
           exit 1
         fi
         chmod +x package-root/usr/local/bin/xk
@@ -249,12 +283,75 @@ jobs:
                      --package-path . \
                      xk-${{ needs.get-version.outputs.version }}-macos-x64.pkg
 
-    - name: Upload Installer
+    - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: installer-${{ matrix.target }}
+        name: release-${{ matrix.target }}
         path: |
+          ./xk-${{ matrix.target }}.${{ matrix.archive_type }}
           *.msi
           *.deb
           *.pkg
-        retention-days: 30
+
+  create-release:
+    name: Create GitHub Release
+    needs: [get-version, build-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+
+    - name: Organize artifacts
+      shell: bash
+      run: |
+        # Move all files to a single directory for release
+        mkdir -p ./release-files
+        find ./artifacts -type f \( -name "*.zip" -o -name "*.tar.gz" -o -name "*.msi" -o -name "*.deb" -o -name "*.pkg" \) -exec cp {} ./release-files/ \;
+        ls -la ./release-files/
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ needs.get-version.outputs.version }}
+        name: XferKit v${{ needs.get-version.outputs.version }}
+        body: |
+          ## XferKit v${{ needs.get-version.outputs.version }}
+
+          ### Portable Downloads (No Installation Required)
+          - **Windows**: `xk-windows-x64.zip` - Extract and run
+          - **Linux**: `xk-linux-x64.tar.gz` - Extract and run
+          - **macOS**: `xk-macos-x64.tar.gz` - Extract and run
+
+          ### Installers (Automatic PATH Setup)
+          - **Windows**: `xk-${{ needs.get-version.outputs.version }}-windows-x64.msi` - Windows Installer
+          - **Linux**: `xk-${{ needs.get-version.outputs.version }}-linux-x64.deb` - Debian Package
+          - **macOS**: `xk-${{ needs.get-version.outputs.version }}-macos-x64.pkg` - macOS Package
+
+          ### Installation Instructions
+
+          #### Portable (Manual)
+          1. Download the appropriate archive for your platform
+          2. Extract the archive
+          3. Add the extracted folder to your PATH
+          4. Run `xk --help` to verify installation
+
+          #### Installers (Automatic)
+          - **Windows**: Run the MSI installer
+          - **Linux**: `sudo dpkg -i xk-${{ needs.get-version.outputs.version }}-linux-x64.deb`
+          - **macOS**: Run the PKG installer
+
+          ### Changes
+          - Built from commit ${{ github.sha }}
+
+          ### Verification
+          After installation, verify with: `xk --version`
+        files: ./release-files/*
+        prerelease: ${{ github.event.inputs.prerelease }}
+        generate_release_notes: true
