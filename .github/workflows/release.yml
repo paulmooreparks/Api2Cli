@@ -1,0 +1,152 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (leave empty to use auto-generated version from latest build)'
+        required: false
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  get-version:
+    name: Determine Release Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Get Version
+      id: version
+      run: |
+        if [[ -n "${{ github.event.inputs.version }}" ]]; then
+          # Use manually provided version
+          VERSION="${{ github.event.inputs.version }}"
+          echo "Using manual version: $VERSION"
+        else
+          # Get version from project file (latest auto-generated)
+          VERSION=$(grep -oP '<Version>\K[^<]+' xk/xk.csproj)
+          # Remove -prerelease suffix for releases
+          VERSION=$(echo $VERSION | sed 's/-prerelease//')
+          echo "Using auto-generated version: $VERSION"
+        fi
+
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Final version: $VERSION"
+
+  build-and-release:
+    name: Build and Release ${{ matrix.target }}
+    needs: get-version
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows-x64
+            runtime: win-x64
+            extension: .exe
+            archive_type: zip
+          - os: ubuntu-latest
+            target: linux-x64
+            runtime: linux-x64
+            extension: ''
+            archive_type: tar.gz
+          - os: macos-latest
+            target: macos-x64
+            runtime: osx-x64
+            extension: ''
+            archive_type: tar.gz
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore XferKit.sln
+
+    - name: Build solution
+      run: dotnet build XferKit.sln --configuration Release --no-restore /p:Version=${{ needs.get-version.outputs.version }}
+
+    - name: Publish self-contained executable
+      run: |
+        dotnet publish xk/xk.csproj \
+          --configuration Release \
+          --runtime ${{ matrix.runtime }} \
+          --self-contained true \
+          --output ./release/${{ matrix.target }} \
+          /p:PublishSingleFile=true \
+          /p:PublishTrimmed=true \
+          /p:IncludeNativeLibrariesForSelfExtract=true \
+          /p:Version=${{ needs.get-version.outputs.version }}
+
+    - name: Create archive (Windows)
+      if: matrix.archive_type == 'zip'
+      shell: pwsh
+      run: |
+        cd ./release/${{ matrix.target }}
+        Compress-Archive -Path * -DestinationPath ../../xk-${{ matrix.target }}.zip
+
+    - name: Create archive (Linux/macOS)
+      if: matrix.archive_type == 'tar.gz'
+      run: |
+        cd ./release/${{ matrix.target }}
+        tar -czf ../../xk-${{ matrix.target }}.tar.gz *
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: xk-${{ matrix.target }}
+        path: ./xk-${{ matrix.target }}.${{ matrix.archive_type }}
+
+  create-release:
+    name: Create GitHub Release
+    needs: [get-version, build-and-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ needs.get-version.outputs.version }}
+        name: XferKit v${{ needs.get-version.outputs.version }}
+        body: |
+          ## XferKit v${{ needs.get-version.outputs.version }}
+
+          ### Downloads
+          - **Windows**: xk-windows-x64.zip
+          - **Linux**: xk-linux-x64.tar.gz
+          - **macOS**: xk-macos-x64.tar.gz          ### Installation
+          1. Download the appropriate package for your platform
+          2. Extract the archive
+          3. Add the extracted folder to your PATH
+          4. Run `xk --help` to verify installation
+
+          ### Changes
+          - Built from commit ${{ github.sha }}
+        files: |
+          ./artifacts/xk-windows-x64/xk-windows-x64.zip
+          ./artifacts/xk-linux-x64/xk-linux-x64.tar.gz
+          ./artifacts/xk-macos-x64/xk-macos-x64.tar.gz
+        prerelease: ${{ github.event.inputs.prerelease }}
+        generate_release_notes: true

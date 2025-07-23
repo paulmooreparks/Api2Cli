@@ -1,0 +1,81 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build",
+			"command": "dotnet",
+			"type": "shell",
+			"args": [
+				"build",
+				"XferKit.sln"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"presentation": {
+				"echo": true,
+				"reveal": "silent",
+				"focus": false,
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "clean",
+			"command": "dotnet",
+			"type": "shell",
+			"args": [
+				"clean",
+				"XferKit.sln"
+			],
+			"group": "build",
+			"problemMatcher": [
+				"$msCompile"
+			]
+		},
+		{
+			"label": "rebuild",
+			"command": "dotnet",
+			"type": "shell",
+			"args": [
+				"build",
+				"XferKit.sln",
+				"--no-incremental"
+			],
+			"group": "build",
+			"problemMatcher": [
+				"$msCompile"
+			]
+		},
+		{
+			"label": "restore",
+			"command": "dotnet",
+			"type": "shell",
+			"args": [
+				"restore",
+				"XferKit.sln"
+			],
+			"group": "build",
+			"problemMatcher": [
+				"$msCompile"
+			]
+		},
+		{
+			"label": "run xk",
+			"command": "dotnet",
+			"type": "shell",
+			"args": [
+				"run",
+				"--project",
+				"xk"
+			],
+			"group": "test",
+			"problemMatcher": [
+				"$msCompile"
+			]
+		}
+	]
+}

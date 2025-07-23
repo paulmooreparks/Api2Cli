@@ -1,0 +1,9 @@
+{
+    "dotnet.defaultSolution": "XferKit.sln",
+    "omnisharp.enableRoslynAnalyzers": true,
+    "omnisharp.enableEditorConfigSupport": true,
+    "files.associations": {
+        "*.cs": "csharp"
+    },
+    "dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true
+}

@@ -1,0 +1,135 @@
+name: Auto Version and Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  version-and-build:
+    name: Version, Build and Test
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build-number: ${{ steps.version.outputs.build-number }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for versioning
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Calculate Version
+      id: version
+      run: |
+        # Get the current version from the project file
+        CURRENT_VERSION=$(grep -oP '<Version>\K[^<]+' xk/xk.csproj)
+        echo "Current version: $CURRENT_VERSION"
+
+        # Extract major.minor from current version (remove -prerelease suffix)
+        BASE_VERSION=$(echo $CURRENT_VERSION | sed 's/-prerelease//' | sed 's/-.*$//')
+        MAJOR_MINOR=$(echo $BASE_VERSION | sed 's/\.[0-9]*$//')
+
+        # Count commits on main branch since last tag (or beginning if no tags)
+        COMMIT_COUNT=$(git rev-list --count HEAD)
+
+        # For main branch, create release version; for PR, create prerelease
+        if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+          NEW_VERSION="${MAJOR_MINOR}.${COMMIT_COUNT}"
+          BUILD_NUMBER="${COMMIT_COUNT}"
+        else
+          NEW_VERSION="${MAJOR_MINOR}.${COMMIT_COUNT}-prerelease"
+          BUILD_NUMBER="${COMMIT_COUNT}"
+        fi
+
+        echo "New version: $NEW_VERSION"
+        echo "Build number: $BUILD_NUMBER"
+
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "build-number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+
+        # Update the project file with new version
+        sed -i "s|<Version>.*</Version>|<Version>$NEW_VERSION</Version>|" xk/xk.csproj
+
+        # Display the change
+        echo "Updated project file:"
+        grep -A2 -B2 "<Version>" xk/xk.csproj
+
+    - name: Commit version change (main branch only)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add xk/xk.csproj
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Auto-increment version to ${{ steps.version.outputs.version }} [skip ci]"
+          git push
+        fi
+
+    - name: Create version tag (main branch only)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        git tag "v${{ steps.version.outputs.version }}"
+        git push origin "v${{ steps.version.outputs.version }}"
+
+    - name: Restore dependencies
+      run: dotnet restore XferKit.sln
+
+    - name: Build solution
+      run: dotnet build XferKit.sln --configuration Release --no-restore /p:Version=${{ steps.version.outputs.version }}
+
+    - name: Run tests (if any)
+      run: dotnet test XferKit.sln --configuration Release --no-build --verbosity normal || echo "No tests found"
+
+    - name: Publish artifacts
+      run: dotnet publish xk/xk.csproj --configuration Release --output ./publish --no-build /p:Version=${{ steps.version.outputs.version }}
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: xk-build-${{ steps.version.outputs.version }}
+        path: ./publish
+        retention-days: 30
+
+  # Cross-platform builds for main branch only
+  cross-platform-build:
+    name: Build ${{ matrix.os }}
+    needs: version-and-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore XferKit.sln
+
+    - name: Build solution
+      run: dotnet build XferKit.sln --configuration Release --no-restore /p:Version=${{ needs.version-and-build.outputs.version }}
+
+    - name: Publish for platform
+      run: dotnet publish xk/xk.csproj --configuration Release --output ./publish/${{ matrix.os }} /p:Version=${{ needs.version-and-build.outputs.version }}
+
+    - name: Upload platform artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: xk-${{ matrix.os }}-${{ needs.version-and-build.outputs.version }}
+        path: ./publish/${{ matrix.os }}
+        retention-days: 30

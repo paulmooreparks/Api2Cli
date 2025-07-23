@@ -1,94 +1,385 @@
-﻿![XferLogo](logo/XferKit-sm.png)
+﻿![XferKit Logo](logo/XferKit-sm.png)
 
-# The XferKit API-Management CLI Tool
+# XferKit - API Management CLI Tool
 
-<p>
-  <a href="https://github.com/paulmooreparks/XferKit">
-    <img alt="XferKit CLI Version" src="https://img.shields.io/badge/XferKit_CLI-0.2.1-green">
+<p align="center">
+  <a href="https://github.com/paulmooreparks/XferKit/releases">
+    <img alt="XferKit CLI Version" src="https://img.shields.io/badge/XferKit_CLI-0.3.0--prerelease-blue">
   </a>
   <a href="https://github.com/paulmooreparks/XferKit">
-    <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/paulmooreparks/Xfer">
+    <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/paulmooreparks/XferKit">
   </a>
-  <a href="https://github.com/paulmooreparks/XferKit">
-    <img alt="GitHub issues" src="https://img.shields.io/github/issues/paulmooreparks/Xfer">
+  <a href="https://github.com/paulmooreparks/XferKit/issues">
+    <img alt="GitHub issues" src="https://img.shields.io/github/issues/paulmooreparks/XferKit">
+  </a>
+  <a href="https://github.com/paulmooreparks/XferKit/actions">
+    <img alt="Build Status" src="https://img.shields.io/github/actions/workflow/status/paulmooreparks/XferKit/ci.yml?branch=main">
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg">
   </a>
-  <!--
-  <a href="https://www.nuget.org/packages/XferKit">
-    <img alt="NuGet" src="https://img.shields.io/nuget/v/XferKit.svg">
+  <a href="https://dotnet.microsoft.com/">
+    <img alt=".NET 8.0" src="https://img.shields.io/badge/.NET-8.0-purple">
   </a>
-  -->
 </p>
 
+**XferKit** is a powerful command-line interface (CLI) tool for HTTP API management, testing, and automation. It provides a workspace-based approach to organize API interactions, supports JavaScript scripting for advanced workflows, and offers an intuitive command-line experience for developers working with REST APIs.
 
-The XferKit CLI tool provides a command-line interface (CLI) for making HTTP requests, scripting workflows, and easily interacting with APIs from the command line.
+## 🚀 Key Features
 
-## Okay, But What Is It, Really?
+### HTTP Methods Support
+- **Complete HTTP coverage**: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
+- **Flexible request configuration**: Headers, query parameters, request bodies
+- **Response handling**: Status codes, headers, content processing
+- **Cookie management**: Automatic cookie handling and custom cookie support
 
-Basically, the XferKit Command-Line Interface (CLI) tool (or "xk") is a CLI construction kit. More specifically, it is a tool that lets you define workspaces that encapsulate API interactions. Each workspace contains one or more requests, which are HTTP requests that you can make to an API. You can define headers, query parameters, and request bodies for each request, and you can also define blocks of JavaScript code that can be executed before or after the request is made. This allows you to automate workflows, configure your environment, and much more.
+### Workspace Management
+- **Organized collections**: Group related API requests into workspaces
+- **Workspace inheritance**: Create derived workspaces from existing ones
+- **Multiple workspace support**: Switch between different API environments
+- **Configuration persistence**: Automatic workspace configuration storage
 
-## All Right, But What Does It Do?
+### JavaScript Scripting Engine
+- **Pre-request scripts**: Modify requests before execution
+- **Post-response scripts**: Process responses and extract data
+- **Global scripts**: Shared functionality across workspaces
+- **Environment manipulation**: Dynamic configuration and data processing
+- **NuGet package support**: Extend functionality with .NET packages
 
-It's not so much what it does, as much as what it enables you to do. XferKit itself mainly does two things:
+### Advanced Configuration
+- **Environment variables**: Centralized configuration management
+- **Parameter substitution**: Dynamic value replacement in requests
+- **XferLang configuration**: Powerful configuration language
+- **Template support**: Reusable request templates
 
-* Make HTTP requests
-* Run JavaScript code
+### Developer Experience
+- **REPL mode**: Interactive command-line interface
+- **Command-line execution**: Single-command API calls
+- **Input redirection**: Pipe data from other commands
+- **Cross-platform**: Windows, Linux, and macOS support
 
-These two capabilities, combined, let you create a CLI that is customized to your needs. You can use it to interact with APIs, automate workflows, configure your environment, test your services, and much more. The possibilities are endless.
+## 📦 Installation
 
-## Where Are the Docs?
+### Download Pre-built Binaries
 
-They're coming. I've been designing on the fly, and to this point my Kanban board has been a checklist on my office whiteboard full of ideas that I scribble down as I have them. The design is beginning to stabilize now, so I'm ready to start documenting the features and capabilities of the tool.
+Download the latest release for your platform:
 
-## XferLang and Cliffer
+- **Windows**: `xk-windows-x64.zip`
+- **Linux**: `xk-linux-x64.tar.gz`
+- **macOS**: `xk-macos-x64.tar.gz`
 
-This repository was originally the home for the [Xfer data-transfer language (or XferLang)](https://github.com/paulmooreparks/Xfer/). That project still exists, but I'm now using XferLang to implement the configuration for the XferKit CLI tool as well as for some internal data transfer tasks. The [core language specification](ParksComputing.Xfer.Lang/README.md) has moved into the folder that contains the assembly for the language implementation.
+Extract the archive and add the executable to your PATH.
 
-The XferKit CLI tool uses the [Cliffer CLI Library](https://github.com/paulmooreparks/Cliffer), another project I own, to implement the CLI interface.
+### Build from Source
 
-## Motivation
-
-Like most people who write and work with RESTful APIs, I've mainly used Postman and curl to test and otherwise interact with API endpoints. Early on in my current contract project, I wrote a powerful CLI tool in C# to let me call some of the more common endpoints that I needed as part of my daily work. While it is a very useful tool that I use constantly in my work, it's highly specialized, and now that I'm working on some other projects of my own I find myself wanting that same kind of tool for new APIs. That's why I decided to generalize the tool and make it available to others.
-
-## Features
-
-Here are some of the features of the XferKit CLI tool:
-
-- **HTTP Interaction**: Call HTTP methods (GET, HEAD, POST, PUT, DELETE, OPTIONS, TRACE, PATCH) over HTTP and HTTPS. Set or modify headers, query parameters, and request bodies.
-- **Workspaces**: Define workspaces (similar to Postman collections) to encapsulate related API interactions.
-- **Derived Workspaces**: Create new workspaces by deriving from existing workspaces. This allows you to create a new workspace that is a copy of an existing workspace, but with some changes.
-- **Environment Variables**: Pass and store values in the environment.
-- **Scripting**: Pre-process requests, post-process responses, automate workflows, configure your environment, and MUCH more using JavaScript.
-- **Object Model**: Define and use objects in the environment for passing, storing, and manipulating values from script.
-- **Nuget Package Management**: Install Nuget packages and use them from JavaScript to extend the functionality of the tool.
-- **REPL Mode**: The tool may be used in REPL mode (Read/Eval/Print Loop) or as a traditional command-line tool.
-
-More is waiting to be documented, and even more is waiting to be implemented.
-
-![Screen shot 01](XferScreen01.png)
-
-## Sample Configuration
-
-When you run the tool for the first time (`xk` at the command line), it will create a `.xk` folder in your home directory (`$HOME` on Unix-like systems, `%USERPROFILE%` on Windows). In that folder, you can create the following configuration files:
-
-- [`workspaces.xfer`](.xk/workspaces.xfer): Defines the workspace structure, the requests in each workspace, and blocks of JavaScript code that can be executed in conjunction with the workspace or request.
-- [`store.xfer`](.xk/store.xfer): Defines key/value pairs that can be used in the workspace and request definitions. These may be updated by scripts or commands.
-- [`.env`](.xk/.env): Defines environment variables that can be used in the workspace and request definitions.
-
-Script files may also be placed in '.xk', and they can be referenced from the workspace or request definitions.
-
-```xfer
-</ Your workspace may reference external script like this. />
-InitScript <'file:globalInitScript.js'>
+```bash
+git clone https://github.com/paulmooreparks/XferKit.git
+cd XferKit
+dotnet build --configuration Release
+dotnet publish xk/xk.csproj --configuration Release --output ./publish
 ```
 
-If the file is in the `.xk` folder, the script engine will load it and execute the contents. The file path may also be fully specified if you wish to store it elsewhere.
+## 🎯 Quick Start
 
-Nuget packages installed with the `package` command are stored in the `.xk/packages` folder.
+### 1. First Run
 
-## But... Why?
+When you run `xk` for the first time, it creates a `.xk` folder in your home directory with initial configuration files:
 
-Because Postman is too pointy-clicky and curl is too low-level. I want something in a sweet spot in between that lets me work with APIs at a higher level of abstraction, as if they were just another command on the command line, while still giving me the power to script and automate workflows.
+```bash
+xk --help
+```
+
+This creates:
+- `~/.xk/workspaces.xfer` - Workspace definitions
+- `~/.xk/.env` - Environment variables
+- `~/.xk/packages/` - NuGet packages storage
+
+### 2. Basic HTTP Requests
+
+```bash
+# Simple GET request
+xk get https://api.example.com/users
+
+# POST with JSON payload
+echo '{"name": "John"}' | xk post https://api.example.com/users
+
+# Add headers
+xk get https://api.example.com/users --headers "Authorization: Bearer token"
+```
+
+### 3. Using Workspaces
+
+```bash
+# List available workspaces
+xk workspace list
+
+# Switch to a workspace
+xk workspace use myapi
+
+# Execute a request from the workspace
+xk myapi getUser --baseurl https://api.example.com
+```
+
+## 📖 Configuration
+
+### Workspace Configuration (`~/.xk/workspaces.xfer`)
+
+Workspaces are defined using the XferLang configuration language:
+
+```xfer
+{
+    properties {
+        apiKey "your-api-key"
+        baseUrl "https://api.example.com"
+    }
+
+    workspaces {
+        myapi {
+            description "Example API workspace"
+            baseUrl <'$baseUrl'>
+
+            requests {
+                getUsers {
+                    method "GET"
+                    endpoint "/users"
+                    headers {
+                        Authorization <'Bearer $apiKey'>
+                        Content-Type "application/json"
+                    }
+                    description "Retrieve all users"
+                }
+
+                createUser {
+                    method "POST"
+                    endpoint "/users"
+                    headers {
+                        Authorization <'Bearer $apiKey'>
+                        Content-Type "application/json"
+                    }
+                    arguments {
+                        userData {
+                            type "string"
+                            description "User data as JSON"
+                        }
+                    }
+                    description "Create a new user"
+                }
+            }
+
+            scripts {
+                processResponse {
+                    description "Process API responses"
+                    script <'
+                        function processResponse(response) {
+                            if (response.statusCode === 200) {
+                                console.log("Success!");
+                                return JSON.stringify(JSON.parse(response.content), null, 2);
+                            }
+                            return "Request failed: " + response.statusCode;
+                        }
+                    '>
+                }
+            }
+        }
+    }
+}
+```
+
+### Environment Variables (`~/.xk/.env`)
+
+```env
+API_KEY=your-secret-key
+BASE_URL=https://api.example.com
+DEBUG=true
+```
+
+## 🔧 Advanced Usage
+
+### JavaScript Scripting
+
+XferKit supports JavaScript for request preprocessing and response handling:
+
+```javascript
+// Pre-request script
+function preRequest(headers, parameters, payload, cookies) {
+    headers['X-Timestamp'] = new Date().toISOString();
+    headers['X-Request-ID'] = generateUUID();
+    return { headers, parameters, payload, cookies };
+}
+
+// Post-response script
+function postResponse(statusCode, headers, content) {
+    if (statusCode === 200) {
+        const data = JSON.parse(content);
+        xk.store.set('lastUserId', data.id);
+        return formatJson(content);
+    }
+    return `Error: ${statusCode}`;
+}
+```
+
+### Parameter Substitution
+
+Use dynamic placeholders in your configurations:
+
+```xfer
+requests {
+    getUser {
+        endpoint "/users/$userId"
+        headers {
+            Authorization <'Bearer $apiKey'>
+        }
+    }
+}
+```
+
+### Workspace Inheritance
+
+Create specialized workspaces based on existing ones:
+
+```xfer
+workspaces {
+    production {
+        extend "base"
+        baseUrl "https://api.production.com"
+        properties {
+            environment "prod"
+        }
+    }
+
+    staging {
+        extend "base"
+        baseUrl "https://api.staging.com"
+        properties {
+            environment "staging"
+        }
+    }
+}
+```
+
+## 🛠️ Command Reference
+
+### Global Commands
+
+```bash
+# Get help
+xk --help
+xk <command> --help
+
+# Set base URL globally
+xk --baseurl https://api.example.com <command>
+
+# Use specific workspace file
+xk --workspace /path/to/workspace.xfer <command>
+```
+
+### HTTP Commands
+
+```bash
+# GET request
+xk get <url> [--headers <headers>] [--parameters <params>]
+
+# POST request
+xk post <url> [--payload <data>] [--headers <headers>]
+
+# PUT request
+xk put <url> [--payload <data>] [--headers <headers>]
+
+# PATCH request
+xk patch <url> [--payload <data>] [--headers <headers>]
+
+# DELETE request
+xk delete <url> [--headers <headers>]
+
+# HEAD request
+xk head <url> [--headers <headers>]
+```
+
+### Workspace Commands
+
+```bash
+# List workspaces
+xk workspace list
+
+# Show workspace details
+xk workspace show <name>
+
+# Use workspace
+xk workspace use <name>
+
+# Execute workspace request
+xk <workspace> <request> [options]
+```
+
+### Scripting Commands
+
+```bash
+# Execute JavaScript
+xk script <code>
+
+# Run workspace script
+xk <workspace> <script> [arguments]
+```
+
+## 🏗️ Architecture
+
+XferKit is built on .NET 8.0 and consists of several modular components:
+
+- **Core CLI** (`xk`): Main executable and command processing
+- **HTTP Service**: HTTP client functionality and request handling
+- **Workspace Service**: Configuration management and workspace operations
+- **Scripting Engine**: JavaScript execution and API integration
+- **Data Store**: Configuration persistence and state management
+- **Diagnostics**: Logging and error reporting
+
+### Dependencies
+
+- [Cliffer](https://github.com/paulmooreparks/Cliffer): CLI framework
+- [XferLang](https://github.com/paulmooreparks/Xfer): Configuration language parser
+- .NET 8.0 Runtime
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit issues, feature requests, or pull requests.
+
+### Development Setup
+
+1. Clone the repository
+2. Ensure .NET 8.0 SDK is installed
+3. Run `dotnet restore`
+4. Build with `dotnet build`
+5. Run tests with `dotnet test`
+
+### Project Structure
+
+```
+XferKit/
+├── xk/                                    # Main CLI executable
+├── ParksComputing.XferKit.Api/           # Core API interfaces
+├── ParksComputing.XferKit.Http/          # HTTP services
+├── ParksComputing.XferKit.Workspace/     # Workspace management
+├── ParksComputing.XferKit.Scripting/     # JavaScript engine
+├── ParksComputing.XferKit.DataStore/     # Data persistence
+├── ParksComputing.XferKit.Diagnostics/   # Logging and diagnostics
+└── .github/workflows/                    # CI/CD pipelines
+```
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
+
+## 🔗 Related Projects
+
+- [Cliffer](https://github.com/paulmooreparks/Cliffer) - CLI framework used by XferKit
+- [XferLang](https://github.com/paulmooreparks/Xfer) - Configuration language specification
+
+## 📞 Support
+
+- 🐛 [Report Issues](https://github.com/paulmooreparks/XferKit/issues)
+- 💡 [Feature Requests](https://github.com/paulmooreparks/XferKit/issues)
+- 📖 [Documentation](https://github.com/paulmooreparks/XferKit/wiki) (Coming Soon)
+
+---
+
+**XferKit** bridges the gap between simple command-line tools like curl and complex GUI applications like Postman, providing the power and flexibility developers need for modern API workflows.
 

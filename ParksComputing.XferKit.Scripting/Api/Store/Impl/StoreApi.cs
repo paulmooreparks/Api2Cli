@@ -10,7 +10,7 @@ internal class StoreApi : IStoreApi {
     private readonly IKeyValueStore _store;
 
     public StoreApi(IKeyValueStore store) {
-        _store = store;
+        _store = store ?? throw new ArgumentNullException(nameof(store));
     }
 
     public object? Get(string key) => _store.TryGetValue(key, out var value) ? value : null;
@@ -25,7 +25,7 @@ internal class StoreApi : IStoreApi {
 
     public object[]? Values {
         get {
-            return [.. _store.Values];
+            return [.. _store.Values.Where(v => v != null).Cast<object>()];
         }
     }
 }
