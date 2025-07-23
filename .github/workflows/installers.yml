@@ -55,6 +55,7 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Build Application
+      shell: bash
       run: |
         # Restore and build the application for this platform
         VERSION="${{ needs.get-version.outputs.version }}"
@@ -91,6 +92,7 @@ jobs:
     # Windows MSI Installer
     - name: Create Windows MSI Installer
       if: matrix.target == 'windows-x64'
+      shell: bash
       run: |
         # Install WiX Toolset
         dotnet tool install --global wix --version 4.0.4
@@ -154,6 +156,7 @@ jobs:
     # Linux DEB Package
     - name: Create Linux DEB Package
       if: matrix.target == 'linux-x64'
+      shell: bash
       run: |
         # Create package directory structure
         mkdir -p package/DEBIAN
@@ -202,6 +205,7 @@ jobs:
     # macOS PKG Installer
     - name: Create macOS PKG Installer
       if: matrix.target == 'macos-x64'
+      shell: bash
       run: |
         # Create package directory structure
         mkdir -p package-root/usr/local/bin
