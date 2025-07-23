@@ -1,0 +1,238 @@
+name: Create Installers
+
+on:
+  workflow_dispatch:
+
+jobs:
+  get-version:
+    name: Determine Installer Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Determine Version
+      id: version
+      run: |
+        # Get version from project file (latest auto-generated)
+        VERSION=$(grep -oP '<Version>\K[^<]+' xk/xk.csproj)
+        # Remove -prerelease suffix for installers
+        VERSION=$(echo $VERSION | sed 's/-prerelease//')
+        echo "Using auto-generated version: $VERSION"
+
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Final version: $VERSION"
+
+  create-installers:
+    name: Create ${{ matrix.target }} Installer
+    needs: get-version
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows-x64
+            runtime: win-x64
+            installer_type: msi
+          - os: ubuntu-latest
+            target: linux-x64
+            runtime: linux-x64
+            installer_type: deb
+          - os: macos-latest
+            target: macos-x64
+            runtime: osx-x64
+            installer_type: pkg
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Download Release Assets
+      run: |
+        # Download the built release for this platform
+        VERSION="${{ needs.get-version.outputs.version }}"
+
+        # Get the latest release
+        RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                     "https://api.github.com/repos/${{ github.repository }}/releases/latest" | \
+                     jq -r '.id')
+
+        # Download the appropriate asset
+        if [[ "${{ matrix.target }}" == "windows-x64" ]]; then
+          ASSET_NAME="xk-windows-x64.zip"
+        elif [[ "${{ matrix.target }}" == "linux-x64" ]]; then
+          ASSET_NAME="xk-linux-x64.tar.gz"
+        else
+          ASSET_NAME="xk-macos-x64.tar.gz"
+        fi
+
+        curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+             -H "Accept: application/octet-stream" \
+             "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets" | \
+             jq -r ".[] | select(.name==\"$ASSET_NAME\") | .url" | \
+             xargs curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                       -H "Accept: application/octet-stream" \
+                       -o "$ASSET_NAME"
+
+        # Extract the downloaded asset
+        if [[ "${{ matrix.target }}" == "windows-x64" ]]; then
+          unzip "$ASSET_NAME"
+        else
+          tar -xzf "$ASSET_NAME"
+        fi
+
+    # Windows MSI Installer
+    - name: Create Windows MSI Installer
+      if: matrix.target == 'windows-x64'
+      run: |
+        # Install WiX Toolset
+        dotnet tool install --global wix --version 4.0.4
+
+        # Create installer directory structure
+        mkdir -p installer/bin
+        cp -r xk-${{ matrix.target }}/* installer/bin/
+
+        # Create WiX source file
+        cat > installer.wxs << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+          <Product Id="*"
+                   Name="XferKit"
+                   Language="1033"
+                   Version="${{ needs.get-version.outputs.version }}"
+                   Manufacturer="Parks Computing"
+                   UpgradeCode="12345678-1234-1234-1234-123456789012">
+
+            <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+            <MajorUpgrade DowngradeErrorMessage="A newer version of XferKit is already installed." />
+
+            <MediaTemplate EmbedCab="yes" />
+
+            <Feature Id="ProductFeature" Title="XferKit" Level="1">
+              <ComponentGroupRef Id="ProductComponents" />
+            </Feature>
+
+            <Directory Id="TARGETDIR" Name="SourceDir">
+              <Directory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="XferKit" />
+              </Directory>
+              <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="XferKit" />
+              </Directory>
+            </Directory>
+
+            <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+              <Component Id="XferKitExecutable">
+                <File Id="xk.exe" Source="installer/bin/xk.exe" KeyPath="yes" />
+                <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
+              </Component>
+            </ComponentGroup>
+
+          </Product>
+        </Wix>
+        EOF
+
+        # Build the MSI
+        wix build installer.wxs -o xk-${{ needs.get-version.outputs.version }}-windows-x64.msi
+
+    # Linux DEB Package
+    - name: Create Linux DEB Package
+      if: matrix.target == 'linux-x64'
+      run: |
+        # Create package directory structure
+        mkdir -p package/DEBIAN
+        mkdir -p package/usr/local/bin
+        mkdir -p package/usr/share/doc/xferkit
+
+        # Copy binary
+        cp xk-${{ matrix.target }}/xk package/usr/local/bin/
+        chmod +x package/usr/local/bin/xk
+
+        # Create control file
+        cat > package/DEBIAN/control << EOF
+        Package: xferkit
+        Version: ${{ needs.get-version.outputs.version }}
+        Section: utils
+        Priority: optional
+        Architecture: amd64
+        Maintainer: Parks Computing <contact@parkscomputing.com>
+        Description: HTTP API management CLI tool
+         XferKit is a powerful command-line tool for managing HTTP APIs,
+         workspaces, and executing JavaScript automation scripts.
+        EOF
+
+        # Create copyright file
+        cat > package/usr/share/doc/xferkit/copyright << EOF
+        Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+        Upstream-Name: XferKit
+        Source: https://github.com/${{ github.repository }}
+
+        Files: *
+        Copyright: $(date +%Y) Parks Computing
+        License: MIT
+        EOF
+
+        # Build the DEB package
+        dpkg-deb --build package xk-${{ needs.get-version.outputs.version }}-linux-x64.deb
+
+    # macOS PKG Installer
+    - name: Create macOS PKG Installer
+      if: matrix.target == 'macos-x64'
+      run: |
+        # Create package directory structure
+        mkdir -p package-root/usr/local/bin
+
+        # Copy binary
+        cp xk-${{ matrix.target }}/xk package-root/usr/local/bin/
+        chmod +x package-root/usr/local/bin/xk
+
+        # Create component package
+        pkgbuild --root package-root \
+                 --identifier com.parkscomputing.xferkit \
+                 --version ${{ needs.get-version.outputs.version }} \
+                 --install-location / \
+                 xk-component.pkg
+
+        # Create distribution XML
+        cat > distribution.xml << EOF
+        <?xml version="1.0" encoding="utf-8"?>
+        <installer-gui-script minSpecVersion="1">
+          <title>XferKit ${{ needs.get-version.outputs.version }}</title>
+          <organization>com.parkscomputing</organization>
+          <domains enable_localSystem="true"/>
+          <options customize="never" require-scripts="false"/>
+          <choices-outline>
+            <line choice="default">
+              <line choice="com.parkscomputing.xferkit"/>
+            </line>
+          </choices-outline>
+          <choice id="default"/>
+          <choice id="com.parkscomputing.xferkit" visible="false">
+            <pkg-ref id="com.parkscomputing.xferkit"/>
+          </choice>
+          <pkg-ref id="com.parkscomputing.xferkit" version="${{ needs.get-version.outputs.version }}" onConclusion="none">xk-component.pkg</pkg-ref>
+        </installer-gui-script>
+        EOF
+
+        # Create final installer package
+        productbuild --distribution distribution.xml \
+                     --package-path . \
+                     xk-${{ needs.get-version.outputs.version }}-macos-x64.pkg
+
+    - name: Upload Installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: installer-${{ matrix.target }}
+        path: |
+          *.msi
+          *.deb
+          *.pkg
+        retention-days: 30
