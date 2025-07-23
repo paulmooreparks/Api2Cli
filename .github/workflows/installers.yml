@@ -112,15 +112,12 @@ jobs:
         # Create WiX source file
         cat > installer.wxs << EOF
         <?xml version="1.0" encoding="UTF-8"?>
-        <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-          <Product Id="*"
-                   Name="XferKit"
+        <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+          <Package Name="XferKit" 
                    Language="1033"
                    Version="${{ needs.get-version.outputs.version }}"
                    Manufacturer="Parks Computing"
                    UpgradeCode="12345678-1234-1234-1234-123456789012">
-
-            <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
 
             <MajorUpgrade DowngradeErrorMessage="A newer version of XferKit is already installed." />
 
@@ -130,23 +127,20 @@ jobs:
               <ComponentGroupRef Id="ProductComponents" />
             </Feature>
 
-            <Directory Id="TARGETDIR" Name="SourceDir">
-              <Directory Id="ProgramFilesFolder">
-                <Directory Id="INSTALLFOLDER" Name="XferKit" />
+            <StandardDirectory Id="ProgramFilesFolder">
+              <Directory Id="INSTALLFOLDER" Name="XferKit">
+                <Component Id="XferKitExecutable">
+                  <File Id="xk_exe" Source="installer/bin/$EXE_NAME" />
+                  <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
+                </Component>
               </Directory>
-              <Directory Id="ProgramMenuFolder">
-                <Directory Id="ApplicationProgramsFolder" Name="XferKit" />
-              </Directory>
-            </Directory>
+            </StandardDirectory>
 
-            <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-              <Component Id="XferKitExecutable">
-                <File Id="xk_exe" Source="installer/bin/$EXE_NAME" KeyPath="yes" />
-                <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
-              </Component>
+            <ComponentGroup Id="ProductComponents">
+              <ComponentRef Id="XferKitExecutable" />
             </ComponentGroup>
 
-          </Product>
+          </Package>
         </Wix>
         EOF
 
