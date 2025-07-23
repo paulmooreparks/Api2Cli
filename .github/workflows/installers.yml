@@ -54,39 +54,39 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Download Release Assets
+    - name: Build Application
       run: |
-        # Download the built release for this platform
+        # Restore and build the application for this platform
         VERSION="${{ needs.get-version.outputs.version }}"
 
-        # Get the latest release
-        RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                     "https://api.github.com/repos/${{ github.repository }}/releases/latest" | \
-                     jq -r '.id')
-
-        # Download the appropriate asset
+        # Determine the runtime identifier
         if [[ "${{ matrix.target }}" == "windows-x64" ]]; then
-          ASSET_NAME="xk-windows-x64.zip"
+          RUNTIME_ID="win-x64"
         elif [[ "${{ matrix.target }}" == "linux-x64" ]]; then
-          ASSET_NAME="xk-linux-x64.tar.gz"
+          RUNTIME_ID="linux-x64"
         else
-          ASSET_NAME="xk-macos-x64.tar.gz"
+          RUNTIME_ID="osx-x64"
         fi
 
-        curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-             -H "Accept: application/octet-stream" \
-             "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets" | \
-             jq -r ".[] | select(.name==\"$ASSET_NAME\") | .url" | \
-             xargs curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                       -H "Accept: application/octet-stream" \
-                       -o "$ASSET_NAME"
+        echo "Building for runtime: $RUNTIME_ID with version: $VERSION"
 
-        # Extract the downloaded asset
-        if [[ "${{ matrix.target }}" == "windows-x64" ]]; then
-          unzip "$ASSET_NAME"
-        else
-          tar -xzf "$ASSET_NAME"
-        fi
+        # Restore dependencies
+        dotnet restore XferKit.sln
+
+        # Publish the application
+        dotnet publish xk/xk.csproj \
+          --configuration Release \
+          --runtime $RUNTIME_ID \
+          --self-contained false \
+          --output ./publish \
+          /p:Version=$VERSION
+
+        # Create target directory structure
+        mkdir -p xk-${{ matrix.target }}
+        cp -r ./publish/* xk-${{ matrix.target }}/
+
+        echo "Build completed for ${{ matrix.target }}"
+        ls -la xk-${{ matrix.target }}/
 
     # Windows MSI Installer
     - name: Create Windows MSI Installer
@@ -99,8 +99,16 @@ jobs:
         mkdir -p installer/bin
         cp -r xk-${{ matrix.target }}/* installer/bin/
 
+        # Find the correct executable name
+        if [ -f "installer/bin/xk.exe" ]; then
+          EXE_NAME="xk.exe"
+        else
+          EXE_NAME="xk"
+        fi
+        echo "Using executable: $EXE_NAME"
+
         # Create WiX source file
-        cat > installer.wxs << 'EOF'
+        cat > installer.wxs << EOF
         <?xml version="1.0" encoding="UTF-8"?>
         <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
           <Product Id="*"
@@ -131,7 +139,7 @@ jobs:
 
             <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
               <Component Id="XferKitExecutable">
-                <File Id="xk.exe" Source="installer/bin/xk.exe" KeyPath="yes" />
+                <File Id="xk_exe" Source="installer/bin/$EXE_NAME" KeyPath="yes" />
                 <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
               </Component>
             </ComponentGroup>
@@ -152,8 +160,16 @@ jobs:
         mkdir -p package/usr/local/bin
         mkdir -p package/usr/share/doc/xferkit
 
-        # Copy binary
-        cp xk-${{ matrix.target }}/xk package/usr/local/bin/
+        # Find and copy binary
+        if [ -f "xk-${{ matrix.target }}/xk" ]; then
+          cp xk-${{ matrix.target }}/xk package/usr/local/bin/
+        elif [ -f "xk-${{ matrix.target }}/xk.exe" ]; then
+          cp xk-${{ matrix.target }}/xk.exe package/usr/local/bin/xk
+        else
+          echo "Error: Could not find xk executable"
+          ls -la xk-${{ matrix.target }}/
+          exit 1
+        fi
         chmod +x package/usr/local/bin/xk
 
         # Create control file
@@ -190,8 +206,16 @@ jobs:
         # Create package directory structure
         mkdir -p package-root/usr/local/bin
 
-        # Copy binary
-        cp xk-${{ matrix.target }}/xk package-root/usr/local/bin/
+        # Find and copy binary
+        if [ -f "xk-${{ matrix.target }}/xk" ]; then
+          cp xk-${{ matrix.target }}/xk package-root/usr/local/bin/
+        elif [ -f "xk-${{ matrix.target }}/xk.exe" ]; then
+          cp xk-${{ matrix.target }}/xk.exe package-root/usr/local/bin/xk
+        else
+          echo "Error: Could not find xk executable"
+          ls -la xk-${{ matrix.target }}/
+          exit 1
+        fi
         chmod +x package-root/usr/local/bin/xk
 
         # Create component package
