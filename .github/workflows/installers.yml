@@ -80,7 +80,7 @@ jobs:
           --runtime $RUNTIME_ID \
           --self-contained false \
           --output ./publish \
-          /p:Version=$VERSION
+          -p:Version=$VERSION
 
         # Create target directory structure
         mkdir -p xk-${{ matrix.target }}
