@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   version-and-build:
     name: Version, Build and Test
@@ -71,7 +75,7 @@ jobs:
           echo "No changes to commit"
         else
           git commit -m "Auto-increment version to ${{ steps.version.outputs.version }} [skip ci]"
-          git push
+          git push origin HEAD:main
         fi
 
     - name: Create version tag (main branch only)
