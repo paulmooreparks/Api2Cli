@@ -211,7 +211,7 @@ jobs:
         Section: utils
         Priority: optional
         Architecture: amd64
-        Maintainer: Parks Computing <support@parkscomputing.com>
+        Maintainer: Parks Computing <paul@parkscomputing.com>
         Description: XferKit - API Management CLI Tool.
         EOF
         dpkg-deb --build debian "./Output/XferKit-installer-linux-x64.deb"
