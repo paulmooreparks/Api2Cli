@@ -11,9 +11,8 @@ This repository includes automated GitHub Actions workflows for building, versio
 - Updates project file with new version
 - Creates version tags for main branch pushes
 - Builds XferKit on Ubuntu, Windows, and macOS
-- Runs tests (if any exist)
-- Creates build artifacts for each platform
-- **Automatically triggers release creation for main branch pushes**
+- Runs tests and creates build artifacts
+- **Provides guidance for manual release creation**
 
 **Versioning Strategy**:
 - Main branch: `MAJOR.MINOR.BUILD_NUMBER` (e.g., `0.3.45`)
@@ -21,9 +20,7 @@ This repository includes automated GitHub Actions workflows for building, versio
 
 ## 🚀 Unified Release Creation - `release.yml`
 
-**Trigger**:
-- Automatically triggered after successful auto-version on main branch
-- Manual workflow dispatch (Actions tab → "Create Release with Installers" → "Run workflow")
+**Trigger**: Manual workflow dispatch only (Actions tab → "Create Release with Installers" → "Run workflow")
 
 **Manual Input Options**:
 - `version`: Release version number (leave empty to use latest auto-generated version)
@@ -47,24 +44,15 @@ This repository includes automated GitHub Actions workflows for building, versio
 - `xk-VERSION-linux-x64.deb` - Debian/Ubuntu package
 - `xk-VERSION-macos-x64.pkg` - macOS installer package
 
-**Output Files**:
-- `xk-windows-x64.msi` - Windows MSI installer
-- `xk-linux-x64.deb` - Linux Debian package
-- `xk-macos-x64.pkg` - macOS installer package
-
 ## 🎯 How to Use
 
-### Automatic Process (Recommended)
+### Standard Workflow (Recommended)
 1. **Develop**: Make your changes and commit to any branch
 2. **Merge**: Create a pull request and merge to `main` branch
-3. **Auto-magic**: The system automatically:
-   - Increments the version number
-   - Builds cross-platform
-   - Creates and publishes a complete release with both portable archives and installers
+3. **Auto-Version**: The system automatically increments the version number
+4. **Manual Release**: When ready for release, manually trigger the "Create Release with Installers" workflow
 
-### Manual Release (Optional)
-If you need to create a release manually or with a specific version:
-
+### Manual Release Process
 1. Go to your repository on GitHub
 2. Click "Actions" tab
 3. Click "Create Release with Installers" workflow
@@ -73,7 +61,17 @@ If you need to create a release manually or with a specific version:
 6. Choose if it's a pre-release
 7. Click "Run workflow"
 
-## 📋 Requirements
+## 📋 Workflow Files
+
+### Active Workflows:
+- `auto-version.yml` - Auto-versioning and CI builds
+- `release.yml` - Unified release creation with installers
+
+### Removed/Empty Workflows:
+- ~~`ci.yml`~~ - Consolidated into auto-version workflow
+- ~~`installers.yml`~~ - Consolidated into release workflow
+
+## 🔧 Technical Details
 
 The workflows use:
 - .NET 8.0 SDK
@@ -81,8 +79,6 @@ The workflows use:
 - Self-contained publishing with trimming
 - Cross-platform compatibility
 - WiX Toolset 4.0.4 for Windows MSI creation
-
-## 🔧 Customization
 
 You can modify the workflows by editing the files in `.github/workflows/`:
 - `auto-version.yml` - Auto-versioning and CI builds
@@ -92,8 +88,9 @@ The workflows are configured for the `xk` project as the main executable, but ca
 
 ## 🚀 Benefits of This Setup
 
-- **Fully Automated**: Push to main → automatic version increment → automatic release
+- **Clean Separation**: Auto-versioning happens automatically, releases are intentional
 - **No Duplication**: Single workflow creates both portable archives and installers
 - **Cross-Platform**: Windows (MSI), Linux (DEB), macOS (PKG) installers
-- **Flexible**: Manual override available when needed
+- **Full Control**: Manual release creation when you're ready
 - **Professional**: Semantic versioning with proper release notes
+- **No Permission Issues**: Workflows don't try to trigger each other

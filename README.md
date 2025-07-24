@@ -128,60 +128,312 @@ xk myapi getUser --baseurl https://api.example.com
 
 ### Workspace Configuration (`~/.xk/workspaces.xfer`)
 
-Workspaces are defined using the XferLang configuration language:
+Workspaces are defined using the XferLang configuration language. Here's a realistic example showing enterprise-grade patterns:
 
 ```xfer
 {
+    // Global initialization script with .NET CLR integration
+    initScript <'
+        let clr = host.lib('mscorlib', 'System', 'System.Core');
+        let Environment = clr.System.Environment;
+        let Dns = clr.System.Net.Dns;
+        let AddressFamily = clr.System.Net.Sockets.AddressFamily;
+
+        // Global utility functions
+        function formatJson(rawJson) {
+            let obj = JSON.parse(rawJson);
+            return JSON.stringify(obj, null, 2);
+        }
+
+        function isApiSuccess(httpStatus, apiError) {
+            return httpStatus === 200 && apiError?.code === "200";
+        }
+
+        // Auto-detect local IP for development
+        function getLocalIpAddress() {
+            let hostEntry = Dns.GetHostEntry(Dns.GetHostName());
+            for (let i = 0; i < hostEntry.AddressList.Length; i++) {
+                let ip = hostEntry.AddressList.GetValue(i);
+                if (ip.AddressFamily.Equals(AddressFamily.InterNetwork)) {
+                    return ip.ToString();
+                }
+            }
+            throw new Error("No IPv4 address found!");
+        }
+
+        let localIp = getLocalIpAddress();
+        Environment.SetEnvironmentVariable("LOCAL_IP", localIp);
+    '>
+
+    // Global response formatting
+    postResponse <'
+        let formattedContent = formatJson(request.response.body);
+        return formattedContent;
+    '>
+
     properties {
-        apiKey "your-api-key"
-        baseUrl "https://api.example.com"
+        hideReplMessages ~true
+        defaultTimeout 30000
     }
 
     workspaces {
-        myapi {
-            description "Example API workspace"
-            baseUrl <'$baseUrl'>
+        // Base workspace with common patterns
+        apiBase {
+            isHidden ~true
+            description "Base workspace for API environments"
 
-            requests {
-                getUsers {
-                    method "GET"
-                    endpoint "/users"
-                    headers {
-                        Authorization <'Bearer $apiKey'>
-                        Content-Type "application/json"
+            properties {
+                tokenName "API_TOKEN"
+                region "us-east-1"
+            }
+
+            // Workspace initialization
+            initScript <'
+                if (workspace.tokenName != null) {
+                    let token = xk.store.get(workspace.tokenName);
+                    if (token) {
+                        Environment.SetEnvironmentVariable(workspace.tokenName, token);
                     }
-                    description "Retrieve all users"
+                }
+            '>
+
+            // Common authentication flow
+            scripts {
+                login {
+                    description "Authenticate and store token"
+                    script <'
+                        const response = workspace.post_Auth_Login.execute();
+                        const status = workspace.post_Auth_Login.response.statusCode ?? 0;
+                        const data = response ? JSON.parse(response) : null;
+
+                        if (!isApiSuccess(status, data?.error)) {
+                            console.error(`Login failed: ${status} - ${data?.error?.message ?? response}`);
+                            return null;
+                        }
+
+                        const token = data.data?.access_token;
+                        if (!token) {
+                            console.error("No access token received");
+                            return null;
+                        }
+
+                        // Store token for future requests
+                        const tokenName = workspace.tokenName ?? "API_TOKEN";
+                        Environment.SetEnvironmentVariable(tokenName, token);
+                        xk.store.set(tokenName, token);
+
+                        console.log("✅ Authentication successful");
+                        return token;
+                    '>
                 }
 
-                createUser {
-                    method "POST"
-                    endpoint "/users"
-                    headers {
-                        Authorization <'Bearer $apiKey'>
-                        Content-Type "application/json"
-                    }
+                getResourceById {
+                    description "Get a resource by ID with error handling"
                     arguments {
-                        userData {
-                            type "string"
-                            description "User data as JSON"
-                        }
+                        id { type "number" description "Resource ID" }
+                        includeDetails { type "boolean" description "Include detailed information" }
                     }
-                    description "Create a new user"
+                    script <'
+                        try {
+                            const content = workspace.get_Resource_Details.execute(id, includeDetails);
+                            const parsed = JSON.parse(content);
+
+                            if (parsed.data) {
+                                return formatJson(JSON.stringify(parsed.data));
+                            } else {
+                                throw new Error(`Resource ${id} not found`);
+                            }
+                        } catch (error) {
+                            console.error(`Error fetching resource ${id}: ${error.message}`);
+                            return null;
+                        }
+                    '>
+                }
+
+                uploadFile {
+                    description "Upload file with progress tracking"
+                    arguments {
+                        filePath { type "string" description "Path to file to upload" }
+                        resourceType { type "string" description "Type of resource" }
+                    }
+                    script <'
+                        console.log(`📤 Uploading ${filePath}...`);
+
+                        let fileContent;
+                        if (filePath.endsWith('.json')) {
+                            fileContent = xk.fileSystem.readText(filePath);
+                        } else {
+                            fileContent = xk.fileSystem.readBytes(filePath);
+                        }
+
+                        const result = workspace.post_Upload.execute(fileContent, resourceType);
+                        console.log(`✅ Upload completed: ${result}`);
+                        return result;
+                    '>
                 }
             }
 
-            scripts {
-                processResponse {
-                    description "Process API responses"
-                    script <'
-                        function processResponse(response) {
-                            if (response.statusCode === 200) {
-                                console.log("Success!");
-                                return JSON.stringify(JSON.parse(response.content), null, 2);
+            // Global pre-request authentication
+            preRequest <'
+                let token = xk.store.get(workspace.tokenName);
+                if (token) {
+                    request.headers["Authorization"] = "Bearer " + token;
+                }
+                request.headers["Content-Type"] = "application/json";
+                request.headers["Accept"] = "application/json";
+                request.headers["User-Agent"] = "XferKit/1.0";
+            '>
+
+            requests {
+                post_Auth_Login {
+                    description "Authenticate with username/password"
+                    endpoint "/auth/login"
+                    method "POST"
+                    payload <'{
+                        "username": "{{[env]::API_USERNAME}}",
+                        "password": "{{[env]::API_PASSWORD}}"
+                    }'>
+                }
+
+                get_Resource_Details {
+                    description "Get detailed resource information"
+                    endpoint "/api/v2/resources/{{[arg]::id}}"
+                    method "GET"
+
+                    arguments {
+                        id { type "number" description "Resource ID" }
+                        includeDetails { type "boolean" description "Include details" }
+                    }
+
+                    parameters (
+                        'include_details={{[arg]::includeDetails::false}}'
+                        'format=json'
+                    )
+
+                    postResponse <'
+                        let content = request.response.body;
+                        if (request.response.statusCode === 200) {
+                            let data = JSON.parse(content);
+                            if (data.data && data.data.metadata) {
+                                // Store metadata for later use
+                                xk.store.set("lastResourceMeta", data.data.metadata);
                             }
-                            return "Request failed: " + response.statusCode;
                         }
+                        return nextHandler();
                     '>
+                }
+
+                post_Upload {
+                    description "Upload file or data"
+                    endpoint "/api/v2/upload"
+                    method "POST"
+
+                    arguments {
+                        fileData { type "string" description "File content or data" }
+                        resourceType { type "string" description "Type of resource" }
+                    }
+
+                    payload <'{{[arg]::fileData}}'>
+
+                    preRequest <'
+                        request.headers["Content-Type"] = "multipart/form-data";
+                        request.headers["X-Resource-Type"] = "{{[arg]::resourceType}}";
+                        nextHandler();
+                    '>
+                }
+            }
+        }
+
+        // Development environment
+        development {
+            extend "apiBase"
+            description "Development API environment"
+            baseUrl "http://localhost:3000"
+
+            properties {
+                tokenName "DEV_TOKEN"
+                environment "development"
+            }
+
+            scripts {
+                startLocalServices {
+                    description "Start local development services"
+                    script <'
+                        console.log("🚀 Starting local services...");
+
+                        // Start API server
+                        xk.process.run("npm", ".", "start");
+
+                        // Start database
+                        xk.process.runCommand(false, ".", "docker-compose", "up -d postgres");
+
+                        console.log("✅ Services started");
+                    '>
+                }
+
+                resetDatabase {
+                    description "Reset development database"
+                    script <'
+                        console.log("🔄 Resetting database...");
+                        let result = workspace.post_Admin_Database_Reset.execute();
+                        console.log("✅ Database reset completed");
+                        return result;
+                    '>
+                }
+            }
+
+            requests {
+                post_Admin_Database_Reset {
+                    description "Reset development database"
+                    endpoint "/admin/database/reset"
+                    method "POST"
+                    payload <'{"confirm": true}'>
+                }
+            }
+        }
+
+        // Production environment
+        production {
+            extend "apiBase"
+            description "Production API environment"
+            baseUrl "https://api.company.com"
+
+            properties {
+                tokenName "PROD_TOKEN"
+                environment "production"
+                region "us-west-2"
+            }
+
+            scripts {
+                healthCheck {
+                    description "Check production system health"
+                    script <'
+                        console.log("🏥 Checking system health...");
+
+                        const health = workspace.get_Health.execute();
+                        const status = JSON.parse(health);
+
+                        if (status.status === "healthy") {
+                            console.log("✅ All systems operational");
+                        } else {
+                            console.log("⚠️ System issues detected:");
+                            status.checks.forEach(check => {
+                                if (check.status !== "healthy") {
+                                    console.log(`  ❌ ${check.service}: ${check.message}`);
+                                }
+                            });
+                        }
+
+                        return health;
+                    '>
+                }
+            }
+
+            requests {
+                get_Health {
+                    description "Get system health status"
+                    endpoint "/health"
+                    method "GET"
                 }
             }
         }
@@ -191,72 +443,765 @@ Workspaces are defined using the XferLang configuration language:
 
 ### Environment Variables (`~/.xk/.env`)
 
+The `.env` file contains sensitive configuration that should never be committed to version control:
+
 ```env
-API_KEY=your-secret-key
-BASE_URL=https://api.example.com
-DEBUG=true
+# Authentication credentials for different environments
+API_USERNAME=your-username
+API_PASSWORD=your-secure-password
+
+# Environment-specific tokens (populated by login scripts)
+DEV_TOKEN=
+STAGING_TOKEN=
+PROD_TOKEN=
+
+# Database connections
+DB_CONNECTION_STRING=Server=localhost;Database=myapp;Trusted_Connection=true;
+REDIS_URL=redis://localhost:6379
+
+# External service API keys
+GITHUB_TOKEN=ghp_your_github_personal_access_token
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
+AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+AWS_REGION=us-west-2
+
+# Service endpoints
+PAYMENT_SERVICE_URL=https://payments.internal.company.com
+NOTIFICATION_SERVICE_URL=https://notifications.internal.company.com
+
+# Feature flags
+ENABLE_DEBUG_LOGGING=true
+ENABLE_METRICS=false
+MAX_RETRY_ATTEMPTS=3
+
+# Local development settings
+LOCAL_IP=192.168.1.100
+DEV_PORT=3000
+DEV_SSL_CERT_PATH=/path/to/cert.pem
+DEV_SSL_KEY_PATH=/path/to/key.pem
 ```
 
 ## 🔧 Advanced Usage
 
-### JavaScript Scripting
+### Enterprise JavaScript Scripting
 
-XferKit supports JavaScript for request preprocessing and response handling:
+XferKit's JavaScript engine provides full .NET CLR integration for sophisticated automation:
 
 ```javascript
-// Pre-request script
+// Advanced pre-request script with .NET integration
 function preRequest(headers, parameters, payload, cookies) {
-    headers['X-Timestamp'] = new Date().toISOString();
+    let clr = host.lib('mscorlib', 'System', 'System.Core');
+    let Environment = clr.System.Environment;
+    let DateTime = clr.System.DateTime;
+
+    // Add dynamic timestamps and request IDs
+    headers['X-Timestamp'] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
     headers['X-Request-ID'] = generateUUID();
+    headers['X-Environment'] = Environment.GetEnvironmentVariable("ENVIRONMENT") || "development";
+
+    // Conditional authentication based on environment
+    const env = Environment.GetEnvironmentVariable("ENVIRONMENT");
+    if (env === "production") {
+        headers['X-API-Version'] = "2.0";
+        headers['X-Client-Version'] = "xferkit-1.0";
+    }
+
     return { headers, parameters, payload, cookies };
 }
 
-// Post-response script
+// Complex response processing with error handling
 function postResponse(statusCode, headers, content) {
-    if (statusCode === 200) {
-        const data = JSON.parse(content);
-        xk.store.set('lastUserId', data.id);
-        return formatJson(content);
-    }
-    return `Error: ${statusCode}`;
-}
-```
+    try {
+        if (statusCode >= 200 && statusCode < 300) {
+            const data = JSON.parse(content);
 
-### Parameter Substitution
+            // Extract and store important data for later use
+            if (data.pagination) {
+                xk.store.set('lastPagination', data.pagination);
+            }
 
-Use dynamic placeholders in your configurations:
+            if (data.data && Array.isArray(data.data)) {
+                console.log(`✅ Retrieved ${data.data.length} items`);
+            }
 
-```xfer
-requests {
-    getUser {
-        endpoint "/users/$userId"
-        headers {
-            Authorization <'Bearer $apiKey'>
+            // Auto-retry logic for rate limiting
+            if (statusCode === 429) {
+                const retryAfter = headers['Retry-After'] || 60;
+                console.log(`⏳ Rate limited, retrying in ${retryAfter} seconds...`);
+                // Could implement retry logic here
+            }
+
+            return formatJson(content);
+        } else {
+            console.error(`❌ Request failed: ${statusCode}`);
+
+            // Enhanced error reporting
+            try {
+                const errorData = JSON.parse(content);
+                if (errorData.error) {
+                    console.error(`Error: ${errorData.error.code} - ${errorData.error.message}`);
+                }
+            } catch (e) {
+                console.error(`Raw error: ${content}`);
+            }
+
+            return content;
         }
+    } catch (error) {
+        console.error(`Response processing error: ${error.message}`);
+        return content;
+    }
+}
+
+// Advanced utility functions
+function processFileUpload(filePath, chunkSize = 1024 * 1024) {
+    let clr = host.lib('mscorlib', 'System.IO');
+    let File = clr.System.IO.File;
+    let FileInfo = clr.System.IO.FileInfo;
+
+    if (!File.Exists(filePath)) {
+        throw new Error(`File not found: ${filePath}`);
+    }
+
+    let fileInfo = new FileInfo(filePath);
+    let fileSize = fileInfo.Length;
+
+    console.log(`📁 Processing file: ${filePath} (${fileSize} bytes)`);
+
+    // For large files, implement chunked upload
+    if (fileSize > chunkSize) {
+        console.log("📤 Large file detected, using chunked upload...");
+        return uploadFileInChunks(filePath, chunkSize);
+    } else {
+        return xk.fileSystem.readText(filePath);
     }
 }
 ```
 
-### Workspace Inheritance
+### Multi-Environment Management
 
-Create specialized workspaces based on existing ones:
+Create sophisticated environment hierarchies with inheritance:
 
 ```xfer
 workspaces {
-    production {
-        extend "base"
-        baseUrl "https://api.production.com"
+    // Base configuration
+    microserviceBase {
+        isHidden ~true
+        description "Base configuration for microservice environments"
+
         properties {
-            environment "prod"
+            timeout 30000
+            retryAttempts 3
+            serviceName "user-service"
+        }
+
+        scripts {
+            deployService {
+                description "Deploy service to environment"
+                arguments {
+                    version { type "string" description "Service version to deploy" }
+                    force { type "boolean" description "Force deployment" }
+                }
+                script <'
+                    console.log(`🚀 Deploying ${workspace.serviceName} v${version} to ${workspace.environment}...`);
+
+                    // Pre-deployment health check
+                    const health = workspace.get_Health.execute();
+                    if (!JSON.parse(health).healthy && !force) {
+                        throw new Error("Environment unhealthy, use --force to override");
+                    }
+
+                    // Deployment logic
+                    const result = workspace.post_Deploy.execute(version, workspace.environment);
+                    console.log(`✅ Deployment completed: ${result}`);
+
+                    // Post-deployment verification
+                    setTimeout(() => {
+                        workspace.verifyDeployment(version);
+                    }, 10000);
+
+                    return result;
+                '>
+            }
+
+            rollback {
+                description "Rollback to previous version"
+                script <'
+                    const lastVersion = xk.store.get(`${workspace.serviceName}_last_version`);
+                    if (!lastVersion) {
+                        throw new Error("No previous version found for rollback");
+                    }
+
+                    console.log(`⏪ Rolling back to version ${lastVersion}...`);
+                    return workspace.deployService(lastVersion, true);
+                '>
+            }
+        }
+
+        preRequest <'
+            // Add service metadata to all requests
+            request.headers["X-Service-Name"] = workspace.serviceName;
+            request.headers["X-Environment"] = workspace.environment;
+            request.headers["X-Correlation-ID"] = generateUUID();
+        '>
+    }
+
+    // Development environment
+    dev {
+        extend "microserviceBase"
+        description "Development environment"
+        baseUrl "http://localhost:8080"
+
+        properties {
+            environment "development"
+            debugMode ~true
+        }
+
+        scripts {
+            startLocalStack {
+                description "Start local development stack"
+                script <'
+                    console.log("🔧 Starting local development stack...");
+
+                    // Start database
+                    xk.process.runCommand(false, ".", "docker-compose", "up -d postgres redis");
+
+                    // Wait for services
+                    console.log("⏳ Waiting for services to be ready...");
+                    let attempts = 0;
+                    while (attempts < 30) {
+                        try {
+                            workspace.get_Health.execute();
+                            break;
+                        } catch (e) {
+                            attempts++;
+                            if (attempts >= 30) throw new Error("Services failed to start");
+                            Thread.Sleep(1000);
+                        }
+                    }
+
+                    console.log("✅ Development stack ready");
+                '>
+            }
         }
     }
 
-    staging {
-        extend "base"
-        baseUrl "https://api.staging.com"
+    // Production environment
+    prod {
+        extend "microserviceBase"
+        description "Production environment"
+        baseUrl "https://api.company.com"
+
         properties {
-            environment "staging"
+            environment "production"
+            debugMode ~false
+            requireApproval ~true
         }
+
+        scripts {
+            deployService {
+                description "Deploy service with production safeguards"
+                arguments {
+                    version { type "string" description "Service version to deploy" }
+                    approvalTicket { type "string" description "Approval ticket number" }
+                }
+                script <'
+                    if (workspace.requireApproval && !approvalTicket) {
+                        throw new Error("Production deployment requires approval ticket");
+                    }
+
+                    console.log(`🏭 Production deployment approved: ${approvalTicket}`);
+
+                    // Store current version for rollback
+                    const currentVersion = workspace.getCurrentVersion();
+                    xk.store.set(`${workspace.serviceName}_last_version`, currentVersion);
+
+                    return workspace.deployService(version, false);
+                '>
+            }
+        }
+    }
+}
+```
+
+### Advanced Parameter Substitution
+
+XferKit supports complex parameter replacement patterns:
+
+```xfer
+requests {
+    // Dynamic endpoint construction
+    getUserByContext {
+        endpoint "/api/v2/users/{{[env]::USER_ID}}/{{[arg]::context}}"
+        method "GET"
+
+        arguments {
+            context { type "string" description "User context (profile, settings, activity)" }
+            includeMetadata { type "boolean" description "Include metadata" }
+        }
+
+        parameters (
+            'include_metadata={{[arg]::includeMetadata::false}}'
+            'timestamp={{[script]::Date.now()}}'
+            'environment={{[env]::ENVIRONMENT}}'
+        )
+
+        headers {
+            Authorization <'Bearer {{[store]::API_TOKEN}}'>
+            X-User-Context <'{{[arg]::context}}'>
+            X-Request-Source <'xferkit-{{[env]::USERNAME}}'>
+        }
+    }
+
+    // Conditional payload based on environment
+    createResource {
+        endpoint "/api/v2/resources"
+        method "POST"
+
+        arguments {
+            resourceData { type "string" description "Resource data as JSON" }
+            dryRun { type "boolean" description "Dry run mode" }
+        }
+
+        payload <'
+        {
+            "data": {{[arg]::resourceData}},
+            "metadata": {
+                "created_by": "{{[env]::USERNAME}}",
+                "environment": "{{[env]::ENVIRONMENT}}",
+                "dry_run": {{[arg]::dryRun::false}},
+                "timestamp": "{{[script]::new Date().toISOString()}}"
+            }
+        }'>
+    }
+}
+```
+
+### Workspace Inheritance and Composition
+
+Build complex workspace hierarchies:
+
+```xfer
+workspaces {
+    // Shared authentication workspace
+    authBase {
+        isHidden ~true
+
+        scripts {
+            oauth2Login {
+                description "OAuth2 authentication flow"
+                script <'
+                    const clientId = Environment.GetEnvironmentVariable("OAUTH_CLIENT_ID");
+                    const clientSecret = Environment.GetEnvironmentVariable("OAUTH_CLIENT_SECRET");
+
+                    if (!clientId || !clientSecret) {
+                        throw new Error("OAuth credentials not configured");
+                    }
+
+                    // Exchange credentials for token
+                    const tokenResponse = workspace.post_OAuth_Token.execute(clientId, clientSecret);
+                    const token = JSON.parse(tokenResponse).access_token;
+
+                    xk.store.set("oauth_token", token);
+                    Environment.SetEnvironmentVariable("API_TOKEN", token);
+
+                    return token;
+                '>
+            }
+        }
+    }
+
+    // API client workspace
+    apiClient {
+        extend "authBase"
+        description "Generic API client with authentication"
+
+        preRequest <'
+            let token = xk.store.get("oauth_token");
+            if (!token) {
+                console.log("🔐 No token found, authenticating...");
+                token = workspace.oauth2Login();
+            }
+            request.headers["Authorization"] = `Bearer ${token}`;
+        '>
+    }
+
+    // Specific service workspace
+    userService {
+        extend "apiClient"
+        description "User management service"
+        baseUrl "https://users.api.company.com"
+
+        // Service-specific scripts and requests
+        requests {
+            getAllUsers {
+                endpoint "/users"
+                method "GET"
+
+                postResponse <'
+                    const users = JSON.parse(request.response.body);
+                    console.log(`📊 Found ${users.length} users`);
+
+                    // Store user count for reporting
+                    xk.store.set("last_user_count", users.length);
+
+                    return nextHandler();
+                '>
+            }
+        }
+    }
+}
+```
+
+## 🌟 Real-World Examples
+
+### CI/CD Pipeline Integration
+
+Integrate XferKit into your deployment pipelines:
+
+```bash
+#!/bin/bash
+# deploy.sh - Deployment script using XferKit
+
+echo "🚀 Starting deployment pipeline..."
+
+# Login to API
+xk prod login
+
+# Run health check
+if ! xk prod healthCheck; then
+    echo "❌ Environment unhealthy, aborting deployment"
+    exit 1
+fi
+
+# Deploy with version from CI
+VERSION=${CI_COMMIT_TAG:-"latest"}
+APPROVAL_TICKET=${JIRA_TICKET:-""}
+
+xk prod deployService --version "$VERSION" --approvalTicket "$APPROVAL_TICKET"
+
+# Verify deployment
+sleep 30
+if xk prod verifyDeployment --version "$VERSION"; then
+    echo "✅ Deployment successful"
+    # Notify team
+    xk prod notifyTeam --message "Deployment of $VERSION completed successfully"
+else
+    echo "❌ Deployment verification failed, rolling back..."
+    xk prod rollback
+    exit 1
+fi
+```
+
+### Microservices Testing Automation
+
+Automate complex microservice testing scenarios:
+
+```javascript
+// Global test setup script
+initScript <'
+    let testResults = [];
+    let testStartTime = Date.now();
+
+    function recordTest(testName, success, duration, details) {
+        testResults.push({
+            name: testName,
+            success: success,
+            duration: duration,
+            details: details,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    function generateTestReport() {
+        let totalTests = testResults.length;
+        let passedTests = testResults.filter(t => t.success).length;
+        let failedTests = totalTests - passedTests;
+        let totalDuration = Date.now() - testStartTime;
+
+        console.log(`\n📊 Test Report:`);
+        console.log(`   Total: ${totalTests} | Passed: ${passedTests} | Failed: ${failedTests}`);
+        console.log(`   Duration: ${totalDuration}ms`);
+
+        if (failedTests > 0) {
+            console.log(`\n❌ Failed Tests:`);
+            testResults.filter(t => !t.success).forEach(test => {
+                console.log(`   - ${test.name}: ${test.details}`);
+            });
+        }
+
+        return {
+            total: totalTests,
+            passed: passedTests,
+            failed: failedTests,
+            duration: totalDuration,
+            results: testResults
+        };
+    }
+'>
+
+// Complex integration test
+scripts {
+    runIntegrationTests {
+        description "Run full integration test suite"
+        script <'
+            console.log("🧪 Starting integration test suite...");
+
+            try {
+                // Test 1: User service
+                let startTime = Date.now();
+                let users = workspace.testUserService();
+                recordTest("User Service", true, Date.now() - startTime, `Retrieved ${users.length} users`);
+
+                // Test 2: Authentication flow
+                startTime = Date.now();
+                let authResult = workspace.testAuthFlow();
+                recordTest("Auth Flow", authResult.success, Date.now() - startTime, authResult.message);
+
+                // Test 3: Data consistency
+                startTime = Date.now();
+                let dataCheck = workspace.testDataConsistency();
+                recordTest("Data Consistency", dataCheck.passed, Date.now() - startTime,
+                    `${dataCheck.checks} checks, ${dataCheck.issues} issues`);
+
+                // Test 4: Performance benchmarks
+                startTime = Date.now();
+                let perfTest = workspace.runPerformanceTests();
+                recordTest("Performance", perfTest.acceptable, Date.now() - startTime,
+                    `Avg response: ${perfTest.avgResponseTime}ms`);
+
+            } catch (error) {
+                recordTest("Test Suite", false, Date.now() - testStartTime, error.message);
+            }
+
+            return generateTestReport();
+        '>
+    }
+
+    testUserService {
+        description "Test user service endpoints"
+        script <'
+            let errors = [];
+
+            // Test user creation
+            try {
+                let newUser = workspace.post_CreateUser.execute(JSON.stringify({
+                    name: "Test User",
+                    email: "test@example.com",
+                    role: "user"
+                }));
+
+                let userData = JSON.parse(newUser);
+                if (!userData.id) {
+                    errors.push("User creation failed - no ID returned");
+                }
+
+                // Store for cleanup
+                xk.store.set("testUserId", userData.id);
+
+            } catch (e) {
+                errors.push(`User creation error: ${e.message}`);
+            }
+
+            // Test user retrieval
+            try {
+                let userId = xk.store.get("testUserId");
+                if (userId) {
+                    let user = workspace.get_UserById.execute(userId);
+                    let userData = JSON.parse(user);
+
+                    if (userData.email !== "test@example.com") {
+                        errors.push("User data mismatch");
+                    }
+                }
+            } catch (e) {
+                errors.push(`User retrieval error: ${e.message}`);
+            }
+
+            // Cleanup test user
+            try {
+                let userId = xk.store.get("testUserId");
+                if (userId) {
+                    workspace.delete_User.execute(userId);
+                }
+            } catch (e) {
+                console.warn(`Cleanup warning: ${e.message}`);
+            }
+
+            if (errors.length > 0) {
+                throw new Error(errors.join("; "));
+            }
+
+            return { success: true, message: "All user service tests passed" };
+        '>
+    }
+}
+```
+
+### Development Workflow Automation
+
+Streamline your development workflow:
+
+```xfer
+workspaces {
+    devWorkflow {
+        description "Complete development workflow automation"
+        baseUrl "http://localhost:3000"
+
+        properties {
+            gitBranch "feature/new-api"
+            dockerComposePath "./docker"
+        }
+
+        scripts {
+            startDay {
+                description "Start development session"
+                script <'
+                    console.log("🌅 Starting development session...");
+
+                    // 1. Check git status
+                    let gitStatus = xk.process.runCommand(true, ".", "git", "status --porcelain");
+                    if (gitStatus.trim()) {
+                        console.log("⚠️ Uncommitted changes detected");
+                    }
+
+                    // 2. Pull latest changes
+                    console.log("📥 Pulling latest changes...");
+                    xk.process.runCommand(false, ".", "git", "pull origin main");
+
+                    // 3. Start services
+                    console.log("🐳 Starting Docker services...");
+                    xk.process.runCommand(false, workspace.dockerComposePath, "docker-compose", "up -d");
+
+                    // 4. Run database migrations
+                    console.log("🗄️ Running migrations...");
+                    setTimeout(() => workspace.runMigrations(), 10000);
+
+                    // 5. Start API in watch mode
+                    console.log("👀 Starting API in watch mode...");
+                    xk.process.run("npm", ".", "run", "dev");
+
+                    console.log("✅ Development environment ready!");
+                '>
+            }
+
+            endDay {
+                description "Clean up development session"
+                script <'
+                    console.log("🌙 Ending development session...");
+
+                    // 1. Stop services
+                    xk.process.runCommand(false, workspace.dockerComposePath, "docker-compose", "down");
+
+                    // 2. Show git status
+                    let status = xk.process.runCommand(true, ".", "git", "status");
+                    console.log("📊 Git Status:\n" + status);
+
+                    // 3. Generate daily report
+                    workspace.generateDailyReport();
+
+                    console.log("✅ Session ended cleanly");
+                '>
+            }
+
+            runTests {
+                description "Run comprehensive test suite"
+                arguments {
+                    coverage { type "boolean" description "Generate coverage report" }
+                    integration { type "boolean" description "Include integration tests" }
+                }
+                script <'
+                    console.log("🧪 Running test suite...");
+
+                    let testCommands = ["npm test"];
+
+                    if (coverage) {
+                        testCommands.push("npm run test:coverage");
+                    }
+
+                    if (integration) {
+                        testCommands.push("npm run test:integration");
+                    }
+
+                    let allPassed = true;
+                    for (let cmd of testCommands) {
+                        try {
+                            let result = xk.process.runCommand(true, ".", "pwsh", `-Command ${cmd}`);
+                            console.log(`✅ ${cmd} completed`);
+                        } catch (e) {
+                            console.log(`❌ ${cmd} failed: ${e.message}`);
+                            allPassed = false;
+                        }
+                    }
+
+                    if (allPassed) {
+                        console.log("🎉 All tests passed!");
+                        // Could trigger deployment pipeline here
+                        // workspace.triggerDeployment();
+                    } else {
+                        console.log("❌ Some tests failed");
+                    }
+
+                    return allPassed;
+                '>
+            }
+        }
+    }
+}
+```
+
+### API Documentation Generation
+
+Auto-generate API documentation from your XferKit workspace:
+
+```javascript
+scripts {
+    generateApiDocs {
+        description "Generate API documentation from workspace"
+        script <'
+            console.log("📚 Generating API documentation...");
+
+            let docs = {
+                title: "API Documentation",
+                version: "1.0.0",
+                baseUrl: workspace.baseUrl,
+                endpoints: []
+            };
+
+            // Iterate through all requests in workspace
+            for (let requestName in workspace.requests) {
+                let request = workspace.requests[requestName];
+
+                let endpoint = {
+                    name: requestName,
+                    method: request.method,
+                    path: request.endpoint,
+                    description: request.description || "",
+                    parameters: request.arguments || {},
+                    exampleResponse: null
+                };
+
+                // Try to get example response
+                try {
+                    if (request.method === "GET") {
+                        let response = request.execute();
+                        endpoint.exampleResponse = JSON.parse(response);
+                    }
+                } catch (e) {
+                    console.log(`⚠️ Could not get example for ${requestName}: ${e.message}`);
+                }
+
+                docs.endpoints.push(endpoint);
+            }
+
+            // Save documentation
+            let docsJson = JSON.stringify(docs, null, 2);
+            xk.fileSystem.writeText("./docs/api-docs.json", docsJson);
+
+            console.log(`✅ Documentation generated for ${docs.endpoints.length} endpoints`);
+            return docs;
+        '>
     }
 }
 ```

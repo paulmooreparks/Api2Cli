@@ -25,6 +25,7 @@ jobs:
 
     - name: Get Version
       id: version
+      shell: bash
       run: |
         if [[ -n "${{ github.event.inputs.version }}" ]]; then
           # Use manually provided version
@@ -100,7 +101,7 @@ jobs:
 
     - name: Create portable archive (Windows)
       if: matrix.archive_type == 'zip'
-      shell: pwsh
+      shell: pwsh  # Keep this as PowerShell
       run: |
         cd ./release/${{ matrix.target }}
         Compress-Archive -Path * -DestinationPath ../../xk-${{ matrix.target }}.zip

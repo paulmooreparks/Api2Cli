@@ -25,6 +25,7 @@ jobs:
 
     - name: Get Version
       id: version
+      shell: bash  # Add this line
       run: |
         if [[ -n "${{ github.event.inputs.version }}" ]]; then
           # Use manually provided version

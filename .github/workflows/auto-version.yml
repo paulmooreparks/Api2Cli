@@ -31,6 +31,7 @@ jobs:
 
     - name: Calculate Version
       id: version
+      shell: bash
       run: |
         # Get the current version from the project file
         CURRENT_VERSION=$(grep -oP '<Version>\K[^<]+' xk/xk.csproj)
@@ -67,6 +68,7 @@ jobs:
 
     - name: Commit version change (main branch only)
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      shell: bash
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
@@ -80,21 +82,34 @@ jobs:
 
     - name: Create version tag (main branch only)
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      shell: bash
       run: |
-        git tag "v${{ steps.version.outputs.version }}"
-        git push origin "v${{ steps.version.outputs.version }}"
+        TAG_NAME="v${{ steps.version.outputs.version }}"
+
+        # Check if tag already exists
+        if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+          echo "Tag $TAG_NAME already exists, skipping tag creation"
+        else
+          echo "Creating tag $TAG_NAME"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
+        fi
 
     - name: Restore dependencies
+      shell: bash
       run: dotnet restore XferKit.sln
 
     - name: Build solution
-      run: dotnet build XferKit.sln --configuration Release --no-restore /p:Version=${{ steps.version.outputs.version }}
+      shell: bash
+      run: dotnet build XferKit.sln --configuration Release --no-restore -p:Version=${{ steps.version.outputs.version }}
 
     - name: Run tests (if any)
+      shell: bash
       run: dotnet test XferKit.sln --configuration Release --no-build --verbosity normal || echo "No tests found"
 
     - name: Publish artifacts
-      run: dotnet publish xk/xk.csproj --configuration Release --output ./publish --no-build /p:Version=${{ steps.version.outputs.version }}
+      shell: bash
+      run: dotnet publish xk/xk.csproj --configuration Release --output ./publish --no-build -p:Version=${{ steps.version.outputs.version }}
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -102,6 +117,18 @@ jobs:
         name: xk-build-${{ steps.version.outputs.version }}
         path: ./publish
         retention-days: 30
+
+    - name: Show Release Instructions
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      shell: bash
+      run: |
+        echo "✅ Version ${{ steps.version.outputs.version }} created successfully!"
+        echo ""
+        echo "🚀 To create a release:"
+        echo "1. Go to: https://github.com/${{ github.repository }}/actions/workflows/release.yml"
+        echo "2. Click 'Run workflow'"
+        echo "3. Leave version empty to use auto-generated version: ${{ steps.version.outputs.version }}"
+        echo "4. Choose prerelease setting and click 'Run workflow'"
 
   # Cross-platform builds for main branch only
   cross-platform-build:
@@ -123,13 +150,16 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Restore dependencies
+      shell: bash
       run: dotnet restore XferKit.sln
 
     - name: Build solution
-      run: dotnet build XferKit.sln --configuration Release --no-restore /p:Version=${{ needs.version-and-build.outputs.version }}
+      shell: bash
+      run: dotnet build XferKit.sln --configuration Release --no-restore -p:Version=${{ needs.version-and-build.outputs.version }}
 
     - name: Publish for platform
-      run: dotnet publish xk/xk.csproj --configuration Release --output ./publish/${{ matrix.os }} /p:Version=${{ needs.version-and-build.outputs.version }}
+      shell: bash
+      run: dotnet publish xk/xk.csproj --configuration Release --output ./publish/${{ matrix.os }} -p:Version=${{ needs.version-and-build.outputs.version }}
 
     - name: Upload platform artifacts
       uses: actions/upload-artifact@v4
@@ -137,28 +167,3 @@ jobs:
         name: xk-${{ matrix.os }}-${{ needs.version-and-build.outputs.version }}
         path: ./publish/${{ matrix.os }}
         retention-days: 30
-
-  # Trigger release workflow after successful version increment on main
-  trigger-release:
-    name: Trigger Release Creation
-    needs: [version-and-build, cross-platform-build]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Trigger Release Workflow
-      uses: actions/github-script@v7
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          await github.rest.actions.createWorkflowDispatch({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            workflow_id: 'release.yml',
-            ref: 'main',
-            inputs: {
-              version: '${{ needs.version-and-build.outputs.version }}',
-              prerelease: 'false'
-            }
-          });
-          console.log('Triggered release workflow for version ${{ needs.version-and-build.outputs.version }}');
