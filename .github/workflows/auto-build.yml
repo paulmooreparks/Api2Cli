@@ -136,6 +136,32 @@ jobs:
         & "C:\WiX\bin\candle.exe" Product.wxs
         & "C:\WiX\bin\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi"
 
+    - name: Debug MSI Creation
+      shell: pwsh
+      run: |
+        # Log the contents of the publish directory
+        Get-ChildItem -Path "./publish" -Recurse | Format-List
+
+        # Log the contents of the harvested.wxs file
+        if (Test-Path -Path "harvested.wxs") {
+          Get-Content -Path "harvested.wxs" | Out-File -FilePath "harvested.log"
+        } else {
+          throw "harvested.wxs file was not created."
+        }
+
+        # Log the contents of the Product.wxs file
+        if (Test-Path -Path "Product.wxs") {
+          Get-Content -Path "Product.wxs" | Out-File -FilePath "product.log"
+        } else {
+          throw "Product.wxs file was not created."
+        }
+
+        # Run candle.exe and log output
+        & "C:\WiX\bin\candle.exe" Product.wxs | Out-File -FilePath "candle.log"
+
+        # Run light.exe and log output
+        & "C:\WiX\bin\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi" | Out-File -FilePath "light.log"
+
     - name: Upload Windows Installer
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
