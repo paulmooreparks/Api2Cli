@@ -82,11 +82,17 @@ jobs:
             -o publish
 
       # Windows installer (Inno Setup)
+      - name: Debug list repo tree
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          echo ">> Listing files in repo:"
+          ls -R .
       - name: Compile Inno Setup Installer
         if: matrix.os == 'windows-latest'
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.6
         with:
-          filepath: 'installer.iss'
+          path: 'installer.iss'
           options: '/Opublish'
 
       # Linux installer (.deb)
