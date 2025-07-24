@@ -48,7 +48,6 @@
 
 ### Cross-Platform Compatibility
 - **Multi-OS support**: Windows, Linux, and macOS
-- **Portable execution**: No installation required for portable versions
 - **Native installers**: Platform-specific packages available
 
 ### Advanced Configuration
@@ -61,7 +60,7 @@
 - **REPL mode**: Interactive command-line interface
 - **Command-line execution**: Single-command API calls
 - **Input redirection**: Pipe data from other commands
-- **Cross-platform**: Windows, Linux, and macOS support
+- **Scriptable workflows**: Custom scripts for automated tasks
 
 ## 📦 Installation
 
@@ -69,43 +68,28 @@
 
 Download the latest release from [GitHub Releases](https://github.com/paulmooreparks/XferKit/releases) for your platform:
 
-#### Portable (No Installation Required)
-- **Windows**: `xk-windows-x64.zip` - Extract and run
-- **Linux**: `xk-linux-x64.tar.gz` - Extract and run
-- **macOS**: `xk-macos-x64.tar.gz` - Extract and run
-
 #### Installers (Automatic PATH Setup)
-- **Windows**: `xk-VERSION-windows-x64.msi` - Windows Installer
-- **Linux**: `xk-VERSION-linux-x64.deb` - Debian Package (`sudo dpkg -i`)
-- **macOS**: `xk-VERSION-macos-x64.pkg` - macOS Package
+- **Windows**: `xk-VERSION-installer-win-x64.exe` - Windows Installer
+- **Linux**: `XferKit-vVERSION-installer-linux-x64.deb` - Debian Package (`sudo dpkg -i`)
+- **macOS**: `XferKit-vVERSION-installer-osx-x64.pkg` - macOS Installer Package
 
 ### Build from Source
-
-```bash
 git clone https://github.com/paulmooreparks/XferKit.git
 cd XferKit
 dotnet build --configuration Release
 dotnet publish xk/xk.csproj --configuration Release --output ./publish
-```
-
 ## 🎯 Quick Start
 
 ### 1. First Run
 
 When you run `xk` for the first time, it creates a `.xk` folder in your home directory with initial configuration files:
-
-```bash
 xk --help
-```
-
 This creates:
 - `~/.xk/workspaces.xfer` - Workspace definitions
 - `~/.xk/.env` - Environment variables
 - `~/.xk/packages/` - NuGet packages storage
 
 ### 2. Basic HTTP Requests
-
-```bash
 # Simple GET request
 xk get https://api.example.com/users
 
@@ -114,11 +98,7 @@ echo '{"name": "John"}' | xk post https://api.example.com/users
 
 # Add headers
 xk get https://api.example.com/users --headers "Authorization: Bearer token"
-```
-
 ### 3. Using Workspaces
-
-```bash
 # List available workspaces
 xk workspace list
 
@@ -127,15 +107,11 @@ xk workspace use myapi
 
 # Execute a request from the workspace
 xk myapi getUser --baseurl https://api.example.com
-```
-
 ## 📖 Configuration
 
 ### Workspace Configuration (`~/.xk/workspaces.xfer`)
 
 Workspaces are defined using the XferLang configuration language. Here's a realistic example showing enterprise-grade patterns:
-
-```xfer
 {
     // Global initialization script with .NET CLR integration
     initScript <'
@@ -444,13 +420,9 @@ Workspaces are defined using the XferLang configuration language. Here's a reali
         }
     }
 }
-```
-
 ### Environment Variables (`~/.xk/.env`)
 
 The `.env` file contains sensitive configuration that should never be committed to version control:
-
-```env
 # Authentication credentials for different environments
 API_USERNAME=your-username
 API_PASSWORD=your-secure-password
@@ -485,15 +457,11 @@ LOCAL_IP=192.168.1.100
 DEV_PORT=3000
 DEV_SSL_CERT_PATH=/path/to/cert.pem
 DEV_SSL_KEY_PATH=/path/to/key.pem
-```
-
 ## 🔧 Advanced Usage
 
 ### Enterprise JavaScript Scripting
 
 XferKit's JavaScript engine provides full .NET CLR integration for sophisticated automation:
-
-```javascript
 // Advanced pre-request script with .NET integration
 function preRequest(headers, parameters, payload, cookies) {
     let clr = host.lib('mscorlib', 'System', 'System.Core');
@@ -582,13 +550,9 @@ function processFileUpload(filePath, chunkSize = 1024 * 1024) {
         return xk.fileSystem.readText(filePath);
     }
 }
-```
-
 ### Multi-Environment Management
 
 Create sophisticated environment hierarchies with inheritance:
-
-```xfer
 workspaces {
     // Base configuration
     microserviceBase {
@@ -728,13 +692,9 @@ workspaces {
         }
     }
 }
-```
-
 ### Advanced Parameter Substitution
 
 XferKit supports complex parameter replacement patterns:
-
-```xfer
 requests {
     // Dynamic endpoint construction
     getUserByContext {
@@ -781,13 +741,9 @@ requests {
         }'>
     }
 }
-```
-
 ### Workspace Inheritance and Composition
 
 Build complex workspace hierarchies:
-
-```xfer
 workspaces {
     // Shared authentication workspace
     authBase {
@@ -857,15 +813,11 @@ workspaces {
         }
     }
 }
-```
-
 ## 🌟 Real-World Examples
 
 ### CI/CD Pipeline Integration
 
 Integrate XferKit into your deployment pipelines:
-
-```bash
 #!/bin/bash
 # deploy.sh - Deployment script using XferKit
 
@@ -897,13 +849,9 @@ else
     xk prod rollback
     exit 1
 fi
-```
-
 ### Microservices Testing Automation
 
 Automate complex microservice testing scenarios:
-
-```javascript
 // Global test setup script
 initScript <'
     let testResults = [];
@@ -1042,13 +990,9 @@ scripts {
         '>
     }
 }
-```
-
 ### Development Workflow Automation
 
 Streamline your development workflow:
-
-```xfer
 workspaces {
     devWorkflow {
         description "Complete development workflow automation"
@@ -1154,13 +1098,9 @@ workspaces {
         }
     }
 }
-```
-
 ### API Documentation Generation
 
 Auto-generate API documentation from your XferKit workspace:
-
-```javascript
 scripts {
     generateApiDocs {
         description "Generate API documentation from workspace"
@@ -1209,13 +1149,9 @@ scripts {
         '>
     }
 }
-```
-
 ## 🛠️ Command Reference
 
 ### Global Commands
-
-```bash
 # Get help
 xk --help
 xk <command> --help
@@ -1225,11 +1161,7 @@ xk --baseurl https://api.example.com <command>
 
 # Use specific workspace file
 xk --workspace /path/to/workspace.xfer <command>
-```
-
 ### HTTP Commands
-
-```bash
 # GET request
 xk get <url> [--headers <headers>] [--parameters <params>]
 
@@ -1247,11 +1179,7 @@ xk delete <url> [--headers <headers>]
 
 # HEAD request
 xk head <url> [--headers <headers>]
-```
-
 ### Workspace Commands
-
-```bash
 # List workspaces
 xk workspace list
 
@@ -1263,18 +1191,12 @@ xk workspace use <name>
 
 # Execute workspace request
 xk <workspace> <request> [options]
-```
-
 ### Scripting Commands
-
-```bash
 # Execute JavaScript
 xk script <code>
 
 # Run workspace script
 xk <workspace> <script> [arguments]
-```
-
 ## 🏗️ Architecture
 
 XferKit is built on .NET 8.0 and consists of several modular components:
@@ -1305,8 +1227,6 @@ Contributions are welcome! Please feel free to submit issues, feature requests, 
 5. Run tests with `dotnet test`
 
 ### Project Structure
-
-```
 XferKit/
 ├── xk/                                    # Main CLI executable
 ├── ParksComputing.XferKit.Api/           # Core API interfaces
@@ -1316,8 +1236,6 @@ XferKit/
 ├── ParksComputing.XferKit.DataStore/     # Data persistence
 ├── ParksComputing.XferKit.Diagnostics/   # Logging and diagnostics
 └── .github/workflows/                    # CI/CD pipelines
-```
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
