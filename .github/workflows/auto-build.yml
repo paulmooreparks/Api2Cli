@@ -179,7 +179,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64
-        path: ./Output/XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
+        path: ./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
 
     - name: Create Linux Debian Package
       if: matrix.os == 'ubuntu-latest'
