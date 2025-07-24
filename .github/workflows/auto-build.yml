@@ -171,6 +171,76 @@ jobs:
         & "C:\WiX\bin\candle.exe" Product.wxs
         & "C:\WiX\bin\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi"
 
+    - name: Validate WiX Toolset Installation
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        # Check if WiX executables exist
+        $wixBinPath = "C:\WiX\bin"
+        $requiredFiles = @("heat.exe", "candle.exe", "light.exe")
+
+        foreach ($file in $requiredFiles) {
+          $filePath = Join-Path -Path $wixBinPath -ChildPath $file
+          if (!(Test-Path -Path $filePath)) {
+            throw "Required WiX executable '$file' not found in $wixBinPath."
+          }
+        }
+
+        Write-Host "WiX Toolset installation validated."
+
+    - name: Validate Publish Directory
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        # Ensure the publish directory exists and is not empty
+        if (!(Test-Path -Path "./publish")) {
+          throw "Publish directory does not exist."
+        }
+
+        if ((Get-ChildItem -Path "./publish" -Recurse | Measure-Object).Count -eq 0) {
+          throw "Publish directory is empty."
+        }
+
+        Write-Host "Publish directory validation passed."
+
+    - name: Log WiX Command Outputs
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        # Log outputs of WiX commands
+        & "C:\WiX\bin\heat.exe" dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs | Out-File -FilePath "heat.log"
+        & "C:\WiX\bin\candle.exe" Product.wxs | Out-File -FilePath "candle.log"
+        & "C:\WiX\bin\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi" | Out-File -FilePath "light.log"
+
+        Write-Host "WiX command outputs logged."
+
+    - name: Validate Generated Files
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        # Check if harvested.wxs and Product.wxs files exist
+        if (!(Test-Path -Path "harvested.wxs")) {
+          throw "harvested.wxs file was not created."
+        }
+
+        if (!(Test-Path -Path "Product.wxs")) {
+          throw "Product.wxs file was not created."
+        }
+
+        Write-Host "Generated files validated."
+
+    - name: Verify MSI Creation
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        # Check if the MSI file was created
+        $msiPath = "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi"
+        if (!(Test-Path -Path $msiPath)) {
+          throw "MSI file was not created."
+        }
+
+        Write-Host "MSI file creation verified."
+
     - name: Debug MSI Creation
       if: matrix.os == 'windows-latest'
       shell: pwsh
