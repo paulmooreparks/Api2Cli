@@ -26,18 +26,23 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Calculate Version
+    - name: Enhanced Version Calculation
       id: set_version
       shell: bash
       run: |
         # Extract current version from the project file
-        CURRENT_VERSION=$(grep -oP '<Version>\K[^<]+' xk/xk.csproj)
+        CURRENT_VERSION=$(grep -oP '<Version>\\K[^<]+' xk/xk.csproj || echo "0.1.0")
+        if [ -z "$CURRENT_VERSION" ]; then
+          echo "Error: Failed to extract version from xk.csproj."
+          exit 1
+        fi
+
         echo "Current version: $CURRENT_VERSION"
 
         # Extract major.minor and calculate build number
         BASE_VERSION=$(echo $CURRENT_VERSION | sed 's/-.*$//')
-        MAJOR_MINOR=$(echo $BASE_VERSION | sed 's/\.[0-9]*$//')
-        COMMIT_COUNT=$(git rev-list --count HEAD)
+        MAJOR_MINOR=$(echo $BASE_VERSION | sed 's/\\.[0-9]*$//')
+        COMMIT_COUNT=$(git rev-list --count HEAD || echo "0")
         NEW_VERSION="${MAJOR_MINOR}.${COMMIT_COUNT}"
 
         echo "New version: $NEW_VERSION"
@@ -61,6 +66,11 @@ jobs:
         dotnet restore XferKit.sln
         dotnet build XferKit.sln --configuration Release --no-restore -p:Version=${{ steps.set_version.outputs.version }}
         dotnet test XferKit.sln --configuration Release --no-build --verbosity normal
+
+    - name: Run Integration Tests
+      shell: bash
+      run: |
+        dotnet test XferKit.sln --configuration Release --no-build --filter "Category=Integration" --verbosity normal
 
   cross-platform-builds:
     name: Build for All Platforms
@@ -94,6 +104,31 @@ jobs:
           --self-contained true \
           --output ./publish \
           -p:Version=${{ needs.auto-build.outputs.version }}
+
+    - name: Validate Build Artifacts
+      shell: bash
+      run: |
+        if [ ! -d "./publish" ]; then
+          echo "Error: Publish directory does not exist."
+          exit 1
+        fi
+
+        if [ -z "$(ls -A ./publish)" ]; then
+          echo "Error: Publish directory is empty."
+          exit 1
+        fi
+
+        echo "Publish directory validation passed."
+
+    - name: Ensure Cross-Platform Consistency
+      shell: bash
+      run: |
+        if [ ! -f "./publish/xk" ]; then
+          echo "Error: Expected output file 'xk' not found in publish directory."
+          exit 1
+        fi
+
+        echo "Cross-platform consistency check passed."
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
@@ -137,6 +172,7 @@ jobs:
         & "C:\WiX\bin\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi"
 
     - name: Debug MSI Creation
+      if: matrix.os == 'windows-latest'
       shell: pwsh
       run: |
         # Log the contents of the publish directory
