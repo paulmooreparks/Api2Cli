@@ -82,11 +82,12 @@ jobs:
             -o publish
 
       # Windows installer (Inno Setup)
-      - name: Package Installer (Windows)
+      - name: Compile Inno Setup Installer
         if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer.iss /Opublish
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.6
+        with:
+          filepath: 'installer.iss'
+          options: '/Opublish'
 
       # Linux installer (.deb)
       - name: Package Installer (Linux)
@@ -153,13 +154,12 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Windows installer
-        uses: actions/upload-release-asset@v1
+      - name: Upload Windows Installer
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/XferKit-installer-win-x64.exe
-          asset_name: XferKit-installer-win-x64.exe
-          asset_content_type: application/octet-stream
+          name: XferKit-installer-win-x64.exe
+          path: publish/XferKit-installer-win-x64.exe
 
       - name: Upload Linux installer
         uses: actions/upload-release-asset@v1
