@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>ParksComputing.XferKit.Cli</RootNamespace>
-    <Version>0.3.52</Version>
+    <Version>0.3.55</Version>
   </PropertyGroup>
 
   <ItemGroup>
