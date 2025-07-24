@@ -289,6 +289,13 @@ jobs:
         # Run light.exe and log output
         & "C:\\WiX\\bin\\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi" | Out-File -FilePath "light.log"
 
+        # Log the final MSI file
+        if (Test-Path -Path "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi") {
+          Write-Host "MSI file created successfully."
+        } else {
+          throw "MSI file was not created."
+        }
+
     - name: Debug WiX Installation and Commands
       if: matrix.os == 'windows-latest'
       shell: pwsh
