@@ -137,216 +137,49 @@ jobs:
         path: ./publish/
 
     # Installer creation and upload for each platform
-    - name: Install WiX Toolset
+    - name: Install Inno Setup
       if: matrix.os == 'windows-latest'
       shell: pwsh
       run: |
-        # Download and install WiX Toolset
-        Invoke-WebRequest -Uri "https://wixtoolset.org/releases/v3.11.2.4516/wix311-binaries.zip" -OutFile "wix311-binaries.zip"
-        if (!(Test-Path -Path "wix311-binaries.zip")) {
-          throw "Failed to download WiX Toolset."
-        }
+        # Download and install Inno Setup
+        Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile "is.exe"
+        Start-Process -FilePath "is.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
 
-        Expand-Archive -Path "wix311-binaries.zip" -DestinationPath "C:\\WiX"
-        if (!(Test-Path -Path "C:\\WiX\\bin")) {
-          throw "Failed to extract WiX Toolset."
-        }
-
-        $env:PATH += ";C:\\WiX\\bin"
-
-        # Ensure the publish directory exists
-        if (!(Test-Path -Path "./publish")) {
-          throw "Publish directory does not exist."
-        }
-
-        # Use heat to harvest files
-        & "C:\\WiX\\bin\\heat.exe" dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs
-        if (!(Test-Path -Path "harvested.wxs")) {
-          throw "Failed to generate harvested.wxs."
-        }
-
-        # Create the Product.wxs file
-        $wxsContent = '<?xml version="1.0" encoding="UTF-8"?>
-        <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-          <Package Name="XferKit" Language="1033" Version="${{ needs.auto-build.outputs.version }}" Manufacturer="Parks Computing" UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-123456789012">
-            <MajorUpgrade DowngradeErrorMessage="A newer version is already installed."/>
-            <MediaTemplate EmbedCab="yes"/>
-            <Feature Id="ProductFeature" Title="XferKit" Level="1">
-              <ComponentGroupRef Id="PublishedFiles"/>
-            </Feature>
-          </Package>
-        </Wix>'
-        $wxsContent | Out-File -FilePath "Product.wxs" -Encoding UTF8
-        if (!(Test-Path -Path "Product.wxs")) {
-          throw "Failed to create Product.wxs."
-        }
-
-        # Build the MSI installer
-        & "C:\\WiX\\bin\\candle.exe" Product.wxs
-        if (!(Test-Path -Path "Product.wixobj")) {
-          throw "Failed to compile Product.wxs."
-        }
-
-        & "C:\\WiX\\bin\\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi"
-        if (!(Test-Path -Path "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi")) {
-          throw "Failed to create MSI installer."
-        }
-
-    - name: Validate WiX Toolset Installation
+    - name: Create Inno Setup Script
       if: matrix.os == 'windows-latest'
       shell: pwsh
       run: |
-        # Check if WiX executables exist
-        $wixBinPath = "C:\\WiX\\bin"
-        $requiredFiles = @("heat.exe", "candle.exe", "light.exe")
+        $scriptContent = @"
+        [Setup]
+        AppName=XferKit
+        AppVersion=${{ needs.auto-build.outputs.version }}
+        DefaultDirName={pf}\XferKit
+        DefaultGroupName=XferKit
+        OutputBaseFilename=xk-${{ needs.auto-build.outputs.version }}-installer-win-x64
+        Compression=lzma
+        SolidCompression=yes
 
-        foreach ($file in $requiredFiles) {
-          $filePath = Join-Path -Path $wixBinPath -ChildPath $file
-          if (!(Test-Path -Path $filePath)) {
-            throw "Required WiX executable '$file' not found in $wixBinPath."
-          }
-        }
+        [Files]
+        Source: "./publish/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
-        Write-Host "WiX Toolset installation validated."
+        [Icons]
+        Name: "{group}\XferKit"; Filename: "{app}\xk.exe"
+        Name: "{group}\Uninstall XferKit"; Filename: "{uninstallexe}"
+        "@
+        $scriptContent | Out-File -FilePath "installer.iss" -Encoding UTF8
 
-    - name: Validate Publish Directory
+    - name: Build Installer with Inno Setup
       if: matrix.os == 'windows-latest'
       shell: pwsh
       run: |
-        # Ensure the publish directory exists and is not empty
-        if (!(Test-Path -Path "./publish")) {
-          throw "Publish directory does not exist."
-        }
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-        if ((Get-ChildItem -Path "./publish" -Recurse | Measure-Object).Count -eq 0) {
-          throw "Publish directory is empty."
-        }
-
-        Write-Host "Publish directory validation passed."
-
-    - name: Log WiX Command Outputs
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        # Log outputs of WiX commands
-        & "C:\\WiX\\bin\\heat.exe" dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs | Out-File -FilePath "heat.log"
-        & "C:\\WiX\\bin\\candle.exe" Product.wxs | Out-File -FilePath "candle.log"
-        & "C:\\WiX\\bin\\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi" | Out-File -FilePath "light.log"
-
-        Write-Host "WiX command outputs logged."
-
-    - name: Validate Generated Files
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        # Check if harvested.wxs and Product.wxs files exist
-        if (!(Test-Path -Path "harvested.wxs")) {
-          throw "harvested.wxs file was not created."
-        }
-
-        if (!(Test-Path -Path "Product.wxs")) {
-          throw "Product.wxs file was not created."
-        }
-
-        Write-Host "Generated files validated."
-
-    - name: Verify MSI Creation
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        # Check if the MSI file was created
-        $msiPath = "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi"
-        if (!(Test-Path -Path $msiPath)) {
-          throw "MSI file was not created."
-        }
-
-        Write-Host "MSI file creation verified."
-
-    - name: Debug MSI Creation
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        # Log the contents of the publish directory
-        Get-ChildItem -Path "./publish" -Recurse | Format-List
-
-        # Log the contents of the harvested.wxs file
-        if (Test-Path -Path "harvested.wxs") {
-          Get-Content -Path "harvested.wxs" | Out-File -FilePath "harvested.log"
-        } else {
-          throw "harvested.wxs file was not created."
-        }
-
-        # Log the contents of the Product.wxs file
-        if (Test-Path -Path "Product.wxs") {
-          Get-Content -Path "Product.wxs" | Out-File -FilePath "product.log"
-        } else {
-          throw "Product.wxs file was not created."
-        }
-
-        # Run candle.exe and log output
-        & "C:\\WiX\\bin\\candle.exe" Product.wxs | Out-File -FilePath "candle.log"
-
-        # Run light.exe and log output
-        & "C:\\WiX\\bin\\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi" | Out-File -FilePath "light.log"
-
-        # Log the final MSI file
-        if (Test-Path -Path "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi") {
-          Write-Host "MSI file created successfully."
-        } else {
-          throw "MSI file was not created."
-        }
-
-    - name: Debug WiX Installation and Commands
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        # Log WiX installation directory
-        if (Test-Path -Path "C:\\WiX\\bin") {
-          Get-ChildItem -Path "C:\\WiX\\bin" -Recurse | Format-List
-        } else {
-          throw "WiX installation directory not found."
-        }
-
-        # Log the contents of the publish directory
-        if (Test-Path -Path "./publish") {
-          Get-ChildItem -Path "./publish" -Recurse | Format-List
-        } else {
-          throw "Publish directory does not exist."
-        }
-
-        # Log the generated harvested.wxs file
-        if (Test-Path -Path "harvested.wxs") {
-          Get-Content -Path "harvested.wxs" | Out-File -FilePath "harvested.log"
-        } else {
-          throw "harvested.wxs file was not created."
-        }
-
-        # Log the generated Product.wxs file
-        if (Test-Path -Path "Product.wxs") {
-          Get-Content -Path "Product.wxs" | Out-File -FilePath "product.log"
-        } else {
-          throw "Product.wxs file was not created."
-        }
-
-        # Run candle.exe and log output
-        & "C:\\WiX\\bin\\candle.exe" Product.wxs | Out-File -FilePath "candle.log"
-
-        # Run light.exe and log output
-        & "C:\\WiX\\bin\\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi" | Out-File -FilePath "light.log"
-
-        # Log the final MSI file
-        if (Test-Path -Path "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi") {
-          Write-Host "MSI file created successfully."
-        } else {
-          throw "MSI file was not created."
-        }
-
-    - name: Upload Windows Installer
+    - name: Upload Inno Setup Installer
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
       with:
         name: installer-win-x64
-        path: ./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi
+        path: ./Output/xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
 
     - name: Create Linux Debian Package
       if: matrix.os == 'ubuntu-latest'
