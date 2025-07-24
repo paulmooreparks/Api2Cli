@@ -195,6 +195,7 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       shell: bash
       run: |
+        mkdir -p ./Output
         mkdir -p debian/DEBIAN debian/usr/local/bin
         cp -r publish/* debian/usr/local/bin/
         chmod +x debian/usr/local/bin/xk
