@@ -3,10 +3,6 @@ name: Create and Publish Release
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to release (e.g., 0.3.42)'
-        required: false
-        type: string
       prerelease:
         description: 'Mark as a pre-release'
         required: true
@@ -36,11 +32,7 @@ jobs:
       id: set_version
       shell: bash
       run: |
-        if [ -z "${{ inputs.version }}" ]; then
-          VERSION=$(grep -oP '<Version>\K[^<]+' xk/xk.csproj)
-        else
-          VERSION="${{ inputs.version }}"
-        fi
+        VERSION=$(grep -oP '<Version>\K[^<]+' xk/xk.csproj)
         echo "VERSION=$VERSION" >> $GITHUB_ENV
         echo "::set-output name=VERSION::$VERSION"
 
