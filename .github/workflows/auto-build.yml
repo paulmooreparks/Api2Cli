@@ -93,9 +93,20 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
-          mkdir -p publish/DEBIAN
-          cp installer.deb.control publish/DEBIAN/control
-          dpkg-deb --build publish XferKit-installer-linux-x64.deb
+          mkdir -p ./Output
+          mkdir -p debian/DEBIAN debian/usr/local/bin
+          cp -r publish/* debian/usr/local/bin/
+          chmod +x debian/usr/local/bin/xk
+          cat > debian/DEBIAN/control << EOF
+          Package: xferkit
+          Version: ${{ needs.auto-build.outputs.version }}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Parks Computing <paul@parkscomputing.com>
+          Description: XferKit - API Management CLI Tool.
+          EOF
+          dpkg-deb --build debian "./Output/XferKit-installer-linux-x64.deb"
 
       # macOS installer (.pkg)
       - name: Package Installer (macOS)
