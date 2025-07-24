@@ -15,7 +15,7 @@ jobs:
     outputs:
       version: ${{ steps.set_version.outputs.version }}
     steps:
-      # ── version‑bump, build & test steps (unchanged) ──────────────────────────
+      # ────────────────────────── basic checkout & tooling ─────────────────────
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -24,26 +24,34 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      # ────────────────────────── stamp a unique version string ────────────────
       - name: Set Version
         id: set_version
         run: |
           VERSION=$(date +'%Y.%m.%d')-$GITHUB_RUN_NUMBER
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      # ────────────────────────── write version into the csproj ────────────────
       - name: Update project version
+        shell: bash
         run: |
-          dotnet nuget add source https://api.nuget.org/v3/index.json
+          # add nuget.org only if it's missing
+          dotnet nuget list source | grep -q 'https://api.nuget.org/v3/index.json' \
+            || dotnet nuget add source https://api.nuget.org/v3/index.json
+
+          # update <Version> tag in the CLI project
           sed -i "s/<Version>.*<\/Version>/<Version>${{ steps.set_version.outputs.version }}<\/Version>/" xk/xk.csproj
 
       - name: Commit and Push Version Update
         shell: bash
         run: |
           git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.name  "GitHub Action"
           git add xk/xk.csproj
           git commit -m "Auto‑increment version to ${{ steps.set_version.outputs.version }} [skip ci]"
           git push
 
+      # ────────────────────────── build & test ────────────────────────────────
       - name: Build and Test
         shell: bash
         run: |
@@ -51,6 +59,7 @@ jobs:
           dotnet build  XferKit.sln --configuration Release --no-restore -p:Version=${{ steps.set_version.outputs.version }}
           dotnet test   XferKit.sln --configuration Release --no-build   --verbosity normal
 
+  # ────────────────────────── matrix build for each platform ───────────────────
   cross-platform-builds:
     name: Build for All Platforms
     needs: auto-build
@@ -65,7 +74,6 @@ jobs:
           - os: macos-latest
             runtime: osx-x64
     steps:
-      # ── checkout, publish, create installers, upload artifacts … (unchanged) ──
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -75,6 +83,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Publish self‑contained binaries
+        shell: bash
         run: |
           dotnet publish XferKit.Cli/XferKit.Cli.csproj \
             --runtime ${{ matrix.runtime }} \
@@ -84,7 +93,7 @@ jobs:
             -p:Version=${{ needs.auto-build.outputs.version }} \
             --output ./publish/
 
-      # (installer‑creation steps omitted here for brevity – unchanged)
+      # (installer‑creation steps go here – unchanged)
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
@@ -92,6 +101,7 @@ jobs:
           name: XferKit-installer-${{ matrix.runtime }}
           path: ./publish/*
 
+  # ────────────────────────── release job ──────────────────────────────────────
   publish-release:
     name: Publish GitHub Release
     needs: cross-platform-builds
@@ -101,13 +111,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-assets
-          merge-multiple: true   # flatten artifact contents
+          merge-multiple: true     # flatten artifact contents
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.auto-build.outputs.version }}
-          name: XferKit v${{ needs.auto-build.outputs.version }}
+          name:  XferKit v${{ needs.auto-build.outputs.version }}
           prerelease: false
           generate_release_notes: true
           files: release-assets/**
