@@ -250,11 +250,12 @@ jobs:
         path: release-assets
     - name: List release assets
       run: ls -lR release-assets
-    - name: Rename Files for Consistency
+
+    - name: Verify Downloaded Artifacts
       run: |
-        mv release-assets/XferKit-installer-win-x64 release-assets/XferKit-installer-win-x64.zip || true
-        mv release-assets/XferKit-installer-linux-x64 release-assets/XferKit-installer-linux-x64.deb || true
-        mv release-assets/XferKit-installer-osx-x64 release-assets/XferKit-installer-osx-x64.pkg || true
+        echo "Listing contents of release-assets directory:"
+        ls -l release-assets
+
     - name: Publish GitHub Release
       uses: softprops/action-gh-release@v2
       with:
