@@ -108,7 +108,7 @@ jobs:
       run: |
         dotnet tool install --global wix --version 5.0.1
         $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-        $wix = "$env:USERPROFILE\.dotnet\tools\wix.exe"
+        $wix = "$env:USERPROFILE\\.dotnet\\tools\\wix"
         & $wix harvest dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs
         $wxsContent = '<?xml version="1.0" encoding="UTF-8"?>
         <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
