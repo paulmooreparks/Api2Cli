@@ -252,6 +252,6 @@ jobs:
         prerelease: false
         generate_release_notes: true
         files: |
-          D:/a/XferKit/XferKit/Output/XferKit-installer-win-x64.exe
-          Output/XferKit-installer-linux-x64.deb
-          Output/XferKit-installer-osx-x64.pkg
+          release-assets/XferKit-installer-win-x64.zip
+          release-assets/XferKit-installer-linux-x64.zip
+          release-assets/XferKit-installer-osx-x64.zip
