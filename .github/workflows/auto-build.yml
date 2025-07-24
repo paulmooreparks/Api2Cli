@@ -143,7 +143,15 @@ jobs:
       run: |
         # Download and install WiX Toolset
         Invoke-WebRequest -Uri "https://wixtoolset.org/releases/v3.11.2.4516/wix311-binaries.zip" -OutFile "wix311-binaries.zip"
+        if (!(Test-Path -Path "wix311-binaries.zip")) {
+          throw "Failed to download WiX Toolset."
+        }
+
         Expand-Archive -Path "wix311-binaries.zip" -DestinationPath "C:\\WiX"
+        if (!(Test-Path -Path "C:\\WiX\\bin")) {
+          throw "Failed to extract WiX Toolset."
+        }
+
         $env:PATH += ";C:\\WiX\\bin"
 
         # Ensure the publish directory exists
@@ -153,6 +161,9 @@ jobs:
 
         # Use heat to harvest files
         & "C:\\WiX\\bin\\heat.exe" dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs
+        if (!(Test-Path -Path "harvested.wxs")) {
+          throw "Failed to generate harvested.wxs."
+        }
 
         # Create the Product.wxs file
         $wxsContent = '<?xml version="1.0" encoding="UTF-8"?>
@@ -166,10 +177,20 @@ jobs:
           </Package>
         </Wix>'
         $wxsContent | Out-File -FilePath "Product.wxs" -Encoding UTF8
+        if (!(Test-Path -Path "Product.wxs")) {
+          throw "Failed to create Product.wxs."
+        }
 
         # Build the MSI installer
         & "C:\\WiX\\bin\\candle.exe" Product.wxs
+        if (!(Test-Path -Path "Product.wixobj")) {
+          throw "Failed to compile Product.wxs."
+        }
+
         & "C:\\WiX\\bin\\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi"
+        if (!(Test-Path -Path "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi")) {
+          throw "Failed to create MSI installer."
+        }
 
     - name: Validate WiX Toolset Installation
       if: matrix.os == 'windows-latest'
