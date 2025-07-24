@@ -220,6 +220,7 @@ jobs:
       if: matrix.os == 'macos-latest'
       shell: bash
       run: |
+        mkdir -p ./Output
         pkgbuild --root ./publish --identifier com.parkscomputing.xferkit \
                  --version ${{ needs.auto-build.outputs.version }} \
                  "./Output/XferKit-installer-osx-x64.pkg"
