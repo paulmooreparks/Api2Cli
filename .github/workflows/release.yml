@@ -127,3 +127,4 @@ jobs:
         prerelease: ${{ inputs.prerelease }}
         generate_release_notes: true
         files: release-assets/*
+
