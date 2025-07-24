@@ -257,4 +257,5 @@ jobs:
         name: XferKit v${{ needs.auto-build.outputs.version }}
         prerelease: true
         generate_release_notes: true
+        create_release: true
         files: release-assets/XferKit-installer-*.* 
