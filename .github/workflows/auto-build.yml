@@ -238,4 +238,8 @@ jobs:
         name: XferKit v${{ needs.auto-build.outputs.version }}
         prerelease: false
         generate_release_notes: true
-        files: release-assets/*
+        files: |
+          release-assets/*
+          ./Output/xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
+          ./xk-${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
+          ./xk-${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
