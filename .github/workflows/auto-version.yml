@@ -157,9 +157,15 @@ jobs:
       shell: bash
       run: dotnet build XferKit.sln --configuration Release --no-restore -p:Version=${{ needs.version-and-build.outputs.version }}
 
-    - name: Publish for platform
-      shell: bash
-      run: dotnet publish xk/xk.csproj --configuration Release --output ./publish/${{ matrix.os }} -p:Version=${{ needs.version-and-build.outputs.version }}
+    - name: Publish for ${{ matrix.os }}
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          dotnet publish xk/xk.csproj --configuration Release --runtime win-x64 --self-contained true --output ./publish /p:Version=${{ steps.version.outputs.version }}
+        elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+          dotnet publish xk/xk.csproj --configuration Release --runtime linux-x64 --self-contained true --output ./publish /p:Version=${{ steps.version.outputs.version }}
+        elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+          dotnet publish xk/xk.csproj --configuration Release --runtime osx-x64 --self-contained true --output ./publish /p:Version=${{ steps.version.outputs.version }}
+        fi
 
     - name: Upload platform artifacts
       uses: actions/upload-artifact@v4
@@ -167,3 +173,125 @@ jobs:
         name: xk-${{ matrix.os }}-${{ needs.version-and-build.outputs.version }}
         path: ./publish/${{ matrix.os }}
         retention-days: 30
+
+    - name: Create Windows Installer
+      if: matrix.os == 'windows-latest'
+      run: |
+        # Install WiX Toolset
+        dotnet tool install --global wix --version 5.0.1
+
+        # Create installer project directory
+        mkdir installer
+        cd installer
+
+        # Create WiX source file that includes ALL published files
+        @"
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+          <Package Name="XferKit" Language="1033" Version="${{ steps.version.outputs.version }}"
+                   Manufacturer="Parks Computing" UpgradeCode="12345678-1234-1234-1234-123456789012">
+            <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+            <MediaTemplate EmbedCab="yes" />
+
+            <Feature Id="ProductFeature" Title="XferKit" Level="1">
+              <ComponentGroupRef Id="ProductComponents" />
+            </Feature>
+          </Package>
+
+          <Fragment>
+            <Directory Id="TARGETDIR" Name="SourceDir">
+              <Directory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="XferKit" />
+              </Directory>
+              <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="XferKit" />
+              </Directory>
+            </Directory>
+          </Fragment>
+
+          <Fragment>
+            <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+              <!-- Main executable -->
+              <Component Id="MainExecutable" Guid="12345678-1234-1234-1234-123456789013">
+                <File Id="XkExe" Source="../publish/xk.exe" KeyPath="yes" />
+                <Environment Id="PATH" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
+              </Component>
+
+              <!-- All DLL dependencies -->
+              <Component Id="Dependencies" Guid="12345678-1234-1234-1234-123456789014">
+                <File Id="XkDll" Source="../publish/xk.dll" />
+                <!-- Add other DLLs as needed -->
+              </Component>
+
+              <!-- Runtime config files -->
+              <Component Id="RuntimeConfig" Guid="12345678-1234-1234-1234-123456789015">
+                <File Id="RuntimeConfigJson" Source="../publish/xk.runtimeconfig.json" />
+                <File Id="DepsJson" Source="../publish/xk.deps.json" />
+              </Component>
+            </ComponentGroup>
+          </Fragment>
+        </Wix>
+        "@ | Out-File -FilePath "XferKit.wxs" -Encoding UTF8
+
+        # Build the installer with all files
+        wix build XferKit.wxs -arch x64 -out "../xk-${{ steps.version.outputs.version }}-windows-x64.msi"
+
+    - name: Create Windows Installer (Alternative with Heat)
+      if: matrix.os == 'windows-latest'
+      run: |
+        # Install WiX Toolset
+        dotnet tool install --global wix --version 5.0.1
+
+        # Create installer project directory
+        mkdir installer
+        cd installer
+
+        # Use Heat to harvest all files from publish directory
+        wix extension add WixToolset.Heat.wixext
+        heat dir ../publish -cg PublishedFiles -gg -scom -sreg -sfrag -srd -dr INSTALLFOLDER -out harvested.wxs
+
+        # Create main installer source
+        @"
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+          <Package Name="XferKit" Language="1033" Version="${{ steps.version.outputs.version }}"
+                   Manufacturer="Parks Computing" UpgradeCode="12345678-1234-1234-1234-123456789012">
+            <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+            <MediaTemplate EmbedCab="yes" />
+
+            <Feature Id="ProductFeature" Title="XferKit" Level="1">
+              <ComponentGroupRef Id="PublishedFiles" />
+            </Feature>
+          </Package>
+
+          <Fragment>
+            <Directory Id="TARGETDIR" Name="SourceDir">
+              <Directory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="XferKit" />
+              </Directory>
+              <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="XferKit" />
+              </Directory>
+            </Directory>
+          </Fragment>
+
+          <Fragment>
+            <ComponentGroup Id="PublishedFiles" Directory="INSTALLFOLDER">
+              <!-- All files harvested by Heat -->
+              <Component Id="HarvestedFiles" Guid="12345678-1234-1234-1234-123456789016">
+                <File Id="HarvestedFilesDir" Source="harvested.wxs" KeyPath="yes" />
+              </Component>
+            </ComponentGroup>
+          </Fragment>
+        </Wix>
+        "@ | Out-File -FilePath "XferKitMain.wxs" -Encoding UTF8
+
+        # Build the installer with harvested files
+        wix build XferKitMain.wxs -arch x64 -out "../xk-${{ steps.version.outputs.version }}-windows-x64-harvested.msi"
+
+    - name: Debug - List Published Files
+      if: matrix.os == 'windows-latest'
+      run: |
+        echo "Files in publish directory:"
+        ls -la ./publish/
+        echo "Total file count: $(ls -1 ./publish/ | wc -l)"

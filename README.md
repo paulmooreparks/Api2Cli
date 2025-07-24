@@ -2,7 +2,7 @@
 
 # XferKit - API Management CLI Tool
 
-<p align="center">
+<p>
   <a href="https://github.com/paulmooreparks/XferKit/releases">
     <img alt="XferKit CLI Version" src="https://img.shields.io/badge/XferKit_CLI-0.3.0--prerelease-blue">
   </a>
@@ -13,7 +13,7 @@
     <img alt="GitHub issues" src="https://img.shields.io/github/issues/paulmooreparks/XferKit">
   </a>
   <a href="https://github.com/paulmooreparks/XferKit/actions">
-    <img alt="Build Status" src="https://img.shields.io/github/actions/workflow/status/paulmooreparks/XferKit/ci.yml?branch=main">
+    <img alt="Build Status" src="https://img.shields.io/github/actions/workflow/status/paulmooreparks/XferKit/auto-version.yml?branch=main">
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg">
@@ -45,6 +45,11 @@
 - **Global scripts**: Shared functionality across workspaces
 - **Environment manipulation**: Dynamic configuration and data processing
 - **NuGet package support**: Extend functionality with .NET packages
+
+### Cross-Platform Compatibility
+- **Multi-OS support**: Windows, Linux, and macOS
+- **Portable execution**: No installation required for portable versions
+- **Native installers**: Platform-specific packages available
 
 ### Advanced Configuration
 - **Environment variables**: Centralized configuration management
