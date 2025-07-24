@@ -56,7 +56,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            runtime: win-x64
+          - os: ubuntu-latest
+            runtime: linux-x64
+          - os: macos-latest
+            runtime: osx-x64
 
     steps:
       - name: Checkout repo
@@ -68,6 +74,7 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Publish for ${{ matrix.os }}
+        shell: bash
         run: |
           dotnet publish xk/xk.csproj \
             --configuration Release \
