@@ -163,7 +163,7 @@ jobs:
         with:
           name: installer-${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }}
           path: |
-            ${{ matrix.os == 'windows-latest' && 'publish/XferKit-installer-win-x64.exe' || matrix.os == 'ubuntu-latest' && 'XferKit-installer-linux-x64.deb' || 'XferKit-installer-osx-x64.pkg' }}
+            ${{ matrix.os == 'windows-latest' && 'publish/XferKit-installer-win-x64.exe' || matrix.os == 'ubuntu-latest' && 'Output/XferKit-installer-linux-x64.deb' || 'XferKit-installer-osx-x64.pkg' }}
 
   publish-release:
     name: Publish GitHub Release
@@ -193,21 +193,22 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Windows Installer
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
+      - name: Upload Windows installer
+        uses: actions/upload-release-asset@v1
         with:
-          name: XferKit-installer-win-x64.exe
-          path: publish/XferKit-installer-win-x64.exe
-
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release-assets/publish/XferKit-installer-win-x64.exe
+          asset_name: XferKit-installer-win-x64.exe
+          asset_content_type: application/octet-stream
+  
       - name: Upload Linux installer
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/XferKit-installer-linux-x64.deb
+          asset_path: release-assets/Output/XferKit-installer-linux-x64.deb
           asset_name: XferKit-installer-linux-x64.deb
           asset_content_type: application/octet-stream
-
+  
       - name: Upload macOS installer
         uses: actions/upload-release-asset@v1
         with:
