@@ -102,13 +102,14 @@ jobs:
         path: ./publish/
 
     # Installer creation and upload for each platform
-    - name: Create Windows Installer
+    - name: Install WiX Toolset
       if: matrix.os == 'windows-latest'
       shell: pwsh
       run: |
-        # Install WiX Toolset CLI
-        dotnet tool install --global wix --version 5.0.1
-        $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+        # Download and install WiX Toolset
+        Invoke-WebRequest -Uri "https://wixtoolset.org/releases/v3.11.2.4516/wix311-binaries.zip" -OutFile "wix311-binaries.zip"
+        Expand-Archive -Path "wix311-binaries.zip" -DestinationPath "C:\WiX"
+        $env:PATH += ";C:\WiX\bin"
 
         # Ensure the publish directory exists
         if (!(Test-Path -Path "./publish")) {
@@ -116,7 +117,7 @@ jobs:
         }
 
         # Use heat to harvest files
-        & "$env:USERPROFILE\.dotnet\tools\heat.exe" dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs
+        & "C:\WiX\bin\heat.exe" dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs
 
         # Create the Product.wxs file
         $wxsContent = '<?xml version="1.0" encoding="UTF-8"?>
@@ -132,7 +133,8 @@ jobs:
         $wxsContent | Out-File -FilePath "Product.wxs" -Encoding UTF8
 
         # Build the MSI installer
-        & "$env:USERPROFILE\.dotnet\tools\wix.exe" build Product.wxs harvested.wxs -arch x64 -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi"
+        & "C:\WiX\bin\candle.exe" Product.wxs
+        & "C:\WiX\bin\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi"
 
     - name: Upload Windows Installer
       if: matrix.os == 'windows-latest'
