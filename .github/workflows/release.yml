@@ -45,18 +45,7 @@ jobs:
         $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
         wix heat dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs
 
-        $wxsContent = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="XferKit" Language="1033" Version="${{ inputs.version }}" Manufacturer="Parks Computing" UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-123456789012">
-    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed."/>
-    <MediaTemplate EmbedCab="yes"/>
-    <Feature Id="ProductFeature" Title="XferKit" Level="1">
-      <ComponentGroupRef Id="PublishedFiles"/>
-    </Feature>
-  </Package>
-</Wix>
-"@
+        $wxsContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Wix xmlns=\"http://wixtoolset.org/schemas/v4/wxs\">\n  <Package Name=\"XferKit\" Language=\"1033\" Version=\"${{ inputs.version }}\" Manufacturer=\"Parks Computing\" UpgradeCode=\"A1B2C3D4-E5F6-7890-ABCD-123456789012\">\n    <MajorUpgrade DowngradeErrorMessage=\"A newer version is already installed.\"/>\n    <MediaTemplate EmbedCab=\"yes\"/>\n    <Feature Id=\"ProductFeature\" Title=\"XferKit\" Level=\"1\">\n      <ComponentGroupRef Id=\"PublishedFiles\"/>\n    </Feature>\n  </Package>\n</Wix>"
         $wxsContent | Out-File -FilePath "Product.wxs" -Encoding UTF8
         wix build Product.wxs harvested.wxs -arch x64 -out "./xk-${{ inputs.version }}-installer-win-x64.msi"
 
@@ -110,39 +99,6 @@ jobs:
   publish-release:
     name: Publish GitHub Release
     needs: create-installers
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: release-assets
-
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: v${{ inputs.version }}
-        name: XferKit v${{ inputs.version }}
-        prerelease: ${{ inputs.prerelease }}
-        generate_release_notes: true
-        files: release-assets/*
-      if: matrix.os == 'macos-latest'
-      shell: bash
-      run: |
-        pkgbuild --root ./publish --identifier com.parkscomputing.xferkit \
-                 --version ${{ inputs.version }} \
-                 "./xk-${{ inputs.version }}-installer-osx-x64.pkg"
-
-    - name: Upload macOS Installer
-      if: matrix.os == 'macos-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: installer-osx-x64
-        path: ./xk-${{ inputs.version }}-installer-osx-x64.pkg
-
-  publish-release:
-    name: Publish GitHub Release
-    needs: build-and-package
     runs-on: ubuntu-latest
 
     steps:
