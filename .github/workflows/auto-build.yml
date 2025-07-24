@@ -406,4 +406,3 @@ jobs:
         prerelease: false
         generate_release_notes: true
         files: release-assets/*
-
