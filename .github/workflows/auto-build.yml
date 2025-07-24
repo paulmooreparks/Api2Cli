@@ -81,19 +81,31 @@ jobs:
             --runtime ${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }} \
             -o publish
 
-      - name: Package Installer (${{ matrix.os }})
+      # Windows installer (Inno Setup)
+      - name: Package Installer (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            # Inno Setup on Windows
-            &"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss /O"publish"
-          elif [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            mkdir -p publish/DEBIAN
-            cp installer.deb.control publish/DEBIAN/control
-            dpkg-deb --build publish XferKit-installer-linux-x64.deb
-          else
-            pkgbuild --root publish --identifier com.yourorg.xferkit \
-                     --install-location /usr/local XferKit-installer-osx-x64.pkg
-          fi
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer.iss /Opublish
+
+      # Linux installer (.deb)
+      - name: Package Installer (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          mkdir -p publish/DEBIAN
+          cp installer.deb.control publish/DEBIAN/control
+          dpkg-deb --build publish XferKit-installer-linux-x64.deb
+
+      # macOS installer (.pkg)
+      - name: Package Installer (macOS)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          pkgbuild --root publish \
+                   --identifier com.yourorg.xferkit \
+                   --install-location /usr/local \
+                   XferKit-installer-osx-x64.pkg
 
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
