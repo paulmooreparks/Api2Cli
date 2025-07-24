@@ -36,6 +36,7 @@ jobs:
       run: |
         VERSION=$(grep -E '<Version>[^<]+' xk/xk.csproj | sed -E 's/<Version>([^<]+).*/\1/')
         echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "::set-output name=VERSION::$VERSION"
 
     - name: Download Build Artifacts
       uses: actions/download-artifact@v4
