@@ -178,8 +178,8 @@ jobs:
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: installer-win-x64
-        path: ./Output/xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
+        name: XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64
+        path: ./Output/XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
 
     - name: Create Linux Debian Package
       if: matrix.os == 'ubuntu-latest'
@@ -197,14 +197,14 @@ jobs:
         Maintainer: Parks Computing <support@parkscomputing.com>
         Description: XferKit - API Management CLI Tool.
         EOF
-        dpkg-deb --build debian "./xk-${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb"
+        dpkg-deb --build debian "./XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb"
 
     - name: Upload Linux Installer
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: installer-linux-x64
-        path: ./xk-${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
+        name: XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64
+        path: ./XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
 
     - name: Create macOS Package
       if: matrix.os == 'macos-latest'
@@ -212,14 +212,14 @@ jobs:
       run: |
         pkgbuild --root ./publish --identifier com.parkscomputing.xferkit \
                  --version ${{ needs.auto-build.outputs.version }} \
-                 "./xk-${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg"
+                 "./XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg"
 
     - name: Upload macOS Installer
       if: matrix.os == 'macos-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: installer-osx-x64
-        path: ./xk-${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
+        name: XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64
+        path: ./XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
   publish-release:
     name: Publish GitHub Release
     needs: cross-platform-builds
@@ -239,6 +239,6 @@ jobs:
         prerelease: false
         generate_release_notes: true
         files: |
-          installer-win-x64
-          installer-linux-x64
-          installer-osx-x64
+          XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64.zip
+          XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.zip
+          XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.zip
