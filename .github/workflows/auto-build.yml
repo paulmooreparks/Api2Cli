@@ -108,7 +108,7 @@ jobs:
       run: |
         dotnet tool install --global wix --version 5.0.1
         $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-        wix heat dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs
+        wix harvest dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs
         $wxsContent = '<?xml version="1.0" encoding="UTF-8"?>
         <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
           <Package Name="XferKit" Language="1033" Version="${{ needs.auto-build.outputs.version }}" Manufacturer="Parks Computing" UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-123456789012">
