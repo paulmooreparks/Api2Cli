@@ -22,11 +22,17 @@ jobs:
         with:
           fetch-depth: 0         # full history for GitVersion
 
-      - name: Calculate semantic version
-        uses: GitTools/actions/gitversion@v0.9.11
-        id: gitversion
+      # 1) Install the GitVersion tool
+      - name: Setup GitVersion
+        uses: gittools/actions/gitversion/setup@v0.9.11
         with:
-          useConfigFile: true   # reads GitVersion.yml at repo root
+          versionSpec: '5.x'
+
+      # 2) Run GitVersion to calculate a SemVer
+      - name: Run GitVersion
+        uses: gittools/actions/gitversion/execute@v0.9.11
+        id: gitversion
+        # no useConfigFile needed if you don't have a GitVersion.yml
 
       - name: Build & Pack .NET CLI
         run: |
