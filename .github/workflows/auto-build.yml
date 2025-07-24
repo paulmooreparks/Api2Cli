@@ -143,8 +143,8 @@ jobs:
       run: |
         # Download and install WiX Toolset
         Invoke-WebRequest -Uri "https://wixtoolset.org/releases/v3.11.2.4516/wix311-binaries.zip" -OutFile "wix311-binaries.zip"
-        Expand-Archive -Path "wix311-binaries.zip" -DestinationPath "C:\WiX"
-        $env:PATH += ";C:\WiX\bin"
+        Expand-Archive -Path "wix311-binaries.zip" -DestinationPath "C:\\WiX"
+        $env:PATH += ";C:\\WiX\\bin"
 
         # Ensure the publish directory exists
         if (!(Test-Path -Path "./publish")) {
@@ -152,7 +152,7 @@ jobs:
         }
 
         # Use heat to harvest files
-        & "C:\WiX\bin\heat.exe" dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs
+        & "C:\\WiX\\bin\\heat.exe" dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs
 
         # Create the Product.wxs file
         $wxsContent = '<?xml version="1.0" encoding="UTF-8"?>
@@ -168,15 +168,15 @@ jobs:
         $wxsContent | Out-File -FilePath "Product.wxs" -Encoding UTF8
 
         # Build the MSI installer
-        & "C:\WiX\bin\candle.exe" Product.wxs
-        & "C:\WiX\bin\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi"
+        & "C:\\WiX\\bin\\candle.exe" Product.wxs
+        & "C:\\WiX\\bin\\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi"
 
     - name: Validate WiX Toolset Installation
       if: matrix.os == 'windows-latest'
       shell: pwsh
       run: |
         # Check if WiX executables exist
-        $wixBinPath = "C:\WiX\bin"
+        $wixBinPath = "C:\\WiX\\bin"
         $requiredFiles = @("heat.exe", "candle.exe", "light.exe")
 
         foreach ($file in $requiredFiles) {
@@ -208,9 +208,9 @@ jobs:
       shell: pwsh
       run: |
         # Log outputs of WiX commands
-        & "C:\WiX\bin\heat.exe" dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs | Out-File -FilePath "heat.log"
-        & "C:\WiX\bin\candle.exe" Product.wxs | Out-File -FilePath "candle.log"
-        & "C:\WiX\bin\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi" | Out-File -FilePath "light.log"
+        & "C:\\WiX\\bin\\heat.exe" dir ./publish -cg PublishedFiles -gg -sfrag -dr INSTALLFOLDER -out harvested.wxs | Out-File -FilePath "heat.log"
+        & "C:\\WiX\\bin\\candle.exe" Product.wxs | Out-File -FilePath "candle.log"
+        & "C:\\WiX\\bin\\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi" | Out-File -FilePath "light.log"
 
         Write-Host "WiX command outputs logged."
 
@@ -263,18 +263,18 @@ jobs:
         }
 
         # Run candle.exe and log output
-        & "C:\WiX\bin\candle.exe" Product.wxs | Out-File -FilePath "candle.log"
+        & "C:\\WiX\\bin\\candle.exe" Product.wxs | Out-File -FilePath "candle.log"
 
         # Run light.exe and log output
-        & "C:\WiX\bin\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi" | Out-File -FilePath "light.log"
+        & "C:\\WiX\\bin\\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi" | Out-File -FilePath "light.log"
 
     - name: Debug WiX Installation and Commands
       if: matrix.os == 'windows-latest'
       shell: pwsh
       run: |
         # Log WiX installation directory
-        if (Test-Path -Path "C:\WiX\bin") {
-          Get-ChildItem -Path "C:\WiX\bin" -Recurse | Format-List
+        if (Test-Path -Path "C:\\WiX\\bin") {
+          Get-ChildItem -Path "C:\\WiX\\bin" -Recurse | Format-List
         } else {
           throw "WiX installation directory not found."
         }
@@ -301,10 +301,10 @@ jobs:
         }
 
         # Run candle.exe and log output
-        & "C:\WiX\bin\candle.exe" Product.wxs | Out-File -FilePath "candle.log"
+        & "C:\\WiX\\bin\\candle.exe" Product.wxs | Out-File -FilePath "candle.log"
 
         # Run light.exe and log output
-        & "C:\WiX\bin\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi" | Out-File -FilePath "light.log"
+        & "C:\\WiX\\bin\\light.exe" Product.wixobj -out "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi" | Out-File -FilePath "light.log"
 
         # Log the final MSI file
         if (Test-Path -Path "./xk-${{ needs.auto-build.outputs.version }}-installer-win-x64.msi") {
