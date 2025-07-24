@@ -3,10 +3,6 @@ name: Create and Publish Release
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to release (e.g., 0.3.42)'
-        required: false
-        type: string
       prerelease:
         description: 'Mark as a pre-release'
         required: true
@@ -36,11 +32,7 @@ jobs:
       id: set_version
       shell: bash
       run: |
-        if [ -z "${{ inputs.version }}" ]; then
-          VERSION=$(grep -E '<Version>[^<]+' xk/xk.csproj | sed -E 's/<Version>([^<]+).*/\1/')
-        else
-          VERSION="${{ inputs.version }}"
-        fi
+        VERSION=$(grep -E '<Version>[^<]+' xk/xk.csproj | sed -E 's/<Version>([^<]+).*/\1/')
         echo "VERSION=$VERSION" >> $GITHUB_ENV
 
     - name: Download Build Artifacts
