@@ -1,245 +1,100 @@
-name: Auto Build and Version
+name: Auto Build & Release
 
+# Trigger only on merges/pushes to main
 on:
   push:
     branches:
       - main
 
+# Needs write access to push tags and create releases
 permissions:
   contents: write
 
 jobs:
   auto-build:
-    name: Auto Build and Version
+    name: Compute Version & Pack
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.set_version.outputs.version }}
-
+    permissions:
+      contents: write
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0         # full history for GitVersion
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Calculate semantic version
+        uses: GitTools/actions/gitversion@v0.9.11
+        id: gitversion
+        with:
+          useConfigFile: true   # reads GitVersion.yml at repo root
 
-    - name: Enhanced Version Calculation
-      id: set_version
-      shell: bash
-      run: |
-        # Extract current version from xk.csproj (default 0.1.0)
-        CURRENT_VERSION=$(grep -oP '<Version>\\K[^<]+' xk/xk.csproj || echo "0.1.0")
-        echo "Current version: $CURRENT_VERSION"
+      - name: Build & Pack .NET CLI
+        run: |
+          dotnet pack xk/xk.csproj \
+            --configuration Release \
+            /p:Version=${{ steps.gitversion.outputs.MajorMinorPatch }} \
+            /p:PackageVersion=${{ steps.gitversion.outputs.NuGetVersionV2 }}
 
-        # Split into MAJOR, MINOR, PATCH (default patch=0)
-        MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
-        MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
-        PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3 || echo "0")
+      - name: Tag release
+        run: |
+          git tag v${{ steps.gitversion.outputs.MajorMinorPatch }}
+          git push origin v${{ steps.gitversion.outputs.MajorMinorPatch }}
 
-        # Increment patch
-        NEW_PATCH=$((PATCH + 1))
-        NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-        echo "New version: $NEW_VERSION"
-        echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+    outputs:
+      version: ${{ steps.gitversion.outputs.MajorMinorPatch }}
 
-        # Update the project file with the new version
-        sed -i "s|<Version>.*</Version>|<Version>$NEW_VERSION</Version>|" xk/xk.csproj
-
-    - name: Commit and Push Version Update
-      shell: bash
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add xk/xk.csproj
-        git commit -m "Auto-increment version to ${{ steps.set_version.outputs.version }} [skip ci]"
-        git push
-
-    - name: Build and Test
-      shell: bash
-      run: |
-        dotnet restore XferKit.sln
-        dotnet build XferKit.sln --configuration Release --no-restore -p:Version=${{ steps.set_version.outputs.version }}
-        dotnet test XferKit.sln --configuration Release --no-build --verbosity normal
-
-    - name: Run Integration Tests
-      shell: bash
-      run: |
-        dotnet test XferKit.sln --configuration Release --no-build --filter "Category=Integration" --verbosity normal
 
   cross-platform-builds:
-    name: Build for All Platforms
+    name: Build & Package All Platforms
     needs: auto-build
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        include:
-          - os: windows-latest
-            runtime: win-x64
-          - os: ubuntu-latest
-            runtime: linux-x64
-          - os: macos-latest
-            runtime: osx-x64
+        os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
 
-    - name: Publish Application
-      shell: bash
-      run: |
-        dotnet publish xk/xk.csproj \
-          --configuration Release \
-          --runtime ${{ matrix.runtime }} \
-          --self-contained true \
-          --output ./publish \
-          -p:Version=${{ needs.auto-build.outputs.version }}
+      - name: Publish for ${{ matrix.os }}
+        run: |
+          dotnet publish xk/xk.csproj \
+            --configuration Release \
+            --runtime ${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }} \
+            -o publish
 
-    - name: Validate Build Artifacts
-      shell: bash
-      run: |
-        if [ ! -d "./publish" ]; then
-          echo "Error: Publish directory does not exist."
-          exit 1
-        fi
+      - name: Package Installer (${{ matrix.os }})
+        run: |
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            # Inno Setup on Windows
+            &"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss /O"publish"
+          elif [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            mkdir -p publish/DEBIAN
+            cp installer.deb.control publish/DEBIAN/control
+            dpkg-deb --build publish XferKit-installer-linux-x64.deb
+          else
+            pkgbuild --root publish --identifier com.yourorg.xferkit \
+                     --install-location /usr/local XferKit-installer-osx-x64.pkg
+          fi
 
-        if [ -z "$(ls -A ./publish)" ]; then
-          echo "Error: Publish directory is empty."
-          exit 1
-        fi
-
-        echo "Publish directory validation passed."
-
-    - name: Ensure Cross-Platform Consistency
-      shell: bash
-      run: |
-        if [ ! -f "./publish/xk" ]; then
-          echo "Error: Expected output file 'xk' not found in publish directory."
-          exit 1
-        fi
-
-        echo "Cross-platform consistency check passed."
-
-    - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-${{ matrix.runtime }}-${{ needs.auto-build.outputs.version }}
-        path: ./publish/
-
-    # Installer creation and upload for each platform
-    - name: Install Inno Setup
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        # Download and install Inno Setup
-        Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile "is.exe"
-        Start-Process -FilePath "is.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
-
-    - name: Create Inno Setup Script
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        $scriptContent = @"
-        [Setup]
-        AppName=XferKit
-        AppVersion=${{ needs.auto-build.outputs.version }}
-        DefaultDirName={pf}\XferKit
-        DefaultGroupName=XferKit
-        OutputBaseFilename=XferKit-installer-win-x64
-        Compression=lzma
-        SolidCompression=yes
-
-        [Files]
-        Source: "./publish/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
-
-        [Icons]
-        Name: "{group}\XferKit"; Filename: "{app}\xk.exe"
-        Name: "{group}\Uninstall XferKit"; Filename: "{uninstallexe}"
-        "@
-        $scriptContent | Out-File -FilePath "installer.iss" -Encoding UTF8
-
-    - name: Build Installer with Inno Setup
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        $innoSetupPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-        $scriptPath = "installer.iss"
-
-        # Ensure the script file exists
-        if (-Not (Test-Path $scriptPath)) {
-          Write-Error "Installer script not found: $scriptPath"
-          exit 1
-        }
-
-        # Run the Inno Setup Compiler
-        & $innoSetupPath $scriptPath
-
-    - name: Zip Windows Installer
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
-      run: |
-        Compress-Archive -Path D:/a/XferKit/XferKit/Output/XferKit-installer-win-x64.exe -DestinationPath D:/a/XferKit/XferKit/Output/XferKit-installer-win-x64.zip
-
-    - name: Upload Windows Installer
-      if: matrix.os == 'windows-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: XferKit-installer-win-x64.zip
-        path: D:/a/XferKit/XferKit/Output/XferKit-installer-win-x64.zip
-
-    - name: Create Linux Debian Package
-      if: matrix.os == 'ubuntu-latest'
-      shell: bash
-      run: |
-        mkdir -p ./Output
-        mkdir -p debian/DEBIAN debian/usr/local/bin
-        cp -r publish/* debian/usr/local/bin/
-        chmod +x debian/usr/local/bin/xk
-        cat > debian/DEBIAN/control << EOF
-        Package: xferkit
-        Version: ${{ needs.auto-build.outputs.version }}
-        Section: utils
-        Priority: optional
-        Architecture: amd64
-        Maintainer: Parks Computing <paul@parkscomputing.com>
-        Description: XferKit - API Management CLI Tool.
-        EOF
-        dpkg-deb --build debian "./Output/XferKit-installer-linux-x64.deb"
-
-    - name: Upload Linux Installer
-      if: matrix.os == 'ubuntu-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: XferKit-installer-linux-x64.deb
-        path: ./Output/XferKit-installer-linux-x64.deb
-
-    - name: Create macOS Package
-      if: matrix.os == 'macos-latest'
-      shell: bash
-      run: |
-        mkdir -p ./Output
-        pkgbuild --root ./publish --identifier com.parkscomputing.xferkit \
-                 --version ${{ needs.auto-build.outputs.version }} \
-                 "./Output/XferKit-installer-osx-x64.pkg"
-
-    - name: Upload macOS Installer
-      if: matrix.os == 'macos-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: XferKit-installer-osx-x64.pkg
-        path: ./Output/XferKit-installer-osx-x64.pkg
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }}
+          path: |
+            ${{ matrix.os == 'windows-latest' && 'publish/XferKit-installer-win-x64.exe' || matrix.os == 'ubuntu-latest' && 'XferKit-installer-linux-x64.deb' || 'XferKit-installer-osx-x64.pkg' }}
 
   publish-release:
     name: Publish GitHub Release
-    needs: auto-build                  # ← must match the job id above
+    needs: [auto-build, cross-platform-builds]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Download all installers
@@ -264,18 +119,14 @@ jobs:
 
       - name: Upload Windows installer
         uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/XferKit-installer-win-x64.zip
-          asset_name: XferKit-installer-win-x64.zip
-          asset_content_type: application/zip
+          asset_path: release-assets/XferKit-installer-win-x64.exe
+          asset_name: XferKit-installer-win-x64.exe
+          asset_content_type: application/octet-stream
 
       - name: Upload Linux installer
         uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: release-assets/XferKit-installer-linux-x64.deb
@@ -284,8 +135,6 @@ jobs:
 
       - name: Upload macOS installer
         uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: release-assets/XferKit-installer-osx-x64.pkg

@@ -98,15 +98,7 @@ echo '{"name": "John"}' | xk post https://api.example.com/users
 
 # Add headers
 xk get https://api.example.com/users --headers "Authorization: Bearer token"
-### 3. Using Workspaces
-# List available workspaces
-xk workspace list
 
-# Switch to a workspace
-xk workspace use myapi
-
-# Execute a request from the workspace
-xk myapi getUser --baseurl https://api.example.com
 ## 📖 Configuration
 
 ### Workspace Configuration (`~/.xk/workspaces.xfer`)
