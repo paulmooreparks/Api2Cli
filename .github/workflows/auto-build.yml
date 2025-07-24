@@ -1,0 +1,102 @@
+name: Auto Build and Version
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  auto-build:
+    name: Auto Build and Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Calculate Version
+      id: version
+      shell: bash
+      run: |
+        # Extract current version from the project file
+        CURRENT_VERSION=$(grep -oP '<Version>\K[^<]+' xk/xk.csproj)
+        echo "Current version: $CURRENT_VERSION"
+
+        # Extract major.minor and calculate build number
+        BASE_VERSION=$(echo $CURRENT_VERSION | sed 's/-.*$//')
+        MAJOR_MINOR=$(echo $BASE_VERSION | sed 's/\.[0-9]*$//')
+        COMMIT_COUNT=$(git rev-list --count HEAD)
+        NEW_VERSION="${MAJOR_MINOR}.${COMMIT_COUNT}"
+
+        echo "New version: $NEW_VERSION"
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+        # Update the project file with the new version
+        sed -i "s|<Version>.*</Version>|<Version>$NEW_VERSION</Version>|" xk/xk.csproj
+
+    - name: Commit and Push Version Update
+      shell: bash
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add xk/xk.csproj
+        git commit -m "Auto-increment version to ${{ steps.version.outputs.version }} [skip ci]"
+        git push
+
+    - name: Build and Test
+      shell: bash
+      run: |
+        dotnet restore XferKit.sln
+        dotnet build XferKit.sln --configuration Release --no-restore -p:Version=${{ steps.version.outputs.version }}
+        dotnet test XferKit.sln --configuration Release --no-build --verbosity normal
+
+  cross-platform-builds:
+    name: Build for All Platforms
+    needs: auto-build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            runtime: win-x64
+          - os: ubuntu-latest
+            runtime: linux-x64
+          - os: macos-latest
+            runtime: osx-x64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Publish Application
+      shell: bash
+      run: |
+        dotnet publish xk/xk.csproj \
+          --configuration Release \
+          --runtime ${{ matrix.runtime }} \
+          --self-contained true \
+          --output ./publish \
+          -p:Version=${{ needs.auto-build.outputs.version }}
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-${{ matrix.runtime }}-${{ needs.auto-build.outputs.version }}
+        path: ./publish/
