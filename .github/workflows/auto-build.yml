@@ -194,7 +194,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: XferKit-installer-win-x64
+        name: XferKit-installer-win-x64.zip
         path: D:/a/XferKit/XferKit/Output/XferKit-installer-win-x64.zip
 
     - name: Create Linux Debian Package
@@ -220,7 +220,7 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: XferKit-installer-linux-x64
+        name: XferKit-installer-linux-x64.deb
         path: ./Output/XferKit-installer-linux-x64.deb
 
     - name: Create macOS Package
@@ -236,7 +236,7 @@ jobs:
       if: matrix.os == 'macos-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: XferKit-installer-osx-x64
+        name: XferKit-installer-osx-x64.pkg
         path: ./Output/XferKit-installer-osx-x64.pkg
 
   publish-release:
@@ -250,6 +250,11 @@ jobs:
         path: release-assets
     - name: List release assets
       run: ls -lR release-assets
+    - name: Rename Files for Consistency
+      run: |
+        mv release-assets/XferKit-installer-win-x64 release-assets/XferKit-installer-win-x64.zip || true
+        mv release-assets/XferKit-installer-linux-x64 release-assets/XferKit-installer-linux-x64.deb || true
+        mv release-assets/XferKit-installer-osx-x64 release-assets/XferKit-installer-osx-x64.pkg || true
     - name: Publish GitHub Release
       uses: softprops/action-gh-release@v2
       with:
