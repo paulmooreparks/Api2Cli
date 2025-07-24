@@ -189,7 +189,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: XferKit-installer-win-x64
-        path: ./XferKit-installer-win-x64.exe
+        path: D:/a/XferKit/XferKit/Output/XferKit-installer-win-x64.exe
 
     - name: Create Linux Debian Package
       if: matrix.os == 'ubuntu-latest'
@@ -207,14 +207,14 @@ jobs:
         Maintainer: Parks Computing <support@parkscomputing.com>
         Description: XferKit - API Management CLI Tool.
         EOF
-        dpkg-deb --build debian "./XferKit-installer-linux-x64.deb"
+        dpkg-deb --build debian "./Output/XferKit-installer-linux-x64.deb"
 
     - name: Upload Linux Installer
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
       with:
         name: XferKit-installer-linux-x64
-        path: ./XferKit-installer-linux-x64.deb
+        path: ./Output/XferKit-installer-linux-x64.deb
 
     - name: Create macOS Package
       if: matrix.os == 'macos-latest'
@@ -222,14 +222,14 @@ jobs:
       run: |
         pkgbuild --root ./publish --identifier com.parkscomputing.xferkit \
                  --version ${{ needs.auto-build.outputs.version }} \
-                 "./XferKit-installer-osx-x64.pkg"
+                 "./Output/XferKit-installer-osx-x64.pkg"
 
     - name: Upload macOS Installer
       if: matrix.os == 'macos-latest'
       uses: actions/upload-artifact@v4
       with:
         name: XferKit-installer-osx-x64
-        path: ./XferKit-installer-osx-x64.pkg
+        path: ./Output/XferKit-installer-osx-x64.pkg
 
   publish-release:
     name: Publish GitHub Release
@@ -250,6 +250,6 @@ jobs:
         prerelease: false
         generate_release_notes: true
         files: |
-          XferKit-installer-win-x64.exe
-          XferKit-installer-linux-x64.deb
-          XferKit-installer-osx-x64.pkg
+          D:/a/XferKit/XferKit/Output/XferKit-installer-win-x64.exe
+          Output/XferKit-installer-linux-x64.deb
+          Output/XferKit-installer-osx-x64.pkg
