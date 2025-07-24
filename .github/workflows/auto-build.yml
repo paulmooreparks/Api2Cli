@@ -82,18 +82,51 @@ jobs:
             -o publish
 
       # Windows installer (Inno Setup)
-      - name: Debug list repo tree
+      - name: Install Inno Setup
         if: matrix.os == 'windows-latest'
-        shell: bash
+        shell: pwsh
         run: |
-          echo ">> Listing files in repo:"
-          ls -R .
-      - name: Compile Inno Setup Installer
+          # Download and install Inno Setup silently
+          Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile "is.exe"
+          Start-Process -FilePath "is.exe" `
+                        -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" `
+                        -Wait
+
+      - name: Create Inno Setup Script
         if: matrix.os == 'windows-latest'
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.6
-        with:
-          path: 'installer.iss'
-          options: '/Opublish'
+        shell: pwsh
+        run: |
+          $scriptContent = @"
+          [Setup]
+          AppName=XferKit
+          AppVersion=${{ needs.auto-build.outputs.version }}
+          DefaultDirName={pf}\XferKit
+          DefaultGroupName=XferKit
+          OutputBaseFilename=XferKit-installer-win-x64
+          Compression=lzma
+          SolidCompression=yes
+
+          [Files]
+          Source: "./publish/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+
+          [Icons]
+          Name: "{group}\XferKit"; Filename: "{app}\xk.exe"
+          Name: "{group}\Uninstall XferKit"; Filename: "{uninstallexe}"
+          "@
+          $scriptContent | Out-File -FilePath "installer.iss" -Encoding UTF8
+
+      - name: Build Installer with Inno Setup
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $innoSetup = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          $script    = "installer.iss"
+          if (-Not (Test-Path $script)) {
+            Write-Error "Installer script not found: $script"
+            exit 1
+          }
+          # Compile into the 'publish' folder
+          & $innoSetup $script /Opublish
 
       # Linux installer (.deb)
       - name: Package Installer (Linux)
