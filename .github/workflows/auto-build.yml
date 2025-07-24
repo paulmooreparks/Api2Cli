@@ -184,12 +184,18 @@ jobs:
         # Run the Inno Setup Compiler
         & $innoSetupPath $scriptPath
 
-    - name: Upload Inno Setup Installer
+    - name: Zip Windows Installer
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        Compress-Archive -Path D:/a/XferKit/XferKit/Output/XferKit-installer-win-x64.exe -DestinationPath D:/a/XferKit/XferKit/Output/XferKit-installer-win-x64.zip
+
+    - name: Upload Windows Installer
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
       with:
         name: XferKit-installer-win-x64
-        path: D:/a/XferKit/XferKit/Output/XferKit-installer-win-x64.exe
+        path: D:/a/XferKit/XferKit/Output/XferKit-installer-win-x64.zip
 
     - name: Create Linux Debian Package
       if: matrix.os == 'ubuntu-latest'
@@ -253,5 +259,5 @@ jobs:
         generate_release_notes: true
         files: |
           release-assets/XferKit-installer-win-x64.zip
-          release-assets/XferKit-installer-linux-x64.zip
-          release-assets/XferKit-installer-osx-x64.zip
+          release-assets/XferKit-installer-linux-x64.deb
+          release-assets/XferKit-installer-osx-x64.pkg
