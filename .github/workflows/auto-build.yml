@@ -126,7 +126,7 @@ jobs:
             exit 1
           }
           # Compile into the 'publish' folder
-          & $innoSetup $script /Opublish
+          & $innoSetup $script
 
       # Linux installer (.deb)
       - name: Package Installer (Linux)
