@@ -163,7 +163,7 @@ jobs:
         with:
           name: installer-${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }}
           path: |
-            ${{ matrix.os == 'windows-latest' && 'publish/XferKit-installer-win-x64.exe' || matrix.os == 'ubuntu-latest' && 'Output/XferKit-installer-linux-x64.deb' || 'XferKit-installer-osx-x64.pkg' }}
+            ${{ matrix.os == 'windows-latest' && 'Output/XferKit-installer-win-x64.exe' || matrix.os == 'ubuntu-latest' && 'Output/XferKit-installer-linux-x64.deb' || 'XferKit-installer-osx-x64.pkg' }}
 
   publish-release:
     name: Publish GitHub Release
@@ -197,7 +197,7 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/publish/XferKit-installer-win-x64.exe
+          asset_path: release-assets/Output/XferKit-installer-win-x64.exe
           asset_name: XferKit-installer-win-x64.exe
           asset_content_type: application/octet-stream
   
