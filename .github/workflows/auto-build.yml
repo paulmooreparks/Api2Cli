@@ -16,43 +16,47 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
+    outputs:
+      version: ${{ steps.read-version.outputs.version }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0         # full history for GitVersion
+          fetch-depth: 0
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '8.0.x'
 
-      - name: Setup GitVersion
-        uses: gittools/actions/gitversion/setup@v0.9.11
-        with:
-          versionSpec: '5.x'
-
-      # Run GitVersion to calculate a SemVer
-      - name: Run GitVersion
-        uses: gittools/actions/gitversion/execute@v0.9.11
-        id: gitversion
-        # no useConfigFile needed if you don't have a GitVersion.yml
-
-      - name: Build & Pack .NET CLI
+      - name: Read version from csproj
+        id: read-version
         run: |
-          dotnet pack xk/xk.csproj \
-            --configuration Release \
-            /p:Version=${{ steps.gitversion.outputs.MajorMinorPatch }} \
-            /p:PackageVersion=${{ steps.gitversion.outputs.NuGetVersionV2 }}
+          # grab the full Version (e.g. "0.4.0")
+          base=$(grep -oPm1 "(?<=<Version>)[^<]+" xk/xk.csproj)
+          # remove the patch (".0") to get "0.4"
+          base2=${base%.*}
+          # use the GitHub run number as your build counter
+          build=${GITHUB_RUN_NUMBER}
+          full="$base2.$build"
+          echo "Computed version = $full"
+          # expose it to later steps
+          echo "version=$full" >> $GITHUB_OUTPUT
+
+#      - name: Build & Pack .NET CLI
+#        run: |
+#          dotnet pack xk/xk.csproj \
+#            --configuration Release \
+#            /p:Version=${{ steps.read-version.outputs.version }} \
+#            /p:PackageVersion=${{ steps.read-version.outputs.version }}
 
       - name: Tag release
+        if: ${{ github.actor != 'nektos/act' }}
         run: |
-          git tag v${{ steps.gitversion.outputs.MajorMinorPatch }}
-          git push origin v${{ steps.gitversion.outputs.MajorMinorPatch }}
-
-    outputs:
-      version: ${{ steps.gitversion.outputs.MajorMinorPatch }}
-
+          git tag v${{ steps.read-version.outputs.version }}
+          git push origin v${{ steps.read-version.outputs.version }}
 
   cross-platform-builds:
     name: Build & Package All Platforms
@@ -87,7 +91,7 @@ jobs:
 
       # Windows installer (Inno Setup)
       - name: Install Inno Setup
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && github.actor != 'nektos/act'
         shell: pwsh
         run: |
           # Download and install Inno Setup silently
@@ -97,7 +101,7 @@ jobs:
                         -Wait
 
       - name: Create Inno Setup Script
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && github.actor != 'nektos/act'
         shell: pwsh
         run: |
           $scriptContent = @"
@@ -120,7 +124,7 @@ jobs:
           $scriptContent | Out-File -FilePath "installer.iss" -Encoding UTF8
 
       - name: Build Installer with Inno Setup
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && github.actor != 'nektos/act'
         shell: pwsh
         run: |
           $innoSetup = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
@@ -154,7 +158,7 @@ jobs:
 
       # macOS installer (.pkg)
       - name: Package Installer (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && github.actor != 'nektos/act'
         shell: bash
         run: |
           pkgbuild --root publish \
@@ -163,6 +167,7 @@ jobs:
                    XferKit-installer-osx-x64.pkg
 
       - name: Upload Installer Artifact
+        if: github.actor != 'nektos/act'
         uses: actions/upload-artifact@v4
         with:
           name: installer-${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }}
@@ -173,6 +178,7 @@ jobs:
   publish-release:
     name: Publish GitHub Release
     needs: [auto-build, cross-platform-builds]
+    if: ${{ github.actor != 'nektos/act' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -196,7 +202,7 @@ jobs:
             ## Changelog
             Auto-generated release for version ${{ needs.auto-build.outputs.version }}
           draft: false
-          prerelease: false
+          prerelease: true
 
       - name: Upload macOS installer
         uses: actions/upload-release-asset@v1
