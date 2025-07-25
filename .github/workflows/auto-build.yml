@@ -195,6 +195,8 @@ jobs:
 
       - name: Upload macOS installer
         uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: release-assets/XferKit-installer-osx-x64.pkg
@@ -203,6 +205,8 @@ jobs:
 
       - name: Upload Linux installer
         uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: release-assets/Output/XferKit-installer-linux-x64.deb
@@ -211,6 +215,8 @@ jobs:
   
       - name: Upload Windows installer
         uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: release-assets/XferKit-installer-win-x64.exe
