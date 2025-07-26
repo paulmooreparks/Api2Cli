@@ -1,10 +1,10 @@
-![XferKit Logo](logo/XferKit-sm.png)
+![XferKit Logo](https://raw.githubusercontent.com/paulmooreparks/XferKit/master/logo/XferKit-sm.png)
 
 # XferKit - API Management CLI Tool
 
 <p>
   <a href="https://github.com/paulmooreparks/XferKit/releases">
-    <img alt="XferKit CLI Version" src="https://img.shields.io/badge/XferKit_CLI-0.3.0--prerelease-blue">
+    <img alt="XferKit CLI Version" src="https://img.shields.io/github/v/release/paulmooreparks/XferKit?include_prereleases">
   </a>
   <a href="https://github.com/paulmooreparks/XferKit">
     <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/paulmooreparks/XferKit">
@@ -13,7 +13,7 @@
     <img alt="GitHub issues" src="https://img.shields.io/github/issues/paulmooreparks/XferKit">
   </a>
   <a href="https://github.com/paulmooreparks/XferKit/actions">
-    <img alt="Build Status" src="https://img.shields.io/github/actions/workflow/status/paulmooreparks/XferKit/auto-version.yml?branch=main">
+    <img alt="Build Status" src="https://img.shields.io/github/actions/workflow/status/paulmooreparks/XferKit/auto-build.yml?branch=main">
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg">
@@ -23,87 +23,86 @@
   </a>
 </p>
 
-**XferKit** is a powerful command-line interface (CLI) tool for HTTP API management, testing, and automation. It provides a workspace-based approach to organize API interactions, supports JavaScript scripting for advanced workflows, and offers an intuitive command-line experience for developers working with REST APIs.
+## XferKit Overview
 
-## 🚀 Key Features
+**XferKit** is a powerful command-line interface (CLI) tool for HTTP API management, testing, and automation. It provides a workspace-based approach to organize API interactions, supports JavaScript scripting for advanced workflows, and offers an intuitive command-line experience for developers working with REST APIs. It bridges the gap between simple command-line tools like curl and complex GUI applications like Postman, providing the power and flexibility developers need for modern API workflows.
 
-### HTTP Methods Support
+### 🚀 Key Features
+
+#### HTTP Methods Support
 - **Complete HTTP coverage**: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
 - **Flexible request configuration**: Headers, query parameters, request bodies
 - **Response handling**: Status codes, headers, content processing
 - **Cookie management**: Automatic cookie handling and custom cookie support
 
-### Workspace Management
+#### Workspace Management
 - **Organized collections**: Group related API requests into workspaces
 - **Workspace inheritance**: Create derived workspaces from existing ones
 - **Multiple workspace support**: Switch between different API environments
 - **Configuration persistence**: Automatic workspace configuration storage
 
-### JavaScript Scripting Engine
+#### JavaScript Scripting Engine
 - **Pre-request scripts**: Modify requests before execution
 - **Post-response scripts**: Process responses and extract data
 - **Global scripts**: Shared functionality across workspaces
 - **Environment manipulation**: Dynamic configuration and data processing
 - **NuGet package support**: Extend functionality with .NET packages
 
-### Cross-Platform Compatibility
+#### Cross-Platform Compatibility
 - **Multi-OS support**: Windows, Linux, and macOS
 - **Native installers**: Platform-specific packages available
 
-### Advanced Configuration
+#### Advanced Configuration
 - **Environment variables**: Centralized configuration management
 - **Parameter substitution**: Dynamic value replacement in requests
 - **XferLang configuration**: Powerful configuration language
 - **Template support**: Reusable request templates
 
-### Developer Experience
+#### Developer Experience
 - **REPL mode**: Interactive command-line interface
 - **Command-line execution**: Single-command API calls
 - **Input redirection**: Pipe data from other commands
 - **Scriptable workflows**: Custom scripts for automated tasks
 
-## 📦 Installation
+### 📦 Installation
 
-### Pre-built Downloads
+#### Pre-built Downloads
 
 Download the latest release from [GitHub Releases](https://github.com/paulmooreparks/XferKit/releases) for your platform:
 
-#### Installers (Automatic PATH Setup)
+##### Installers (Automatic PATH Setup)
 - **Windows**: `xk-VERSION-installer-win-x64.exe` - Windows Installer
 - **Linux**: `XferKit-vVERSION-installer-linux-x64.deb` - Debian Package (`sudo dpkg -i`)
 - **macOS**: `XferKit-vVERSION-installer-osx-x64.pkg` - macOS Installer Package
 
-### Build from Source
-git clone https://github.com/paulmooreparks/XferKit.git
+#### Build from Sourcegit clone https://github.com/paulmooreparks/XferKit.git
 cd XferKit
 dotnet build --configuration Release
 dotnet publish xk/xk.csproj --configuration Release --output ./publish
-## 🎯 Quick Start
+### 🎯 Quick Start
 
-### 1. First Run
+#### 1. First Run
 
-When you run `xk` for the first time, it creates a `.xk` folder in your home directory with initial configuration files:
-xk --help
-This creates:
+When you run `xk` for the first time, it creates a `.xk` folder in your home directory with initial configuration files:xk --helpThis creates:
 - `~/.xk/workspaces.xfer` - Workspace definitions
 - `~/.xk/.env` - Environment variables
 - `~/.xk/packages/` - NuGet packages storage
 
-### 2. Basic HTTP Requests
-# Simple GET request
-xk get https://api.example.com/users
+#### 2. Basic HTTP Requests# Simple GET request
+`xk get https://api.example.com/users`
 
 # POST with JSON payload
-echo '{"name": "John"}' | xk post https://api.example.com/users
+`echo '{"name": "John"}' | xk post https://api.example.com/users`
 
 # Add headers
-xk get https://api.example.com/users --headers "Authorization: Bearer token"
+`xk get https://api.example.com/users --headers "Authorization: Bearer token"`
 
-## 📖 Configuration
+### 📖 Configuration
 
-### Workspace Configuration (`~/.xk/workspaces.xfer`)
+#### Workspace Configuration (`~/.xk/workspaces.xfer`)
 
 Workspaces are defined using the XferLang configuration language. Here's a realistic example showing enterprise-grade patterns:
+```xferlang
 {
     // Global initialization script with .NET CLR integration
     initScript <'
@@ -412,281 +411,46 @@ Workspaces are defined using the XferLang configuration language. Here's a reali
         }
     }
 }
-### Environment Variables (`~/.xk/.env`)
+```
+
+#### Environment Variables (`~/.xk/.env`)
 
 The `.env` file contains sensitive configuration that should never be committed to version control:
+
+```env
 # Authentication credentials for different environments
 API_USERNAME=your-username
 API_PASSWORD=your-secure-password
+```
 
 # Environment-specific tokens (populated by login scripts)
+```env
 DEV_TOKEN=
 STAGING_TOKEN=
 PROD_TOKEN=
+```
 
 # Database connections
+```env
 DB_CONNECTION_STRING=Server=localhost;Database=myapp;Trusted_Connection=true;
 REDIS_URL=redis://localhost:6379
+```
 
 # External service API keys
+```env
 GITHUB_TOKEN=ghp_your_github_personal_access_token
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK
 AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
 AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 AWS_REGION=us-west-2
+```
 
-# Service endpoints
-PAYMENT_SERVICE_URL=https://payments.internal.company.com
-NOTIFICATION_SERVICE_URL=https://notifications.internal.company.com
 
-# Feature flags
-ENABLE_DEBUG_LOGGING=true
-ENABLE_METRICS=false
-MAX_RETRY_ATTEMPTS=3
-
-# Local development settings
-LOCAL_IP=192.168.1.100
-DEV_PORT=3000
-DEV_SSL_CERT_PATH=/path/to/cert.pem
-DEV_SSL_KEY_PATH=/path/to/key.pem
-## 🔧 Advanced Usage
-
-### Enterprise JavaScript Scripting
-
-XferKit's JavaScript engine provides full .NET CLR integration for sophisticated automation:
-// Advanced pre-request script with .NET integration
-function preRequest(headers, parameters, payload, cookies) {
-    let clr = host.lib('mscorlib', 'System', 'System.Core');
-    let Environment = clr.System.Environment;
-    let DateTime = clr.System.DateTime;
-
-    // Add dynamic timestamps and request IDs
-    headers['X-Timestamp'] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
-    headers['X-Request-ID'] = generateUUID();
-    headers['X-Environment'] = Environment.GetEnvironmentVariable("ENVIRONMENT") || "development";
-
-    // Conditional authentication based on environment
-    const env = Environment.GetEnvironmentVariable("ENVIRONMENT");
-    if (env === "production") {
-        headers['X-API-Version'] = "2.0";
-        headers['X-Client-Version'] = "xferkit-1.0";
-    }
-
-    return { headers, parameters, payload, cookies };
-}
-
-// Complex response processing with error handling
-function postResponse(statusCode, headers, content) {
-    try {
-        if (statusCode >= 200 && statusCode < 300) {
-            const data = JSON.parse(content);
-
-            // Extract and store important data for later use
-            if (data.pagination) {
-                xk.store.set('lastPagination', data.pagination);
-            }
-
-            if (data.data && Array.isArray(data.data)) {
-                console.log(`✅ Retrieved ${data.data.length} items`);
-            }
-
-            // Auto-retry logic for rate limiting
-            if (statusCode === 429) {
-                const retryAfter = headers['Retry-After'] || 60;
-                console.log(`⏳ Rate limited, retrying in ${retryAfter} seconds...`);
-                // Could implement retry logic here
-            }
-
-            return formatJson(content);
-        } else {
-            console.error(`❌ Request failed: ${statusCode}`);
-
-            // Enhanced error reporting
-            try {
-                const errorData = JSON.parse(content);
-                if (errorData.error) {
-                    console.error(`Error: ${errorData.error.code} - ${errorData.error.message}`);
-                }
-            } catch (e) {
-                console.error(`Raw error: ${content}`);
-            }
-
-            return content;
-        }
-    } catch (error) {
-        console.error(`Response processing error: ${error.message}`);
-        return content;
-    }
-}
-
-// Advanced utility functions
-function processFileUpload(filePath, chunkSize = 1024 * 1024) {
-    let clr = host.lib('mscorlib', 'System.IO');
-    let File = clr.System.IO.File;
-    let FileInfo = clr.System.IO.FileInfo;
-
-    if (!File.Exists(filePath)) {
-        throw new Error(`File not found: ${filePath}`);
-    }
-
-    let fileInfo = new FileInfo(filePath);
-    let fileSize = fileInfo.Length;
-
-    console.log(`📁 Processing file: ${filePath} (${fileSize} bytes)`);
-
-    // For large files, implement chunked upload
-    if (fileSize > chunkSize) {
-        console.log("📤 Large file detected, using chunked upload...");
-        return uploadFileInChunks(filePath, chunkSize);
-    } else {
-        return xk.fileSystem.readText(filePath);
-    }
-}
-### Multi-Environment Management
-
-Create sophisticated environment hierarchies with inheritance:
-workspaces {
-    // Base configuration
-    microserviceBase {
-        isHidden ~true
-        description "Base configuration for microservice environments"
-
-        properties {
-            timeout 30000
-            retryAttempts 3
-            serviceName "user-service"
-        }
-
-        scripts {
-            deployService {
-                description "Deploy service to environment"
-                arguments {
-                    version { type "string" description "Service version to deploy" }
-                    force { type "boolean" description "Force deployment" }
-                }
-                script <'
-                    console.log(`🚀 Deploying ${workspace.serviceName} v${version} to ${workspace.environment}...`);
-
-                    // Pre-deployment health check
-                    const health = workspace.get_Health.execute();
-                    if (!JSON.parse(health).healthy && !force) {
-                        throw new Error("Environment unhealthy, use --force to override");
-                    }
-
-                    // Deployment logic
-                    const result = workspace.post_Deploy.execute(version, workspace.environment);
-                    console.log(`✅ Deployment completed: ${result}`);
-
-                    // Post-deployment verification
-                    setTimeout(() => {
-                        workspace.verifyDeployment(version);
-                    }, 10000);
-
-                    return result;
-                '>
-            }
-
-            rollback {
-                description "Rollback to previous version"
-                script <'
-                    const lastVersion = xk.store.get(`${workspace.serviceName}_last_version`);
-                    if (!lastVersion) {
-                        throw new Error("No previous version found for rollback");
-                    }
-
-                    console.log(`⏪ Rolling back to version ${lastVersion}...`);
-                    return workspace.deployService(lastVersion, true);
-                '>
-            }
-        }
-
-        preRequest <'
-            // Add service metadata to all requests
-            request.headers["X-Service-Name"] = workspace.serviceName;
-            request.headers["X-Environment"] = workspace.environment;
-            request.headers["X-Correlation-ID"] = generateUUID();
-        '>
-    }
-
-    // Development environment
-    dev {
-        extend "microserviceBase"
-        description "Development environment"
-        baseUrl "http://localhost:8080"
-
-        properties {
-            environment "development"
-            debugMode ~true
-        }
-
-        scripts {
-            startLocalStack {
-                description "Start local development stack"
-                script <'
-                    console.log("🔧 Starting local development stack...");
-
-                    // Start database
-                    xk.process.runCommand(false, ".", "docker-compose", "up -d postgres redis");
-
-                    // Wait for services
-                    console.log("⏳ Waiting for services to be ready...");
-                    let attempts = 0;
-                    while (attempts < 30) {
-                        try {
-                            workspace.get_Health.execute();
-                            break;
-                        } catch (e) {
-                            attempts++;
-                            if (attempts >= 30) throw new Error("Services failed to start");
-                            Thread.Sleep(1000);
-                        }
-                    }
-
-                    console.log("✅ Development stack ready");
-                '>
-            }
-        }
-    }
-
-    // Production environment
-    prod {
-        extend "microserviceBase"
-        description "Production environment"
-        baseUrl "https://api.company.com"
-
-        properties {
-            environment "production"
-            debugMode ~false
-            requireApproval ~true
-        }
-
-        scripts {
-            deployService {
-                description "Deploy service with production safeguards"
-                arguments {
-                    version { type "string" description "Service version to deploy" }
-                    approvalTicket { type "string" description "Approval ticket number" }
-                }
-                script <'
-                    if (workspace.requireApproval && !approvalTicket) {
-                        throw new Error("Production deployment requires approval ticket");
-                    }
-
-                    console.log(`🏭 Production deployment approved: ${approvalTicket}`);
-
-                    // Store current version for rollback
-                    const currentVersion = workspace.getCurrentVersion();
-                    xk.store.set(`${workspace.serviceName}_last_version`, currentVersion);
-
-                    return workspace.deployService(version, false);
-                '>
-            }
-        }
-    }
-}
 ### Advanced Parameter Substitution
 
 XferKit supports complex parameter replacement patterns:
+
+```xferlang
 requests {
     // Dynamic endpoint construction
     getUserByContext {
@@ -733,9 +497,13 @@ requests {
         }'>
     }
 }
+```
+
 ### Workspace Inheritance and Composition
 
 Build complex workspace hierarchies:
+
+```xferlang
 workspaces {
     // Shared authentication workspace
     authBase {
@@ -982,9 +750,13 @@ scripts {
         '>
     }
 }
+```
+
 ### Development Workflow Automation
 
 Streamline your development workflow:
+
+```xferlang
 workspaces {
     devWorkflow {
         description "Complete development workflow automation"
@@ -1090,9 +862,13 @@ workspaces {
         }
     }
 }
+```
+
 ### API Documentation Generation
 
 Auto-generate API documentation from your XferKit workspace:
+
+```xferlang
 scripts {
     generateApiDocs {
         description "Generate API documentation from workspace"
@@ -1141,54 +917,54 @@ scripts {
         '>
     }
 }
+```
+
 ## 🛠️ Command Reference
 
 ### Global Commands
 # Get help
-xk --help
-xk <command> --help
+`xk --help`
+`xk <command> --help`
 
 # Set base URL globally
-xk --baseurl https://api.example.com <command>
+`xk --baseurl https://api.example.com <command>`
 
 # Use specific workspace file
-xk --workspace /path/to/workspace.xfer <command>
+`xk --workspace /path/to/workspace.xfer <command>`
+
 ### HTTP Commands
 # GET request
-xk get <url> [--headers <headers>] [--parameters <params>]
+`xk get <url> [--headers <headers>] [--parameters <params>]`
 
 # POST request
-xk post <url> [--payload <data>] [--headers <headers>]
+`xk post <url> [--payload <data>] [--headers <headers>]`
 
 # PUT request
-xk put <url> [--payload <data>] [--headers <headers>]
+`xk put <url> [--payload <data>] [--headers <headers>]`
 
 # PATCH request
-xk patch <url> [--payload <data>] [--headers <headers>]
+`xk patch <url> [--payload <data>] [--headers <headers>]`
 
 # DELETE request
-xk delete <url> [--headers <headers>]
+`xk delete <url> [--headers <headers>]`
 
 # HEAD request
-xk head <url> [--headers <headers>]
+`xk head <url> [--headers <headers>]`
+
 ### Workspace Commands
 # List workspaces
-xk workspace list
-
-# Show workspace details
-xk workspace show <name>
-
-# Use workspace
-xk workspace use <name>
+`xk workspace list`
 
 # Execute workspace request
-xk <workspace> <request> [options]
+`xk <workspace> <request> [options]`    
+
 ### Scripting Commands
 # Execute JavaScript
-xk script <code>
+`xk script <code>`
 
 # Run workspace script
-xk <workspace> <script> [arguments]
+`xk <workspace> <script> [arguments]`
+
 ## 🏗️ Architecture
 
 XferKit is built on .NET 8.0 and consists of several modular components:
@@ -1219,15 +995,17 @@ Contributions are welcome! Please feel free to submit issues, feature requests, 
 5. Run tests with `dotnet test`
 
 ### Project Structure
-XferKit/
-├── xk/                                    # Main CLI executable
-├── ParksComputing.XferKit.Api/           # Core API interfaces
-├── ParksComputing.XferKit.Http/          # HTTP services
-├── ParksComputing.XferKit.Workspace/     # Workspace management
-├── ParksComputing.XferKit.Scripting/     # JavaScript engine
-├── ParksComputing.XferKit.DataStore/     # Data persistence
-├── ParksComputing.XferKit.Diagnostics/   # Logging and diagnostics
-└── .github/workflows/                    # CI/CD pipelines
+
+  XferKit/
+  ├── xk/                                    # Main CLI executable
+  ├── ParksComputing.XferKit.Api/           # Core API interfaces
+  ├── ParksComputing.XferKit.Http/          # HTTP services
+  ├── ParksComputing.XferKit.Workspace/     # Workspace management
+  ├── ParksComputing.XferKit.Scripting/     # JavaScript engine
+  ├── ParksComputing.XferKit.DataStore/     # Data persistence
+  ├── ParksComputing.XferKit.Diagnostics/   # Logging and diagnostics
+  └── .github/workflows/                    # CI/CD pipelines
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
@@ -1243,6 +1021,3 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 - 💡 [Feature Requests](https://github.com/paulmooreparks/XferKit/issues)
 - 📖 [Documentation](https://github.com/paulmooreparks/XferKit/wiki) (Coming Soon)
 
----
-
-**XferKit** bridges the gap between simple command-line tools like curl and complex GUI applications like Postman, providing the power and flexibility developers need for modern API workflows.
