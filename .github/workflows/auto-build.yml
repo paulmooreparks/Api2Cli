@@ -67,20 +67,10 @@ jobs:
         include:
           - os: windows-latest
             runtime: win-x64
-          - os: windows-latest
-            runtime: win-x86
-          - os: windows-latest
-            runtime: win-arm64
           - os: ubuntu-latest
             runtime: linux-x64
-          - os: ubuntu-latest
-            runtime: linux-arm
-          - os: ubuntu-latest
-            runtime: linux-arm64
           - os: macos-latest
             runtime: osx-x64
-          - os: macos-latest
-            runtime: osx-arm64
 
     steps:
       - name: Checkout repo
@@ -91,16 +81,12 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Restore .NET dependencies
-        run: |
-          dotnet restore
-
       - name: Publish for ${{ matrix.os }}
         shell: bash
         run: |
           dotnet publish xk/xk.csproj \
             --configuration Release \
-            --runtime ${{ matrix.runtime }} \
+            --runtime ${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }} \
             -o publish
 
       # Windows installer (Inno Setup)
@@ -156,9 +142,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p ./Output
-          mkdir -p debian/DEBIAN debian/usr/local/bin/runtimes/linux-x64/native
+          mkdir -p debian/DEBIAN debian/usr/local/bin
           cp -r publish/* debian/usr/local/bin/
-          cp publish/runtimes/linux-x64/native/ClearScriptV8.linux-x64.so debian/usr/local/bin/runtimes/linux-x64/native/
           chmod +x debian/usr/local/bin/xk
           cat > debian/DEBIAN/control << EOF
           Package: xferkit
@@ -176,8 +161,6 @@ jobs:
         if: matrix.os == 'macos-latest' && github.actor != 'nektos/act'
         shell: bash
         run: |
-          mkdir -p publish/runtimes/osx-x64/native
-          cp publish/runtimes/osx-x64/native/ClearScriptV8.osx-x64.dylib publish/runtimes/osx-x64/native/
           pkgbuild --root publish \
                    --identifier com.yourorg.xferkit \
                    --install-location /usr/local \
