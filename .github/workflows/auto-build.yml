@@ -5,12 +5,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
-    inputs:
-      reset_build_number:
-        description: "Reset the build number (true/false)"
-        required: false
-        default: "false"
 
 # Needs write access to push tags and create releases
 permissions:
@@ -44,19 +38,19 @@ jobs:
           base=$(grep -oPm1 "(?<=<Version>)[^<]+" xk/xk.csproj)
           # remove the patch (".0") to get "0.4"
           base2=${base%.*}
-
-          # Check if the build number should be reset
-          if [[ "${{ github.event.inputs.reset_build_number }}" == "true" ]]; then
-            build=1
-          else
-            # use the GitHub run number as your build counter
-            build=${GITHUB_RUN_NUMBER}
-          fi
-
+          # use the GitHub run number as your build counter
+          build=${GITHUB_RUN_NUMBER}
           full="$base2.$build"
           echo "Computed version = $full"
           # expose it to later steps
           echo "version=$full" >> $GITHUB_OUTPUT
+
+#      - name: Build & Pack .NET CLI
+#        run: |
+#          dotnet pack xk/xk.csproj \
+#            --configuration Release \
+#            /p:Version=${{ steps.read-version.outputs.version }} \
+#            /p:PackageVersion=${{ steps.read-version.outputs.version }}
 
       - name: Tag release
         if: ${{ github.actor != 'nektos/act' }}
@@ -73,20 +67,10 @@ jobs:
         include:
           - os: windows-latest
             runtime: win-x64
-          - os: windows-latest
-            runtime: win-x86
-          - os: windows-latest
-            runtime: win-arm64
           - os: ubuntu-latest
             runtime: linux-x64
-          - os: ubuntu-latest
-            runtime: linux-arm
-          - os: ubuntu-latest
-            runtime: linux-arm64
           - os: macos-latest
             runtime: osx-x64
-          - os: macos-latest
-            runtime: osx-arm64
 
     steps:
       - name: Checkout repo
@@ -102,7 +86,7 @@ jobs:
         run: |
           dotnet publish xk/xk.csproj \
             --configuration Release \
-            --runtime ${{ matrix.runtime }} \
+            --runtime ${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }} \
             -o publish
 
       # Windows installer (Inno Setup)
