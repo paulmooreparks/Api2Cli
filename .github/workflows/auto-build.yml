@@ -45,13 +45,6 @@ jobs:
           # expose it to later steps
           echo "version=$full" >> $GITHUB_OUTPUT
 
-#      - name: Build & Pack .NET CLI
-#        run: |
-#          dotnet pack xk/xk.csproj \
-#            --configuration Release \
-#            /p:Version=${{ steps.read-version.outputs.version }} \
-#            /p:PackageVersion=${{ steps.read-version.outputs.version }}
-
       - name: Tag release
         if: ${{ github.actor != 'nektos/act' }}
         run: |
@@ -67,10 +60,20 @@ jobs:
         include:
           - os: windows-latest
             runtime: win-x64
+          - os: windows-latest
+            runtime: win-x86
+          - os: windows-latest
+            runtime: win-arm64
           - os: ubuntu-latest
             runtime: linux-x64
+          - os: ubuntu-latest
+            runtime: linux-arm
+          - os: ubuntu-latest
+            runtime: linux-arm64
           - os: macos-latest
             runtime: osx-x64
+          - os: macos-latest
+            runtime: osx-arm64
 
     steps:
       - name: Checkout repo
@@ -86,7 +89,7 @@ jobs:
         run: |
           dotnet publish xk/xk.csproj \
             --configuration Release \
-            --runtime ${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }} \
+            --runtime ${{ matrix.runtime }} \
             -o publish
 
       # Windows installer (Inno Setup)
