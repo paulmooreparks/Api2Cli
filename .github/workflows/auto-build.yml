@@ -5,6 +5,12 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      reset_build_number:
+        description: "Reset the build number (true/false)"
+        required: false
+        default: "false"
 
 # Needs write access to push tags and create releases
 permissions:
@@ -38,8 +44,15 @@ jobs:
           base=$(grep -oPm1 "(?<=<Version>)[^<]+" xk/xk.csproj)
           # remove the patch (".0") to get "0.4"
           base2=${base%.*}
-          # use the GitHub run number as your build counter
-          build=${GITHUB_RUN_NUMBER}
+
+          # Check if the build number should be reset
+          if [[ "${{ github.event.inputs.reset_build_number }}" == "true" ]]; then
+            build=1
+          else
+            # use the GitHub run number as your build counter
+            build=${GITHUB_RUN_NUMBER}
+          fi
+
           full="$base2.$build"
           echo "Computed version = $full"
           # expose it to later steps
