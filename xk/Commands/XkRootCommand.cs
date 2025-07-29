@@ -27,6 +27,7 @@ internal class XkRootCommand {
     private readonly IReplContext _replContext;
     private readonly System.CommandLine.RootCommand _rootCommand;
     private readonly IXferScriptEngine _scriptEngine;
+    private readonly IXferScriptEngineFactory _scriptEngineFactory;
     private readonly XferKitApi _xk;
     private readonly IScriptCliBridge _scriptCliBridge;
     private readonly ISettingsService _settingsService;
@@ -38,17 +39,18 @@ internal class XkRootCommand {
         IWorkspaceService workspaceService,
         System.CommandLine.RootCommand rootCommand,
         ICommandSplitter splitter,
-        IXferScriptEngine scriptEngine,
+        IXferScriptEngineFactory scriptEngineFactory,
         XferKitApi xferKitApi,
         IScriptCliBridge scriptCliBridge,
         ISettingsService settingsService,
         [OptionParam("--recursive")] Option recursionOption
-        ) 
+        )
     {
         _serviceProvider = serviceProvider;
         _workspaceService = workspaceService;
         _rootCommand = rootCommand;
-        _scriptEngine = scriptEngine;
+        _scriptEngineFactory = scriptEngineFactory;
+        _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
         _xk = xferKitApi;
         _recursionOption = recursionOption;
         _replContext = new XkReplContext(_rootCommand, _serviceProvider, _workspaceService, splitter, _recursionOption);
@@ -98,8 +100,8 @@ function myFunction(baseUrl, page) {{
     }
 
     public void ConfigureWorkspaces() {
-        // TODO: I'll eventually add parameters here to limit what configuration info is loaded 
-        // and processed in order to speed up initialization. This will be important in scenarios 
+        // TODO: I'll eventually add parameters here to limit what configuration info is loaded
+        // and processed in order to speed up initialization. This will be important in scenarios
         // where xk is being called from a script.
 
         LoadEnvironmentVariables(_settingsService.EnvironmentFilePath);
@@ -120,7 +122,7 @@ function myFunction(baseUrl, page) {{
                 var paramList = new List<string>();
 
                 var scriptCommand = new Command(scriptName, $"[script] {description}");
-                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngine);
+                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory);
 
                 foreach (var kvp in arguments) {
                     var argument = kvp.Value;
@@ -216,7 +218,7 @@ xk.{scriptName} = __script__{scriptName};
 
                 var scriptCommand = new Command(scriptName, $"[script] {description}");
                 scriptCommand.IsHidden = workspaceConfig.IsHidden;
-                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngine);
+                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory);
 
                 foreach (var kvp in arguments) {
                     var argument = kvp.Value;
@@ -280,11 +282,11 @@ xk.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
                 request.Name = requestName;
                 var description = request.Description ?? $"{request.Method} {request.Endpoint}";
                 var scriptCall = $"send {workspaceName} {requestName} --baseurl {workspaceKvp.Value.BaseUrl}";
-                
+
 
                 var requestCommand = new Command(requestName, $"[request] {description}");
                 requestCommand.IsHidden = workspaceConfig.IsHidden;
-                var requestHandler = new SendCommand(Utility.GetService<IHttpService>()!, _xk, _workspaceService, Utility.GetService<IXferScriptEngine>()!, Utility.GetService<IPropertyResolver>(), Utility.GetService<ISettingsService>());
+                var requestHandler = new SendCommand(Utility.GetService<IHttpService>()!, _xk, _workspaceService, Utility.GetService<IXferScriptEngineFactory>()!, Utility.GetService<IPropertyResolver>(), Utility.GetService<ISettingsService>());
                 var requestObj = requests![requestName] as IDictionary<string, object>;
                 var requestCaller = new RequestCaller(_rootCommand, requestHandler, workspaceName, requestName, workspaceKvp.Value.BaseUrl);
 #pragma warning disable CS8974 // Converting method group to non-delegate type
@@ -370,7 +372,7 @@ xk.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
         [OptionParam("--recursive")] bool isRecursive,
         Command command,
         InvocationContext context
-        ) 
+        )
     {
         if (baseUrl is not null) {
             _workspaceService.ActiveWorkspace.BaseUrl = baseUrl;
@@ -381,7 +383,7 @@ xk.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
         }
 
         var result = await command.Repl(
-            _serviceProvider, 
+            _serviceProvider,
             context,
             _replContext
             );

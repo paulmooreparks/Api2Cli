@@ -19,7 +19,9 @@ namespace ParksComputing.XferKit.Scripting;
 
 public static class ServiceCollectionExtensions {
     public static IServiceCollection AddXferKitScriptingServices(this IServiceCollection services) {
-        services.TryAddSingleton<IXferScriptEngine, ClearScriptEngine>();
+        services.TryAddSingleton<IXferScriptEngineFactory, XferScriptEngineFactory>();
+        services.TryAddSingleton<ClearScriptEngine>();
+        services.TryAddSingleton<CSharpScriptEngine>();
         services.TryAddSingleton<IPropertyResolver, PropertyResolver>();
         services.TryAddSingleton<IHttpApi, HttpApi>();
         services.TryAddSingleton<IStoreApi, StoreApi>();

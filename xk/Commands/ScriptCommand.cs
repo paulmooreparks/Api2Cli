@@ -20,25 +20,27 @@ namespace ParksComputing.XferKit.Cli.Commands;
 [Argument(typeof(IEnumerable<string>), "scriptBody", "Optional script text to execute.", Arity = Cliffer.ArgumentArity.ZeroOrMore)]
 internal class ScriptCommand {
     private readonly IXferScriptEngine _scriptEngine;
+    private readonly IXferScriptEngineFactory _scriptEngineFactory;
     private readonly IReplContext _replContext;
 
     public ScriptCommand(
         Command command,
-        IXferScriptEngine scriptEngine,
+        IXferScriptEngineFactory scriptEngineFactory,
         ICommandSplitter splitter,
         IWorkspaceService workspaceService
-        ) 
+        )
     {
-        _scriptEngine = scriptEngine;
-        _replContext = new ScriptReplContext(command, scriptEngine, splitter, workspaceService);
+        _scriptEngineFactory = scriptEngineFactory;
+        _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
+        _replContext = new ScriptReplContext(command, _scriptEngineFactory, splitter, workspaceService);
     }
 
     public async Task<int> Execute(
         IEnumerable<string> scriptBody,
-        Command command, 
-        IServiceProvider serviceProvider, 
+        Command command,
+        IServiceProvider serviceProvider,
         InvocationContext context
-        ) 
+        )
     {
         if (scriptBody is not null && scriptBody.Any()) {
             var script = string.Join(' ', scriptBody);

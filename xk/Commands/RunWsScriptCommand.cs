@@ -18,24 +18,26 @@ namespace ParksComputing.XferKit.Cli.Commands;
 
 internal class RunWsScriptCommand {
     private readonly IWorkspaceService _workspaceService;
+    private readonly IXferScriptEngineFactory _scriptEngineFactory;
     private readonly IXferScriptEngine _scriptEngine;
 
     public object? CommandResult { get; private set; } = null;
 
     public RunWsScriptCommand(
         IWorkspaceService workspaceService,
-        IXferScriptEngine scriptEngine
-        ) 
-    { 
+        IXferScriptEngineFactory scriptEngineFactory
+        )
+    {
         _workspaceService = workspaceService;
-        _scriptEngine = scriptEngine;
+        _scriptEngineFactory = scriptEngineFactory;
+        _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
     }
 
     public int Handler(
         InvocationContext invocationContext,
         string scriptName,
         string? workspaceName
-        ) 
+        )
     {
         var parseResult = invocationContext.ParseResult;
         return Execute(invocationContext, scriptName, workspaceName, [], parseResult.CommandResult.Tokens);
@@ -47,7 +49,7 @@ internal class RunWsScriptCommand {
         string? workspaceName,
         IEnumerable<object>? args,
         IReadOnlyList<System.CommandLine.Parsing.Token>? tokenArguments
-        ) 
+        )
     {
         var result = DoCommand(invocationContext, scriptName, workspaceName, args, tokenArguments);
 
@@ -64,7 +66,7 @@ internal class RunWsScriptCommand {
         string? workspaceName,
         IEnumerable<object>? args,
         IReadOnlyList<System.CommandLine.Parsing.Token>? tokenArguments
-        ) 
+        )
     {
         if (scriptName is null) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Script name is required.");
@@ -103,7 +105,7 @@ internal class RunWsScriptCommand {
         }
 
         var argumentDefinitions = scriptDefinition.Arguments.Values.ToList();
-        
+
         if (!string.IsNullOrEmpty(workspaceName)) {
             var workspaces = _scriptEngine.Script.xk.Workspaces as IDictionary<string, object?>;
             if (workspaces is not null) {

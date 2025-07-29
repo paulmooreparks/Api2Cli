@@ -24,6 +24,7 @@ public class SendCommand {
     private readonly IHttpService _httpService;
     private readonly XferKitApi _xk;
     private readonly IWorkspaceService _ws;
+    private readonly IXferScriptEngineFactory _scriptEngineFactory;
     private readonly IXferScriptEngine _scriptEngine;
     private readonly IPropertyResolver _propertyResolver;
     private readonly ISettingsService _settingsService;
@@ -34,10 +35,10 @@ public class SendCommand {
         IHttpService httpService,
         XferKitApi xk,
         IWorkspaceService workspaceService,
-        IXferScriptEngine scriptEngine,
+        IXferScriptEngineFactory scriptEngineFactory,
         IPropertyResolver? propertyResolver,
         ISettingsService? settingsService
-        ) 
+        )
     {
         if (httpService is null) {
             throw new ArgumentNullException(nameof(httpService), "HTTP service cannot be null.");
@@ -45,7 +46,8 @@ public class SendCommand {
         _httpService = httpService;
         _xk = xk;
         _ws = workspaceService;
-        _scriptEngine = scriptEngine;
+        _scriptEngineFactory = scriptEngineFactory;
+        _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
 
         if (propertyResolver is null) {
             throw new ArgumentNullException(nameof(propertyResolver), "Property resolver cannot be null.");
@@ -71,7 +73,7 @@ public class SendCommand {
         IEnumerable<string>? cookies,
         List<System.CommandLine.Parsing.Token>? tokenArguments,
         object?[]? objArguments
-        ) 
+        )
     {
         var parseResult = invocationContext.ParseResult;
         return Execute(workspaceName, requestName, baseUrl, null, null, null, null, parseResult.CommandResult.Tokens, null);
@@ -87,7 +89,7 @@ public class SendCommand {
         IEnumerable<string>? cookies,
         IReadOnlyList<System.CommandLine.Parsing.Token>? tokenArguments,
         object?[]? objArguments
-        ) 
+        )
     {
         var result = DoCommand(workspaceName, requestName, baseUrl, parameters, payload, headers, cookies, tokenArguments, objArguments);
 
@@ -108,7 +110,7 @@ public class SendCommand {
         IEnumerable<string>? cookies,
         IReadOnlyList<System.CommandLine.Parsing.Token>? tokenArguments,
         object?[]? objArguments
-        ) 
+        )
     {
         var reqSplit = requestName.Split('.');
 

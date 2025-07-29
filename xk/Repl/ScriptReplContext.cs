@@ -17,17 +17,19 @@ namespace ParksComputing.XferKit.Cli.Repl;
 internal class ScriptReplContext : DefaultReplContext
 {
     private readonly IXferScriptEngine _scriptEngine;
+    private readonly IXferScriptEngineFactory _scriptEngineFactory;
     private readonly ICommandSplitter _commandSplitter;
     private readonly IWorkspaceService _workspaceService;
 
     public ScriptReplContext(
         Command currentCommand,
-        IXferScriptEngine scriptEngine,
+        IXferScriptEngineFactory scriptEngineFactory,
         ICommandSplitter commandSplitter,
         IWorkspaceService workspaceService
         ) : base( currentCommand )
     {
-        _scriptEngine = scriptEngine;
+        _scriptEngineFactory = scriptEngineFactory;
+        _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
         _commandSplitter = commandSplitter;
         _workspaceService = workspaceService;
     }
