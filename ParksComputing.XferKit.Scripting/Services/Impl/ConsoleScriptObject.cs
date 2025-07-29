@@ -94,8 +94,9 @@ public class ConsoleScriptObject {
     }
 
     public static void groupEnd() {
-        if (_groupDepth > 0)
+        if (_groupDepth > 0) {
             _groupDepth--;
+        }
     }
 
     public static void table(IEnumerable<object> data) {

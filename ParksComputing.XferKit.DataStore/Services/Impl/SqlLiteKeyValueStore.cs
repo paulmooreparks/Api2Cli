@@ -45,8 +45,10 @@ public class SqliteKeyValueStore : IKeyValueStore {
     public bool IsReadOnly => false;
 
     public void Add(string key, object? value) {
-        if (ContainsKey(key))
+        if (ContainsKey(key)) {
             throw new ArgumentException("Key already exists.");
+        }
+
         Set(key, value);
     }
 

@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.ClearScript.Complete" Version="7.5.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.4" />
   </ItemGroup>
 
@@ -16,5 +17,6 @@
     <ProjectReference Include="..\ParksComputing.XferKit.Http\ParksComputing.XferKit.Http.csproj" />
     <ProjectReference Include="..\ParksComputing.XferKit.Workspace\ParksComputing.XferKit.Workspace.csproj" />
   </ItemGroup>
+
 
 </Project>

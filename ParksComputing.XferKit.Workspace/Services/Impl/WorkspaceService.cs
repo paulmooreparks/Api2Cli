@@ -27,7 +27,7 @@ internal class WorkspaceService : IWorkspaceService
 
     public IEnumerable<string> WorkspaceList {
         get {
-            if (BaseConfig is not null && BaseConfig.Workspaces is not null) { 
+            if (BaseConfig is not null && BaseConfig.Workspaces is not null) {
                 return BaseConfig.Workspaces.Keys;
             }
 
@@ -172,8 +172,9 @@ internal class WorkspaceService : IWorkspaceService
         var loadedAssemblies = new List<Assembly>();
 
         var assemblyNames = BaseConfig.Assemblies;
-        if (assemblyNames is null)
+        if (assemblyNames is null) {
             return loadedAssemblies;
+        }
 
         foreach (var name in assemblyNames) {
             var path = Path.IsPathRooted(name)
@@ -187,10 +188,10 @@ internal class WorkspaceService : IWorkspaceService
                 }
                 catch (Exception ex) {
                     _diags.Emit(
-                        nameof(IWorkspaceService), 
-                        new { 
+                        nameof(IWorkspaceService),
+                        new {
                             Message = $"Failed to load assembly {path}: {ex.Message}",
-                            ex 
+                            ex
                         }
                     );
                 }

@@ -31,7 +31,7 @@ internal class ClearScriptEngine : IXferScriptEngine {
 
     // private Engine _engine = new Engine(options => options.AllowClr());
     private V8ScriptEngine _engine = new V8ScriptEngine(
-          V8ScriptEngineFlags.EnableDebugging 
+          V8ScriptEngineFlags.EnableDebugging
         | V8ScriptEngineFlags.UseCaseInsensitiveMemberBinding
         | V8ScriptEngineFlags.EnableValueTaskPromiseConversion
         );
@@ -44,7 +44,7 @@ internal class ClearScriptEngine : IXferScriptEngine {
         IAppDiagnostics<ClearScriptEngine> appDiagnostics,
         IPropertyResolver propertyResolver,
         XferKitApi apiRoot
-        ) 
+        )
     {
         _workspaceService = workspaceService;
         _packageService = packageService;
@@ -177,7 +177,7 @@ function __postResponse(workspace, request) {{
 
                 foreach (var kvp in workspace.Properties) {
                     var workspaceDict = workspaceObj as IDictionary<string, object>;
-                    
+
                     if (workspaceDict == null) {
                         throw new InvalidOperationException("Failed to cast workspaceObj to IDictionary<string, object>");
                     }
@@ -447,7 +447,7 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
             return null;
         }
 
-        var request = requests[requestName] as dynamic; 
+        var request = requests[requestName] as dynamic;
 
         request.name = requestName;
         request.response = new ExpandoObject() as dynamic;
@@ -538,8 +538,9 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
 
 public static class DynamicObjectExtensions {
     public static dynamic ToDynamic(object source) {
-        if (source is null)
+        if (source is null) {
             throw new ArgumentNullException(nameof(source));
+        }
 
         IDictionary<string, object?> expando = new ExpandoObject();
 

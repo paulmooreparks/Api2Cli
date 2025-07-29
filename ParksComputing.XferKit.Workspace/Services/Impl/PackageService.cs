@@ -69,8 +69,9 @@ internal class PackageService : IPackageService {
 
             foreach (var framework in preferredFrameworks) {
                 packageFiles = packageReader.GetFiles($"lib/{framework}");
-                if (packageFiles.Any())
+                if (packageFiles.Any()) {
                     break;
+                }
             }
 
             if (!packageFiles.Any()) {
