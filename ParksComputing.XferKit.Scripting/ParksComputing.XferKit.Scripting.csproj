@@ -16,6 +16,7 @@
     <ProjectReference Include="..\ParksComputing.XferKit.DataStore\ParksComputing.XferKit.DataStore.csproj" />
     <ProjectReference Include="..\ParksComputing.XferKit.Http\ParksComputing.XferKit.Http.csproj" />
     <ProjectReference Include="..\ParksComputing.XferKit.Workspace\ParksComputing.XferKit.Workspace.csproj" />
+    <ProjectReference Include="..\ParksComputing.XferKit.Diagnostics\ParksComputing.XferKit.Diagnostics.csproj" />
   </ItemGroup>
 
 
