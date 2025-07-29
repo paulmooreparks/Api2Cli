@@ -58,13 +58,6 @@ jobs:
           # expose it to later steps
           echo "version=$full" >> $GITHUB_OUTPUT
 
-#      - name: Build & Pack .NET CLI
-#        run: |
-#          dotnet pack xk/xk.csproj \
-#            --configuration Release \
-#            /p:Version=${{ steps.read-version.outputs.version }} \
-#            /p:PackageVersion=${{ steps.read-version.outputs.version }}
-
       - name: Tag release
         if: ${{ github.actor != 'nektos/act' }}
         run: |
@@ -186,7 +179,6 @@ jobs:
           name: installer-${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }}
           path: |
             ${{ matrix.os == 'windows-latest' && 'Output/XferKit-installer-win-x64.exe' || matrix.os == 'ubuntu-latest' && 'Output/XferKit-installer-linux-x64.deb' || 'XferKit-installer-osx-x64.pkg' }}
-          flatten: true
 
   publish-release:
     name: Publish GitHub Release
@@ -236,7 +228,7 @@ jobs:
           asset_path: release-assets/XferKit-installer-linux-x64.deb
           asset_name: XferKit-installer-linux-x64.deb
           asset_content_type: application/octet-stream
-  
+
       - name: Upload Windows installer
         uses: actions/upload-release-asset@v1
         env:
