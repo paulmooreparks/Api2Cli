@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -111,17 +111,12 @@ internal class WorkspaceService : IWorkspaceService
             throw new Exception($"Error parsing workspace file '{WorkspaceFilePath}'.");
         }
 
-        KeyValuePairElement? importsElement = null;
         ObjectElement? baseConfigElement = null;
 
-        foreach (Element element in document.Root.Values) {
-            if (element is KeyValuePairElement keyValuePairElement) {
-                importsElement = keyValuePairElement;
-            }
-            else if (element is ObjectElement objectElement) {
-                baseConfigElement = objectElement;
-                baseConfig = XferConvert.Deserialize<BaseConfig>(baseConfigElement);
-            }
+
+        if (document.Root is ObjectElement objectElement) {
+            baseConfigElement = objectElement;
+            baseConfig = XferConvert.Deserialize<BaseConfig>(baseConfigElement);
         }
 
         if (baseConfig is null) {

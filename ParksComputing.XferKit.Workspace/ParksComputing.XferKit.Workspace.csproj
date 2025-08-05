@@ -14,7 +14,7 @@
     <PackageReference Include="NuGet.Packaging" Version="6.13.2" />
     <PackageReference Include="NuGet.Protocol" Version="6.13.2" />
     <PackageReference Include="ParksComputing.Xfer.Lang">
-      <Version>0.12.1-prerelease</Version>
+      <Version>0.14.21-prerelease</Version>
     </PackageReference>
   </ItemGroup>
 
