@@ -191,13 +191,26 @@ jobs:
                    --install-location /usr/local \
                    XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
 
-      - name: Upload Installer Artifact
-        if: github.actor != 'nektos/act'
+      - name: Upload Windows Installer Artifact
+        if: matrix.os == 'windows-latest' && github.actor != 'nektos/act'
         uses: actions/upload-artifact@v4
         with:
-          name: installer-${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }}
-          path: |
-            ${{ matrix.os == 'windows-latest' && 'Output/XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe' || matrix.os == 'ubuntu-latest' && 'Output/XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb' || 'XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg' }}
+          name: installer-win-x64
+          path: Output/XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
+
+      - name: Upload Linux Installer Artifact
+        if: matrix.os == 'ubuntu-latest' && github.actor != 'nektos/act'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-linux-x64
+          path: Output/XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
+
+      - name: Upload macOS Installer Artifact
+        if: matrix.os == 'macos-latest' && github.actor != 'nektos/act'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-osx-x64
+          path: XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
 
   publish-release:
     name: Publish GitHub Release
