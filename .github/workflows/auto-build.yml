@@ -116,7 +116,7 @@ jobs:
           AppVersion=${{ needs.auto-build.outputs.version }}
           DefaultDirName={pf}\XferKit
           DefaultGroupName=XferKit
-          OutputBaseFilename=XferKit-installer-win-x64
+          OutputBaseFilename=XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64
           Compression=lzma
           SolidCompression=yes
           ChangesEnvironment=yes
@@ -179,7 +179,7 @@ jobs:
           Maintainer: Parks Computing <paul@parkscomputing.com>
           Description: XferKit - API Management CLI Tool.
           EOF
-          dpkg-deb --build debian "./Output/XferKit-installer-linux-x64.deb"
+          dpkg-deb --build debian "./Output/XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb"
 
       # macOS installer (.pkg)
       - name: Package Installer (macOS)
@@ -189,7 +189,7 @@ jobs:
           pkgbuild --root publish \
                    --identifier com.yourorg.xferkit \
                    --install-location /usr/local \
-                   XferKit-installer-osx-x64.pkg
+                   XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
 
       - name: Upload Installer Artifact
         if: github.actor != 'nektos/act'
@@ -197,7 +197,7 @@ jobs:
         with:
           name: installer-${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }}
           path: |
-            ${{ matrix.os == 'windows-latest' && 'Output/XferKit-installer-win-x64.exe' || matrix.os == 'ubuntu-latest' && 'Output/XferKit-installer-linux-x64.deb' || 'XferKit-installer-osx-x64.pkg' }}
+            ${{ matrix.os == 'windows-latest' && 'Output/XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe' || matrix.os == 'ubuntu-latest' && 'Output/XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb' || 'XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg' }}
 
   publish-release:
     name: Publish GitHub Release
@@ -234,8 +234,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/XferKit-installer-osx-x64.pkg
-          asset_name: XferKit-installer-osx-x64.pkg
+          asset_path: release-assets/XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
+          asset_name: XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
           asset_content_type: application/octet-stream
 
       - name: Upload Linux installer
@@ -244,8 +244,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/XferKit-installer-linux-x64.deb
-          asset_name: XferKit-installer-linux-x64.deb
+          asset_path: release-assets/XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
+          asset_name: XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
           asset_content_type: application/octet-stream
 
       - name: Upload Windows installer
@@ -254,6 +254,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/XferKit-installer-win-x64.exe
-          asset_name: XferKit-installer-win-x64.exe
+          asset_path: release-assets/XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
+          asset_name: XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
           asset_content_type: application/octet-stream
