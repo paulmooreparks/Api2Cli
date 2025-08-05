@@ -119,6 +119,7 @@ jobs:
           OutputBaseFilename=XferKit-installer-win-x64
           Compression=lzma
           SolidCompression=yes
+          ChangesEnvironment=yes
 
           [Files]
           Source: "./publish/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
@@ -126,6 +127,24 @@ jobs:
           [Icons]
           Name: "{group}\XferKit"; Filename: "{app}\xk.exe"
           Name: "{group}\Uninstall XferKit"; Filename: "{uninstallexe}"
+
+          [Registry]
+          Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Check: NeedsAddPath('{app}')
+
+          [Code]
+          function NeedsAddPath(Param: string): boolean;
+          var
+            OrigPath: string;
+          begin
+            if not RegQueryStringValue(HKEY_LOCAL_MACHINE,
+              'SYSTEM\CurrentControlSet\Control\Session Manager\Environment',
+              'Path', OrigPath)
+            then begin
+              Result := True;
+              exit;
+            end;
+            Result := Pos(';' + UpperCase(Param) + ';', ';' + UpperCase(OrigPath) + ';') = 0;
+          end;
           "@
           $scriptContent | Out-File -FilePath "installer.iss" -Encoding UTF8
 

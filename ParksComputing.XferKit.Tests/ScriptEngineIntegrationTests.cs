@@ -8,7 +8,7 @@ namespace ParksComputing.XferKit.Tests
     [TestClass]
     public class ScriptEngineIntegrationTests
     {
-        private static IServiceProvider _serviceProvider;
+        private static IServiceProvider _serviceProvider = null!;
 
         [ClassInitialize]
         public static void ClassInitialize(TestContext context)
