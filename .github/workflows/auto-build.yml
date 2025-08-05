@@ -93,7 +93,8 @@ jobs:
           dotnet publish xk/xk.csproj \
             --configuration Release \
             --runtime ${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }} \
-            -o publish
+            -o publish \
+            -p:Version=${{ needs.auto-build.outputs.version }}
 
       # Windows installer (Inno Setup)
       - name: Install Inno Setup
