@@ -7,6 +7,7 @@ using ParksComputing.XferKit.Api;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.CommandLine.NamingConventionBinder;
+using System.Reflection;
 
 using System.Diagnostics;
 using ParksComputing.XferKit.Cli.Services.Impl;
@@ -19,6 +20,7 @@ namespace ParksComputing.XferKit.Cli.Commands;
 [RootCommand("Xfer CLI Application")]
 [Option(typeof(string), "--baseurl", "The base URL of the API to send HTTP requests to.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(string), "--workspace", "Path to a workspace file to use, other than the default.", new[] { "-w" }, IsRequired = false)]
+[Option(typeof(bool), "--version", "Display the version information.", new[] { "-v" }, IsRequired = false)]
 [Option(typeof(bool), "--recursive", "Indicates if this is a recursive call.", IsHidden = true, IsRequired = false)]
 internal class XkRootCommand {
     private readonly Option _recursionOption;
@@ -369,11 +371,21 @@ xk.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
     public async Task<int> Execute(
         [OptionParam("--baseurl")] string? baseUrl,
         [OptionParam("--workspace")] string? workspace,
+        [OptionParam("--version")] bool showVersion,
         [OptionParam("--recursive")] bool isRecursive,
         Command command,
         InvocationContext context
         )
     {
+        if (showVersion)
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            Version? version = assembly.GetName().Version;
+            string versionString = version?.ToString() ?? "Unknown";
+            Console.WriteLine($"xk v{versionString}");
+            return Result.Success;
+        }
+
         if (baseUrl is not null) {
             _workspaceService.ActiveWorkspace.BaseUrl = baseUrl;
         }
