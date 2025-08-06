@@ -381,7 +381,9 @@ xk.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
         {
             Assembly assembly = Assembly.GetExecutingAssembly();
             Version? version = assembly.GetName().Version;
-            string versionString = version?.ToString() ?? "Unknown";
+            string versionString = version != null
+                ? $"{version.Major}.{version.Minor}.{version.Build}"
+                : "Unknown";
             Console.WriteLine($"xk v{versionString}");
             return Result.Success;
         }
