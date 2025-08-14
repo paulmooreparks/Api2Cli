@@ -350,24 +350,6 @@ jobs:
             - Download the appropriate standalone build for your platform
             - Extract and run directly (no installation required)
             
-            ### ✨ Features
-            - 🎯 Cross-platform HTTP API testing and automation
-            - 📝 Workspace-based request organization
-            - ⚡ JavaScript scripting engine for advanced workflows
-            - 🔧 Environment variable and configuration management
-            - 🖥️ Interactive REPL mode and command-line execution
-            
-            ### 🔧 Quick Start        ```bash
-        # Simple GET request
-        a2c get https://api.example.com/users
-        
-        # POST with JSON
-        echo '{"name": "test"}' | a2c post https://api.example.com/users
-        
-        # Start interactive mode
-        a2c
-        ```            
-            **Note**: This is a pre-release version. Please report any issues on GitHub.
           draft: false
           prerelease: true
 
