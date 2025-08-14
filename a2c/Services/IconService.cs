@@ -26,7 +26,10 @@ public static class IconService
         };
         
         using var stream = assembly.GetManifestResourceStream(resourceName);
-        if (stream == null) return null;
+        if (stream == null) 
+        {
+            return null;
+        }
         
         var buffer = new byte[stream.Length];
         stream.Read(buffer, 0, buffer.Length);
@@ -39,11 +42,11 @@ public static class IconService
     /// <returns>Icon file path or null</returns>
     public static string? GetIconPath() {
         var platform = Environment.OSVersion.Platform;
-        var appDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        var appDirectory = AppContext.BaseDirectory;
 
         return platform switch {
-            PlatformID.Win32NT => Path.Combine(appDirectory!, "a2c.ico"),
-            PlatformID.Unix => Path.Combine(appDirectory!, "a2c.png"),
+            PlatformID.Win32NT => Path.Combine(appDirectory, "a2c.ico"),
+            PlatformID.Unix => Path.Combine(appDirectory, "a2c.png"),
             _ => null
         };
     }
