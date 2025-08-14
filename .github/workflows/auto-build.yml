@@ -120,7 +120,10 @@ jobs:
             -p:PublishReadyToRun=${{ matrix.os == 'windows-latest' && 'true' || 'false' }} \
             -p:PublishTrimmed=false \
             -o publish \
-            -p:Version=${{ needs.auto-build.outputs.version }}
+            -p:Version=${{ needs.auto-build.outputs.version }} \
+            -p:AssemblyVersion=${{ needs.auto-build.outputs.version }}.0 \
+            -p:FileVersion=${{ needs.auto-build.outputs.version }}.0 \
+            -p:InformationalVersion=${{ needs.auto-build.outputs.version }}
 
       - name: Copy platform-specific icon
         shell: bash
@@ -166,7 +169,7 @@ jobs:
           SolidCompression=yes
           ChangesEnvironment=yes
           SetupIconFile=publish\a2c.ico
-          
+
           [Files]
           Source: "publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
@@ -218,12 +221,12 @@ jobs:
         run: |
           mkdir -p ./Output
           mkdir -p debian/DEBIAN debian/usr/local/bin debian/usr/share/pixmaps debian/usr/share/applications
-          
+
           # Copy executable and icon
           cp -r publish/* debian/usr/local/bin/
           chmod +x debian/usr/local/bin/a2c
           cp publish/a2c.png debian/usr/share/pixmaps/
-          
+
           # Create desktop entry
           cat > debian/usr/share/applications/api2cli.desktop << EOF
           [Desktop Entry]
@@ -236,7 +239,7 @@ jobs:
           Terminal=true
           Categories=Development;Network;
           EOF
-          
+
           # Create package control file
           cat > debian/DEBIAN/control << EOF
           Package: api2cli
@@ -249,7 +252,7 @@ jobs:
            A powerful command-line interface for HTTP API management, testing, and automation.
            Provides workspace-based API organization with JavaScript scripting support.
           EOF
-          
+
           # Build the package
           dpkg-deb --build debian "./Output/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb"
 
@@ -261,12 +264,12 @@ jobs:
           # Create directory structure for macOS package
           mkdir -p macos-pkg/usr/local/bin
           mkdir -p macos-pkg/usr/local/share/pixmaps
-          
+
           # Copy files
           cp publish/a2c macos-pkg/usr/local/bin/
           cp publish/a2c.png macos-pkg/usr/local/share/pixmaps/
           chmod +x macos-pkg/usr/local/bin/a2c
-          
+
           # Build the package
           pkgbuild --root macos-pkg \
                    --identifier com.parkscomputing.api2cli \
@@ -338,18 +341,18 @@ jobs:
           release_name: Api2Cli v${{ needs.auto-build.outputs.version }}
           body: |
             ## 🚀 Api2Cli v${{ needs.auto-build.outputs.version }}
-            
+
             ### 📦 Installation Options
-            
+
             #### Platform-Specific Installers (Recommended)
             - **Windows**: Download and run the `.exe` installer
             - **Linux**: Install the `.deb` package with `sudo dpkg -i filename.deb`
             - **macOS**: Install the `.pkg` package
-            
+
             #### Standalone Executables
             - Download the appropriate standalone build for your platform
             - Extract and run directly (no installation required)
-            
+
           draft: false
           prerelease: true
 
@@ -404,7 +407,7 @@ jobs:
           asset_name: a2c-v${{ needs.auto-build.outputs.version }}-standalone-linux-x64
           asset_content_type: application/octet-stream
 
-      - name: Upload macOS Standalone  
+      - name: Upload macOS Standalone
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
