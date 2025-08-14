@@ -1,11 +1,11 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-using ParksComputing.XferKit.Scripting.Services;
+using ParksComputing.Api2Cli.Scripting.Services;
 
 using System;
 using System.IO;
 
-namespace ParksComputing.XferKit.Tests {
+namespace ParksComputing.Api2Cli.Tests {
     [TestClass]
     public class ScriptEngineTests {
         private static IServiceProvider _serviceProvider = null!; // Use null-forgiving operator to suppress CS8618
@@ -35,7 +35,7 @@ namespace ParksComputing.XferKit.Tests {
             string result = scriptEngine.ExecuteScript(scriptContent);
 
             // Assert the result
-            Assert.AreEqual("Hello, XferKit!", result, "The script did not return the expected result.");
+            Assert.AreEqual("Hello, Api2Cli!", result, "The script did not return the expected result.");
         }
     }
 }

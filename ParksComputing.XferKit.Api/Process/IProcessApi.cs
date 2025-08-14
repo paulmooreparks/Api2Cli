@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ParksComputing.XferKit.Api.Process;
+namespace ParksComputing.Api2Cli.Api.Process;
 
 public interface IProcessApi {
     void run(string? command, string? workingDirectory, params string[] arguments);

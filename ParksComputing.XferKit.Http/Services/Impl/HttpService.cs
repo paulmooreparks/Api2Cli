@@ -1,12 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using ParksComputing.XferKit.Diagnostics.Services;
+using ParksComputing.Api2Cli.Diagnostics.Services;
 
-namespace ParksComputing.XferKit.Http.Services.Impl;
+namespace ParksComputing.Api2Cli.Http.Services.Impl;
 
 public class HttpService : IHttpService {
     private readonly HttpClient _httpClient;

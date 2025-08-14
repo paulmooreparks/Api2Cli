@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System;
 using System.IO;
 
-namespace ParksComputing.XferKit.Scripting.Api.FileSystem.Impl;
+namespace ParksComputing.Api2Cli.Scripting.Api.FileSystem.Impl;
 
 public class FileSystemApi : IFileSystemApi {
     public bool Exists(string path) {

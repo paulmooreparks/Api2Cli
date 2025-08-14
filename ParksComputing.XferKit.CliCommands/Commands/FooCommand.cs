@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using Cliffer;
 
-namespace ParksComputing.XferKit.CliCommands.Commands;
+namespace ParksComputing.Api2Cli.CliCommands.Commands;
 
 [Command("foostuff", "Do foo stuff.")]
 public class FooCommand {

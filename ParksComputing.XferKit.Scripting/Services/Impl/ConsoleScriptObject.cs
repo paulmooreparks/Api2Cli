@@ -1,7 +1,7 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Reflection;
 
-namespace ParksComputing.XferKit.Scripting.Services;
+namespace ParksComputing.Api2Cli.Scripting.Services;
 
 public class ConsoleScriptObject {
     private static Dictionary<string, int> _counts = new();

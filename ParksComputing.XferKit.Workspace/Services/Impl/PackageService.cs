@@ -1,10 +1,10 @@
-﻿using NuGet.Common;
+using NuGet.Common;
 using NuGet.Configuration;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Packaging;
 
-namespace ParksComputing.XferKit.Workspace.Services.Impl;
+namespace ParksComputing.Api2Cli.Workspace.Services.Impl;
 
 internal class PackageService : IPackageService {
     private readonly ISettingsService _settingsService;

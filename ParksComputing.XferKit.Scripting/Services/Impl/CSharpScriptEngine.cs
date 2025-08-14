@@ -5,22 +5,22 @@ using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 
-using ParksComputing.XferKit.Workspace.Services;
-using ParksComputing.XferKit.Workspace.Models;
+using ParksComputing.Api2Cli.Workspace.Services;
+using ParksComputing.Api2Cli.Workspace.Models;
 using System.Net.Http.Headers;
-using ParksComputing.XferKit.Api;
-using ParksComputing.XferKit.Diagnostics.Services;
-using ParksComputing.XferKit.Workspace;
-using ParksComputing.XferKit.Scripting.Extensions;
+using ParksComputing.Api2Cli.Api;
+using ParksComputing.Api2Cli.Diagnostics.Services;
+using ParksComputing.Api2Cli.Workspace;
+using ParksComputing.Api2Cli.Scripting.Extensions;
 
-namespace ParksComputing.XferKit.Scripting.Services.Impl {
+namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
     internal class CSharpScriptEngine : IXferScriptEngine {
         private readonly IPackageService _packageService;
         private readonly IWorkspaceService _workspaceService;
         private readonly ISettingsService _settingsService;
         private readonly IAppDiagnostics<CSharpScriptEngine> _diags;
         private readonly IPropertyResolver _propertyResolver;
-        private readonly XferKitApi _xk;
+        private readonly Api2CliApi _xk;
 
         private ScriptOptions _options;
         private ScriptState<object?>? _state;
@@ -33,7 +33,7 @@ namespace ParksComputing.XferKit.Scripting.Services.Impl {
             ISettingsService settingsService,
             IAppDiagnostics<CSharpScriptEngine> appDiagnostics,
             IPropertyResolver propertyResolver,
-            XferKitApi apiRoot
+            Api2CliApi apiRoot
         ) {
             _packageService = packageService;
             _workspaceService = workspaceService;
@@ -52,7 +52,7 @@ namespace ParksComputing.XferKit.Scripting.Services.Impl {
             // Add host objects to the script globals
             AddHostObject("Console", typeof(Console));
             AddHostObject("Task", typeof(Task));
-            AddHostObject("xk", _xk); // Ensure xk is added to the script globals
+            AddHostObject("a2c",\ _xk); // Ensure xk is added to the script globals
         }
 
         public dynamic Script => _scriptGlobals;
@@ -65,7 +65,7 @@ namespace ParksComputing.XferKit.Scripting.Services.Impl {
             // Re-add host objects after reinitialization
             AddHostObject("Console", typeof(Console));
             AddHostObject("Task", typeof(Task));
-            AddHostObject("xk", _xk); // Ensure xk is re-added to the script globals
+            AddHostObject("a2c",\ _xk); // Ensure xk is re-added to the script globals
         }
 
         public void SetValue(string name, object? value) {

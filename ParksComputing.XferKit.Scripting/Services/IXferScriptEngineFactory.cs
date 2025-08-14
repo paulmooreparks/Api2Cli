@@ -1,6 +1,6 @@
-using ParksComputing.XferKit.Scripting.Services;
+using ParksComputing.Api2Cli.Scripting.Services;
 
-namespace ParksComputing.XferKit.Scripting.Services;
+namespace ParksComputing.Api2Cli.Scripting.Services;
 
 public interface IXferScriptEngineFactory {
     IXferScriptEngine GetEngine(string kind);

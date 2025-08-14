@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using ParksComputing.Xfer.Lang.Attributes;
 
-namespace ParksComputing.XferKit.Workspace.Models;
+namespace ParksComputing.Api2Cli.Workspace.Models;
 
 public class ScriptDefinition {
     [XferProperty("name")]

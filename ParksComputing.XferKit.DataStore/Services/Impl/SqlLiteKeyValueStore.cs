@@ -1,4 +1,4 @@
-﻿// SqliteKeyValueStore.cs
+// SqliteKeyValueStore.cs
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,9 +8,9 @@ using Microsoft.Data.Sqlite;
 
 using Newtonsoft.Json;
 
-using ParksComputing.XferKit.DataStore.Services;
+using ParksComputing.Api2Cli.DataStore.Services;
 
-namespace ParksComputing.XferKit.DataStore.Services.Impl;
+namespace ParksComputing.Api2Cli.DataStore.Services.Impl;
 
 public class SqliteKeyValueStore : IKeyValueStore {
     private readonly string _connectionString;

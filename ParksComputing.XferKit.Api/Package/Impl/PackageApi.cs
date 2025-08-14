@@ -1,13 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using ParksComputing.XferKit.Workspace.Services;
+using ParksComputing.Api2Cli.Workspace.Services;
 
-namespace ParksComputing.XferKit.Api.Package.Impl;
+namespace ParksComputing.Api2Cli.Api.Package.Impl;
 internal class PackageApi : IPackageApi {
     private readonly IPackageService _packageService;
 

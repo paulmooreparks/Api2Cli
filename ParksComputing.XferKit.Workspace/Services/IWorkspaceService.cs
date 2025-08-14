@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using ParksComputing.XferKit.Workspace.Models;
+using ParksComputing.Api2Cli.Workspace.Models;
 
-namespace ParksComputing.XferKit.Workspace.Services;
+namespace ParksComputing.Api2Cli.Workspace.Services;
 
 public interface IWorkspaceService {
     BaseConfig BaseConfig { get; }

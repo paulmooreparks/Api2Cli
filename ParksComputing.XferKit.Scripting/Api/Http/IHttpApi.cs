@@ -1,8 +1,8 @@
-﻿using Microsoft.ClearScript;
+using Microsoft.ClearScript;
 
 using System.Net.Http.Headers;
 
-namespace ParksComputing.XferKit.Api.Http;
+namespace ParksComputing.Api2Cli.Api.Http;
 
 public interface IHttpApi {
     [ScriptMember("headers")]

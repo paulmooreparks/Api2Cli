@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ParksComputing.XferKit.Workspace.Services.Impl;
+namespace ParksComputing.Api2Cli.Workspace.Services.Impl;
 
 internal class SettingsService : ISettingsService {
     public string? XferSettingsDirectory { get; set; }

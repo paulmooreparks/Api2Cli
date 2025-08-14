@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using ParksComputing.XferKit.Scripting.Services;
-using ParksComputing.XferKit.Scripting.Services.Impl;
+using ParksComputing.Api2Cli.Scripting.Services;
+using ParksComputing.Api2Cli.Scripting.Services.Impl;
 
-namespace ParksComputing.XferKit.Scripting.Services.Impl;
+namespace ParksComputing.Api2Cli.Scripting.Services.Impl;
 
 internal class XferScriptEngineFactory : IXferScriptEngineFactory
 {

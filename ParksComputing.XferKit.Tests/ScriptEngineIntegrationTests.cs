@@ -1,9 +1,9 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using ParksComputing.XferKit.Scripting.Services;
+using ParksComputing.Api2Cli.Scripting.Services;
 using System;
 using System.IO;
 
-namespace ParksComputing.XferKit.Tests
+namespace ParksComputing.Api2Cli.Tests
 {
     [TestClass]
     public class ScriptEngineIntegrationTests
@@ -30,7 +30,7 @@ namespace ParksComputing.XferKit.Tests
             // Define a script that accesses facilities
             string script = """
                 Console.WriteLine("Accessing Console");
-                // var result = xk.Http.get("https://example.com", null, null);
+                // var result =\ a2c.Http.get("https://example.com", null, null);
                 // return result != null ? "Http Access Successful" : "Http Access Failed";
             """;
 

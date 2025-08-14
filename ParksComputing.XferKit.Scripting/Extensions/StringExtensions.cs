@@ -1,13 +1,13 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.RegularExpressions;
 
-using ParksComputing.XferKit.Scripting.Services;
-using ParksComputing.XferKit.Workspace.Services;
+using ParksComputing.Api2Cli.Scripting.Services;
+using ParksComputing.Api2Cli.Workspace.Services;
 
-namespace ParksComputing.XferKit.Scripting.Extensions;
+namespace ParksComputing.Api2Cli.Scripting.Extensions;
 
 public static class StringExtensions {
-    public static string ReplaceXferKitPlaceholders(
+    public static string ReplaceApi2CliPlaceholders(
         this string template,
         IPropertyResolver propertyResolver,
         ISettingsService settingsService,
@@ -17,7 +17,7 @@ public static class StringExtensions {
         ) 
     {
         // Regex pattern matches placeholders like "{{[env]::VariableName}}", "{{[prop]::VariableName}}", "{{[file]::fileName}}", or "{{VariableName::DefaultValue}}"
-        string placeholderPattern = @"\{\{(\[env\]::|\[prop\]::|\[file\]::|\[arg\]::)?([^:{}]+(?::[^:{}]+)*)(?:::([^}]+))?\}\}";
+        string placeholderPattern = @"{{([env\]::|[prop\]::|[file\]::|[arg\]::)?([^:{}]+(?::[^:{}]+)*)(?:::([^}]+))?\}\}";
 
         // Find all matches in the template
         var matches = Regex.Matches(template, placeholderPattern);

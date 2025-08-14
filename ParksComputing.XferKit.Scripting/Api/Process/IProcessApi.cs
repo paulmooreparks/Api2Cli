@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using Microsoft.ClearScript;
 
-namespace ParksComputing.XferKit.Scripting.Api.Process;
+namespace ParksComputing.Api2Cli.Scripting.Api.Process;
 
 public interface IProcessApi
 {

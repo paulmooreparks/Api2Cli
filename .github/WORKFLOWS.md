@@ -1,6 +1,6 @@
-# XferKit GitHub Actions
+#\ Api2Cli\ GitHub Actions
 
-This repository includes automated GitHub Actions workflows for building, versioning, and releasing XferKit:
+This repository includes automated GitHub Actions workflows for building, versioning, and releasing Api2Cli:
 
 ## 🔄 Auto-Version and Build - `auto-version.yml`
 
@@ -10,7 +10,7 @@ This repository includes automated GitHub Actions workflows for building, versio
 - Automatically increments version number based on commit count
 - Updates project file with new version
 - Creates version tags for main branch pushes
-- Builds XferKit on Ubuntu, Windows, and macOS
+- Builds\ Api2Cli\ on Ubuntu, Windows, and macOS
 - Runs tests and creates build artifacts
 - **Provides guidance for manual release creation**
 

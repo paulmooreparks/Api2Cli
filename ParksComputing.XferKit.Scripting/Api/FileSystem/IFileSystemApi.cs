@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using Microsoft.ClearScript;
 
-namespace ParksComputing.XferKit.Scripting.Api.FileSystem;
+namespace ParksComputing.Api2Cli.Scripting.Api.FileSystem;
 public interface IFileSystemApi {
     /// <summary>
     /// Checks whether the specified file exists.

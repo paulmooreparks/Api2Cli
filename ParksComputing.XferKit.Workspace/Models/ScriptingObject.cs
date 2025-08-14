@@ -1,9 +1,9 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Dynamic;
 using System.Reflection;
 
-namespace ParksComputing.XferKit.Workspace.Models;
+namespace ParksComputing.Api2Cli.Workspace.Models;
 
 public class ScriptingObject : DynamicObject, IDictionary<string, object?> {
     private readonly Dictionary<string, object?> _dynamicProperties = [];

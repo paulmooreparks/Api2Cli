@@ -1,23 +1,23 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
 
 using Microsoft.ClearScript;
 
-using ParksComputing.XferKit.Api.Http;
-using ParksComputing.XferKit.Api.Store;
-using ParksComputing.XferKit.Scripting.Api.FileSystem;
-using ParksComputing.XferKit.Scripting.Api.Package;
-using ParksComputing.XferKit.Scripting.Api.Process;
-using ParksComputing.XferKit.Workspace.Models;
-using ParksComputing.XferKit.Workspace.Services;
+using ParksComputing.Api2Cli.Api.Http;
+using ParksComputing.Api2Cli.Api.Store;
+using ParksComputing.Api2Cli.Scripting.Api.FileSystem;
+using ParksComputing.Api2Cli.Scripting.Api.Package;
+using ParksComputing.Api2Cli.Scripting.Api.Process;
+using ParksComputing.Api2Cli.Workspace.Models;
+using ParksComputing.Api2Cli.Workspace.Services;
 
 // using Microsoft.ClearScript;
 
-namespace ParksComputing.XferKit.Api;
+namespace ParksComputing.Api2Cli.Api;
 
-public class XferKitApi : DynamicObject {
+public class Api2CliApi : DynamicObject {
     private readonly Dictionary<string, object?> _properties = new();
     private readonly IWorkspaceService _workspaceService;
 
@@ -45,7 +45,7 @@ public class XferKitApi : DynamicObject {
     [ScriptMember("workspaces")]
     public dynamic Workspaces { get; } = new ExpandoObject() as dynamic;
 
-    public XferKitApi(
+    public Api2CliApi(
         IWorkspaceService workspaceService, 
         IHttpApi httpApi,
         IStoreApi storeApi,

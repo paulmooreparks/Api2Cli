@@ -1,12 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using ParksComputing.XferKit.Http.Services;
+using ParksComputing.Api2Cli.Http.Services;
 using System.Net;
 
-namespace ParksComputing.XferKit.Api.Http.Impl;
+namespace ParksComputing.Api2Cli.Api.Http.Impl;
 
 internal class HttpApi : IHttpApi
 {

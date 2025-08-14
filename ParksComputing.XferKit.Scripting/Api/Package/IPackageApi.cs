@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using Microsoft.ClearScript;
 
-namespace ParksComputing.XferKit.Scripting.Api.Package;
+namespace ParksComputing.Api2Cli.Scripting.Api.Package;
 
 public interface IPackageApi
 {

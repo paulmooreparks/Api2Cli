@@ -1,6 +1,6 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 
-namespace ParksComputing.XferKit.CliCommands;
+namespace ParksComputing.Api2Cli.CliCommands;
 
 public class ModuleInitializer {
     public static void Initialize() {

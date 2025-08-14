@@ -1,6 +1,6 @@
-﻿using ParksComputing.Xfer.Lang.Attributes;
+using ParksComputing.Xfer.Lang.Attributes;
 
-namespace ParksComputing.XferKit.Workspace.Models;
+namespace ParksComputing.Api2Cli.Workspace.Models;
 
 public class WorkspaceDefinition : FolderDefinition {
     [XferProperty("extend")]

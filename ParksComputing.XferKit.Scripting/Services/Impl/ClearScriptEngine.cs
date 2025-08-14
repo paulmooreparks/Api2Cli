@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections;
 using System.IO;
@@ -9,17 +9,17 @@ using System.Threading.Tasks;
 
 using Microsoft.ClearScript;
 
-using ParksComputing.XferKit.Workspace.Services;
-using ParksComputing.XferKit.Workspace.Models;
+using ParksComputing.Api2Cli.Workspace.Services;
+using ParksComputing.Api2Cli.Workspace.Models;
 using System.Net.Http.Headers;
 using Microsoft.ClearScript.V8;
 using System.Dynamic;
-using ParksComputing.XferKit.Api;
-using ParksComputing.XferKit.Diagnostics.Services;
-using ParksComputing.XferKit.Workspace;
-using ParksComputing.XferKit.Scripting.Extensions;
+using ParksComputing.Api2Cli.Api;
+using ParksComputing.Api2Cli.Diagnostics.Services;
+using ParksComputing.Api2Cli.Workspace;
+using ParksComputing.Api2Cli.Scripting.Extensions;
 
-namespace ParksComputing.XferKit.Scripting.Services.Impl;
+namespace ParksComputing.Api2Cli.Scripting.Services.Impl;
 
 internal class ClearScriptEngine : IXferScriptEngine {
     private readonly IPackageService _packageService;
@@ -27,7 +27,7 @@ internal class ClearScriptEngine : IXferScriptEngine {
     private readonly ISettingsService _settingsService;
     private readonly IAppDiagnostics<ClearScriptEngine> _diags;
     private readonly IPropertyResolver _propertyResolver;
-    private readonly XferKitApi _xk;
+    private readonly Api2CliApi _xk;
 
     // private Engine _engine = new Engine(options => options.AllowClr());
     private V8ScriptEngine _engine = new V8ScriptEngine(
@@ -43,7 +43,7 @@ internal class ClearScriptEngine : IXferScriptEngine {
         ISettingsService settingsService,
         IAppDiagnostics<ClearScriptEngine> appDiagnostics,
         IPropertyResolver propertyResolver,
-        XferKitApi apiRoot
+        Api2CliApi apiRoot
         )
     {
         _workspaceService = workspaceService;
@@ -92,7 +92,7 @@ internal class ClearScriptEngine : IXferScriptEngine {
         // _engine = new Engine(options => options.AllowClr(assemblies.ToArray()));
         _engine.AddHostObject("host", new ExtendedHostFunctions());
 
-        var typeCollection = new HostTypeCollection("mscorlib", "System", "System.Core", "ParksComputing.XferKit.Workspace");
+        var typeCollection = new HostTypeCollection("mscorlib", "System", "System.Core", "ParksComputing.Api2Cli.Workspace");
 
         _engine.AddHostObject("clr", typeCollection);
 
@@ -103,7 +103,7 @@ internal class ClearScriptEngine : IXferScriptEngine {
         _engine.AddHostObject("btoa", new Func<string, string>(s => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s))));
         _engine.AddHostObject("atob", new Func<string, string>(s => System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(s))));
 
-        _engine.AddHostObject("xk", _xk);
+        _engine.AddHostObject("a2c",\ _xk);
         dynamic dxk = _xk;
 
         if (_workspaceService is not null && _workspaceService.BaseConfig is not null && _workspaceService?.BaseConfig.Workspaces is not null) {
@@ -172,7 +172,7 @@ function __postResponse(workspace, request) {{
                 workspaceObj.name = workspace.Name ?? workspaceName;
                 workspaceObj.extend = workspace.Extend;
                 workspaceObj.baseWorkspace = workspace.Base;
-                workspaceObj.baseUrl = workspace.BaseUrl; //?.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService) ?? "";
+                workspaceObj.baseUrl = workspace.BaseUrl; //?.ReplaceApi2CliPlaceholders(_propertyResolver, _settingsService) ?? "";
                 workspaceObj.requests = new ExpandoObject() as dynamic;
 
                 foreach (var kvp in workspace.Properties) {
@@ -524,7 +524,7 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
         var xferSettingsDirectory = _settingsService.XferSettingsDirectory;
 
         try {
-            scriptValue = scriptValue.ReplaceXferKitPlaceholders(_propertyResolver, _settingsService);
+            scriptValue = scriptValue.ReplaceApi2CliPlaceholders(_propertyResolver, _settingsService);
             return scriptValue;
         }
         catch (Exception ex) {

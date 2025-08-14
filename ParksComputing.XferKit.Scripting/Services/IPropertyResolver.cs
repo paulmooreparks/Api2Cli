@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ParksComputing.XferKit.Scripting.Services;
+namespace ParksComputing.Api2Cli.Scripting.Services;
 
 public interface IPropertyResolver {
     string NormalizePath(string path, string? currentWorkspace = null, string? currentRequest = null);

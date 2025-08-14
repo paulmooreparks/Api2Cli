@@ -1,14 +1,14 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 using Microsoft.Extensions.DependencyInjection;
 
-using ParksComputing.XferKit.Diagnostics.Services;
-using ParksComputing.XferKit.Diagnostics.Services.Impl;
+using ParksComputing.Api2Cli.Diagnostics.Services;
+using ParksComputing.Api2Cli.Diagnostics.Services.Impl;
 
-namespace ParksComputing.XferKit.Diagnostics;
+namespace ParksComputing.Api2Cli.Diagnostics;
 
 public static class ServiceCollectionExtensions {
-    public static IServiceCollection AddXferKitDiagnosticsServices(this IServiceCollection services, string name) {
+    public static IServiceCollection AddApi2CliDiagnosticsServices(this IServiceCollection services, string name) {
         services.AddSingleton<DiagnosticSource>(new DiagnosticListener(name));
         services.AddSingleton(typeof(IAppDiagnostics<>), typeof(AppDiagnostics<>));
         return services;

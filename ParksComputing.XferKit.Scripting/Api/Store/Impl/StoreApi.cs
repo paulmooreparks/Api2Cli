@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Linq;
 
-using ParksComputing.XferKit.DataStore;
-using ParksComputing.XferKit.DataStore.Services;
+using ParksComputing.Api2Cli.DataStore;
+using ParksComputing.Api2Cli.DataStore.Services;
 
-namespace ParksComputing.XferKit.Api.Store.Impl;
+namespace ParksComputing.Api2Cli.Api.Store.Impl;
 
 internal class StoreApi : IStoreApi {
     private readonly IKeyValueStore _store;

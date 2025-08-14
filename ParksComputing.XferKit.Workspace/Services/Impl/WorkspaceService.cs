@@ -8,10 +8,10 @@ using System.Threading.Tasks;
 using ParksComputing.Xfer.Lang;
 using ParksComputing.Xfer.Lang.Attributes;
 using ParksComputing.Xfer.Lang.Elements;
-using ParksComputing.XferKit.Diagnostics.Services;
-using ParksComputing.XferKit.Workspace.Models;
+using ParksComputing.Api2Cli.Diagnostics.Services;
+using ParksComputing.Api2Cli.Workspace.Models;
 
-namespace ParksComputing.XferKit.Workspace.Services.Impl;
+namespace ParksComputing.Api2Cli.Workspace.Services.Impl;
 
 internal class WorkspaceService : IWorkspaceService
 {

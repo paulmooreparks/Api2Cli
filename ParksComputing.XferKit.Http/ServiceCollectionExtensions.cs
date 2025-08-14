@@ -1,14 +1,14 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-using ParksComputing.XferKit.Diagnostics.Services;
-using ParksComputing.XferKit.Diagnostics.Services.Impl;
-using ParksComputing.XferKit.Http.Services;
+using ParksComputing.Api2Cli.Diagnostics.Services;
+using ParksComputing.Api2Cli.Diagnostics.Services.Impl;
+using ParksComputing.Api2Cli.Http.Services;
 
-namespace ParksComputing.XferKit.Http;
+namespace ParksComputing.Api2Cli.Http;
 
 public static class ServiceCollectionExtensions {
-    public static IServiceCollection AddXferKitHttpServices(this IServiceCollection services) {
+    public static IServiceCollection AddApi2CliHttpServices(this IServiceCollection services) {
         if (!services.Any(s => s.ServiceType == typeof(IHttpClientFactory))) {
             services.AddHttpClient();
         }

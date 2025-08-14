@@ -1,24 +1,24 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-using ParksComputing.XferKit.Api;
-using ParksComputing.XferKit.Api.Http;
-using ParksComputing.XferKit.Api.Http.Impl;
-using ParksComputing.XferKit.Api.Store;
-using ParksComputing.XferKit.Api.Store.Impl;
-using ParksComputing.XferKit.Scripting.Api.FileSystem;
-using ParksComputing.XferKit.Scripting.Api.FileSystem.Impl;
-using ParksComputing.XferKit.Scripting.Api.Package;
-using ParksComputing.XferKit.Scripting.Api.Package.Impl;
-using ParksComputing.XferKit.Scripting.Api.Process;
-using ParksComputing.XferKit.Scripting.Api.Process.Impl;
-using ParksComputing.XferKit.Scripting.Services;
-using ParksComputing.XferKit.Scripting.Services.Impl;
+using ParksComputing.Api2Cli.Api;
+using ParksComputing.Api2Cli.Api.Http;
+using ParksComputing.Api2Cli.Api.Http.Impl;
+using ParksComputing.Api2Cli.Api.Store;
+using ParksComputing.Api2Cli.Api.Store.Impl;
+using ParksComputing.Api2Cli.Scripting.Api.FileSystem;
+using ParksComputing.Api2Cli.Scripting.Api.FileSystem.Impl;
+using ParksComputing.Api2Cli.Scripting.Api.Package;
+using ParksComputing.Api2Cli.Scripting.Api.Package.Impl;
+using ParksComputing.Api2Cli.Scripting.Api.Process;
+using ParksComputing.Api2Cli.Scripting.Api.Process.Impl;
+using ParksComputing.Api2Cli.Scripting.Services;
+using ParksComputing.Api2Cli.Scripting.Services.Impl;
 
-namespace ParksComputing.XferKit.Scripting;
+namespace ParksComputing.Api2Cli.Scripting;
 
 public static class ServiceCollectionExtensions {
-    public static IServiceCollection AddXferKitScriptingServices(this IServiceCollection services) {
+    public static IServiceCollection AddApi2CliScriptingServices(this IServiceCollection services) {
         services.TryAddSingleton<IXferScriptEngineFactory, XferScriptEngineFactory>();
         services.TryAddSingleton<ClearScriptEngine>();
         services.TryAddSingleton<CSharpScriptEngine>();
@@ -28,7 +28,7 @@ public static class ServiceCollectionExtensions {
         services.TryAddSingleton<IPackageApi, PackageApi>();
         services.TryAddSingleton<IProcessApi, ProcessApi>();
         services.TryAddSingleton<IFileSystemApi, FileSystemApi>();
-        services.TryAddSingleton<XferKitApi>();
+        services.TryAddSingleton<Api2CliApi>();
         return services;
     }
 }

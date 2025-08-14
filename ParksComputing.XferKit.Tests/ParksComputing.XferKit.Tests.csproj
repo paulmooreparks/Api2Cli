@@ -13,11 +13,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ParksComputing.XferKit.Diagnostics\ParksComputing.XferKit.Diagnostics.csproj" />
-    <ProjectReference Include="..\ParksComputing.XferKit.Http\ParksComputing.XferKit.Http.csproj" />
-    <ProjectReference Include="..\ParksComputing.XferKit.Workspace\ParksComputing.XferKit.Workspace.csproj" />
-    <ProjectReference Include="..\ParksComputing.XferKit.DataStore\ParksComputing.XferKit.DataStore.csproj" />
-    <ProjectReference Include="..\ParksComputing.XferKit.Scripting\ParksComputing.XferKit.Scripting.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Diagnostics\ParksComputing.Api2Cli.Diagnostics.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Http\ParksComputing.Api2Cli.Http.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Workspace\ParksComputing.Api2Cli.Workspace.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.DataStore\ParksComputing.Api2Cli.DataStore.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Scripting\ParksComputing.Api2Cli.Scripting.csproj" />
   </ItemGroup>
 
   <ItemGroup>

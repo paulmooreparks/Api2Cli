@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ParksComputing.XferKit.DataStore\ParksComputing.XferKit.DataStore.csproj" />
-    <ProjectReference Include="..\ParksComputing.XferKit.Diagnostics\ParksComputing.XferKit.Diagnostics.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.DataStore\ParksComputing.Api2Cli.DataStore.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Diagnostics\ParksComputing.Api2Cli.Diagnostics.csproj" />
   </ItemGroup>
 
 </Project>

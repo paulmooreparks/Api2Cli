@@ -1,12 +1,12 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
-using ParksComputing.XferKit.DataStore.Services;
+using ParksComputing.Api2Cli.DataStore.Services;
 
-namespace ParksComputing.XferKit.Workspace.Services.Impl;
+namespace ParksComputing.Api2Cli.Workspace.Services.Impl;
 
 internal class SqliteStoreService : IStoreService {
     private readonly IKeyValueStore _store;

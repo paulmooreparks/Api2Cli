@@ -1,4 +1,4 @@
-﻿namespace ParksComputing.XferKit.Workspace.Models;
+namespace ParksComputing.Api2Cli.Workspace.Models;
 
 public class ResponseDefinition {
     public int statusCode { get; set; }

@@ -1,12 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
-using ParksComputing.XferKit.Scripting.Api.Process;
+using ParksComputing.Api2Cli.Scripting.Api.Process;
 
-namespace ParksComputing.XferKit.Scripting.Api.Process.Impl;
+namespace ParksComputing.Api2Cli.Scripting.Api.Process.Impl;
 internal class ProcessApi : IProcessApi
 {
     public void Run(string? command, string? workingDirectory, params string[]? args)

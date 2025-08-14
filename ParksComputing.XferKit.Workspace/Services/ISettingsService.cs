@@ -1,4 +1,4 @@
-﻿namespace ParksComputing.XferKit.Workspace.Services;
+namespace ParksComputing.Api2Cli.Workspace.Services;
 
 public interface ISettingsService
 {

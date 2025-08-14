@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
-using ParksComputing.XferKit.Api;
-using ParksComputing.XferKit.Workspace.Services;
+using ParksComputing.Api2Cli.Api;
+using ParksComputing.Api2Cli.Workspace.Services;
 
-namespace ParksComputing.XferKit.Scripting.Services.Impl;
+namespace ParksComputing.Api2Cli.Scripting.Services.Impl;
 
 public class PropertyResolver(IWorkspaceService workspaceService) : IPropertyResolver {
 

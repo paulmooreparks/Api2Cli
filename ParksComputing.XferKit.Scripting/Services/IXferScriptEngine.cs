@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 
-namespace ParksComputing.XferKit.Scripting.Services;
+namespace ParksComputing.Api2Cli.Scripting.Services;
 
 public interface IXferScriptEngine {
     public dynamic Script { get; }

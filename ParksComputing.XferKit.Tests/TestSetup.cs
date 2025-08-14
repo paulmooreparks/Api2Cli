@@ -1,14 +1,14 @@
 using Microsoft.Extensions.DependencyInjection;
-using ParksComputing.XferKit.Workspace;
-using ParksComputing.XferKit.Api;
-using ParksComputing.XferKit.Http;
-using ParksComputing.XferKit.Scripting;
-using ParksComputing.XferKit.Diagnostics;
-// using ParksComputing.XferKit.Cli.Services;
-// using ParksComputing.XferKit.Cli.Services.Impl;
-using ParksComputing.XferKit.DataStore;
+using ParksComputing.Api2Cli.Workspace;
+using ParksComputing.Api2Cli.Api;
+using ParksComputing.Api2Cli.Http;
+using ParksComputing.Api2Cli.Scripting;
+using ParksComputing.Api2Cli.Diagnostics;
+// using ParksComputing.Api2Cli.Cli.Services;
+// using ParksComputing.Api2Cli.Cli.Services.Impl;
+using ParksComputing.Api2Cli.DataStore;
 
-namespace ParksComputing.XferKit.Tests;
+namespace ParksComputing.Api2Cli.Tests;
 
 public static class TestSetup
 {
@@ -16,10 +16,10 @@ public static class TestSetup
     {
         var services = new ServiceCollection();
 
-        services.AddXferKitWorkspaceServices();
-        services.AddXferKitHttpServices();
-        services.AddXferKitScriptingServices();
-        services.AddXferKitDiagnosticsServices("XferKit");
+        services.AddApi2CliWorkspaceServices();
+        services.AddApi2CliHttpServices();
+        services.AddApi2CliScriptingServices();
+        services.AddApi2CliDiagnosticsServices("Api2Cli");
         // services.AddSingleton<ICommandSplitter, CommandSplitter>();
         // services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();
 
@@ -34,7 +34,7 @@ public static class TestSetup
             Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
         }
 
-        services.AddXferKitDataStore(databasePath);
+        services.AddApi2CliDataStore(databasePath);
 
         return services.BuildServiceProvider();
     }

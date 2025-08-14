@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ParksComputing.XferKit.Http.Services;
+namespace ParksComputing.Api2Cli.Http.Services;
 
 public interface IHttpService {
     HttpResponseMessage Get(string baseUrl, IEnumerable<string>? queryParameters, IEnumerable<string>? headers);

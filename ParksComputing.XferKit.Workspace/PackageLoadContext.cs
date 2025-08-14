@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Runtime.Loader;
 using System.Reflection;
 
-namespace ParksComputing.XferKit.Workspace;
+namespace ParksComputing.Api2Cli.Workspace;
 
 public class PackageLoadContext : AssemblyLoadContext {
     private readonly string _pluginPath;
