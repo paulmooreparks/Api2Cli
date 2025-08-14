@@ -534,6 +534,20 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
             Directory.SetCurrentDirectory(originalDirectory);
         }
     }
+
+    public void ExecuteInitScript(string? script) {
+        if (!string.IsNullOrWhiteSpace(script)) {
+            try {
+                ExecuteScript(script);
+            }
+            catch (ScriptEngineException ex) {
+                Console.Error.WriteLine(ex.ErrorDetails);
+            }
+            catch (Exception ex) {
+                Console.Error.WriteLine($"{Constants.ErrorChar} Error executing init script: {ex.Message}");
+            }
+        }
+    }
 }
 
 public static class DynamicObjectExtensions {

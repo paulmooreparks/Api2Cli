@@ -1,16 +1,15 @@
 using System;
 using System.Collections.Generic;
+
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.Scripting.Services.Impl;
 
 namespace ParksComputing.Api2Cli.Scripting.Services.Impl;
 
-internal class Api2CliScriptEngineFactory : IApi2CliScriptEngineFactory
-{
+internal class Api2CliScriptEngineFactory : IApi2CliScriptEngineFactory {
     private readonly IDictionary<string, IApi2CliScriptEngine> _engines;
 
-    public Api2CliScriptEngineFactory(ClearScriptEngine jsEngine, CSharpScriptEngine csharpEngine)
-    {
+    public Api2CliScriptEngineFactory(ClearScriptEngine jsEngine, CSharpScriptEngine csharpEngine) {
         _engines = new Dictionary<string, IApi2CliScriptEngine>(StringComparer.OrdinalIgnoreCase)
         {
             { "javascript", jsEngine },
@@ -18,13 +17,12 @@ internal class Api2CliScriptEngineFactory : IApi2CliScriptEngineFactory
         };
     }
 
-    public IApi2CliScriptEngine GetEngine(string kind)
-    {
+    public IApi2CliScriptEngine GetEngine(string kind) {
         if (_engines.TryGetValue(kind, out var engine)) {
             return engine;
         }
         throw new ArgumentException($"Unknown script engine kind: {kind}", nameof(kind));
     }
 
-    public IReadOnlyCollection<string> SupportedKinds => (IReadOnlyCollection<string>)_engines.Keys;
+    public IReadOnlyCollection<string> SupportedKinds => (IReadOnlyCollection<string>) _engines.Keys;
 }

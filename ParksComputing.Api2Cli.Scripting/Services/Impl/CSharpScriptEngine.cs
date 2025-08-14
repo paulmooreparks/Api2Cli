@@ -4,6 +4,7 @@ using System.Dynamic;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
+using System.Reflection;
 
 using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Api2Cli.Workspace.Models;
@@ -42,12 +43,24 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             _propertyResolver = propertyResolver;
             _a2c = apiRoot;
 
-            _options = ScriptOptions.Default
-                .WithReferences(
-                    typeof(object).Assembly,
-                    typeof(System.Linq.Enumerable).Assembly
-                )
-                .WithImports("System", "System.Linq", "System.Collections.Generic");
+            try {
+                // Try to create ScriptOptions with assembly references (works in non-single-file apps)
+                _options = ScriptOptions.Default
+                    .WithReferences(
+                        typeof(object).Assembly,
+                        typeof(System.Linq.Enumerable).Assembly
+                    )
+                    .WithImports("System", "System.Linq", "System.Collections.Generic");
+            }
+            catch (NotSupportedException) {
+                // Fallback for single-file applications where assemblies don't have file locations
+                _diags.Emit(nameof(CSharpScriptEngine), new { 
+                    Message = "Assembly references not available in single-file app, using minimal ScriptOptions" 
+                });
+                
+                _options = ScriptOptions.Default
+                    .WithImports("System", "System.Linq", "System.Collections.Generic");
+            }
 
             // Add host objects to the script globals
             AddHostObject("Console", typeof(Console));
