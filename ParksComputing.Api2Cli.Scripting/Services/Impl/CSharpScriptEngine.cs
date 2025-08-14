@@ -31,6 +31,9 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
         private readonly Dictionary<string, object?> _globals = new();
         private dynamic _scriptGlobals = new ExpandoObject();
 
+    // Strongly-typed globals object so C# scripts can reference members like 'a2c'
+    private ScriptGlobals _typedGlobals;
+
         public CSharpScriptEngine(
             IPackageService packageService,
             IWorkspaceService workspaceService,
@@ -49,10 +52,13 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             // Create ScriptOptions with proper single-file application support
             _options = CreateScriptOptions();
 
-            // Add host objects to the script globals
+            // Initialize typed globals
+            _typedGlobals = new ScriptGlobals { a2c = _a2c };
+
+            // Add host objects to the script globals (for any dynamic access patterns)
             AddHostObject("Console", typeof(Console));
             AddHostObject("Task", typeof(Task));
-            AddHostObject("a2c", _a2c); // Ensure a2c is added to the script globals
+            AddHostObject("a2c", _a2c); // Ensure a2c is available; typed via _typedGlobals
         }
 
         private ScriptOptions CreateScriptOptions()
@@ -62,8 +68,10 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             // Core assemblies to include
             var coreAssemblies = new[]
             {
-                typeof(object).Assembly,           // System.Runtime
-                typeof(System.Linq.Enumerable).Assembly  // System.Linq
+                typeof(object).Assembly,                 // System.Runtime
+                typeof(System.Linq.Enumerable).Assembly, // System.Linq
+                typeof(Console).Assembly,                // System.Console
+                typeof(Task).Assembly                    // System.Threading.Tasks
             };
 
             // Try to create references from assemblies
@@ -80,7 +88,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                 catch (Exception ex)
                 {
                     // Log the specific assembly that failed, but continue with others
-                    _diags.Emit(nameof(CSharpScriptEngine), new { 
+                    _diags.Emit(nameof(CSharpScriptEngine), new {
                         Message = $"Could not create reference for {assembly.FullName}: {ex.Message}",
                         Assembly = assembly.FullName
                     });
@@ -89,7 +97,12 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
 
             return ScriptOptions.Default
                 .WithReferences(references)
-                .WithImports("System", "System.Linq", "System.Collections.Generic");
+                .WithImports(
+                    "System",
+                    "System.Linq",
+                    "System.Collections.Generic",
+                    "System.Threading.Tasks"
+                );
         }
 
         private MetadataReference? CreateMetadataReferenceFromAssembly(Assembly assembly)
@@ -115,7 +128,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             }
             catch (Exception ex)
             {
-                _diags.Emit(nameof(CSharpScriptEngine), new { 
+                _diags.Emit(nameof(CSharpScriptEngine), new {
                     Message = $"Failed to create metadata reference for {assembly.FullName}: {ex.Message}"
                 });
             }
@@ -130,7 +143,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                 // Try to get the assembly bytes from the loaded assembly
                 // This approach works for both regular and single-file applications
                 var assemblyName = assembly.GetName();
-                
+
                 // For system assemblies, we can often find them in the runtime directory
                 var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
                 if (!string.IsNullOrEmpty(runtimeDir))
@@ -152,7 +165,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             }
             catch (Exception ex)
             {
-                _diags.Emit(nameof(CSharpScriptEngine), new { 
+                _diags.Emit(nameof(CSharpScriptEngine), new {
                     Message = $"Could not read assembly bytes for {assembly.FullName}: {ex.Message}"
                 });
             }
@@ -166,6 +179,9 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             _scriptGlobals = new ExpandoObject();
             _globals.Clear();
             _state = null;
+
+            // Reset typed globals
+            _typedGlobals = new ScriptGlobals { a2c = _a2c };
 
             // Re-add host objects after reinitialization
             AddHostObject("Console", typeof(Console));
@@ -183,8 +199,8 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                 return string.Empty;
             }
 
-            // Execute the script synchronously
-            _state = CSharpScript.RunAsync(script, _options, _scriptGlobals).GetAwaiter().GetResult();
+            // Execute the script synchronously; pass typed globals so identifiers like 'a2c' bind
+            _state = CSharpScript.RunAsync(script, _options, _typedGlobals, typeof(ScriptGlobals)).GetAwaiter().GetResult();
             return _state?.ReturnValue?.ToString() ?? string.Empty;
         }
 
@@ -193,8 +209,8 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                 return null;
             }
 
-            // Evaluate the script synchronously
-            var result = CSharpScript.EvaluateAsync<object?>(script, _options, _scriptGlobals).GetAwaiter().GetResult();
+            // Evaluate the script synchronously; pass typed globals
+            var result = CSharpScript.EvaluateAsync<object?>(script, _options, _typedGlobals, typeof(ScriptGlobals)).GetAwaiter().GetResult();
             return result;
         }
 
@@ -225,6 +241,12 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
         public void AddHostObject(string itemName, object? target) {
             if (target != null) {
                 SetValue(itemName, target);
+
+                // Keep typed globals in sync for well-known members
+                if (string.Equals(itemName, "a2c", StringComparison.OrdinalIgnoreCase) && target is A2CApi a2c)
+                {
+                    _typedGlobals.a2c = a2c;
+                }
             }
         }
 

@@ -298,7 +298,12 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
         }
     }
 
-    public void AddHostObject(string itemName, object target) {
+    public void AddHostObject(string itemName, object? target) {
+        // Interface allows null; ClearScript expects a non-null target.
+        // If target is null, no-op to avoid throwing and to match nullable contract.
+        if (target is null) {
+            return;
+        }
         _engine.AddHostObject(itemName, HostItemFlags.None, target);
     }
 
