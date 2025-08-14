@@ -1,27 +1,14 @@
-![Api2Cli Logo](https://raw.githubusercontent.com/paulmooreparks/Api2Cli/master/logo/Api2Cli-sm.png)
+![Api2Cli Logo](https://raw.githubusercontent.com/paulmooreparks/Api2Cli/master/logo/icons/ms-icon-150x150.png)
 
 # Api2Cli - API Management CLI Tool
 
-<p>
-  <a href="https://github.com/paulmooreparks/Api2Cli/releases">
-    <img alt="Api2Cli CLI Version" src="https://img.shields.io/github/v/release/paulmooreparks/Api2Cli?include_prereleases">
-  </a>
-  <a href="https://github.com/paulmooreparks/Api2Cli">
-    <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/paulmooreparks/Api2Cli">
-  </a>
-  <a href="https://github.com/paulmooreparks/Api2Cli/issues">
-    <img alt="GitHub issues" src="https://img.shields.io/github/issues/paulmooreparks/Api2Cli">
-  </a>
-  <a href="https://github.com/paulmooreparks/Api2Cli/actions">
-    <img alt="Build Status" src="https://img.shields.io/github/actions/workflow/status/paulmooreparks/Api2Cli/auto-build.yml?branch=main">
-  </a>
-  <a href="https://opensource.org/licenses/MIT">
-    <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg">
-  </a>
-  <a href="https://dotnet.microsoft.com/">
-    <img alt=".NET 8.0" src="https://img.shields.io/badge/.NET-8.0-purple">
-  </a>
-</p>
+[![Releases](https://img.shields.io/github/v/release/paulmooreparks/Api2Cli?include_prereleases)](https://github.com/paulmooreparks/Api2Cli/releases)
+[![GitHub last commit](https://img.shields.io/github/last-commit/paulmooreparks/Api2Cli)](https://github.com/paulmooreparks/Api2Cli)
+[![.NET Build Status](https://github.com/paulmooreparks/Api2Cli/actions/workflows/auto-build.yml/badge.svg)](https://github.com/paulmooreparks/Api2Cli/actions/workflows/auto-build.yml)
+[![GitHub issues](https://img.shields.io/github/issues/paulmooreparks/Api2Cli/issues)](https://github.com/paulmooreparks/Api2Cli/issues)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![.NET 8.0](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com/)
+
 
 ## Api2Cli Overview
 

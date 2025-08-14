@@ -73,10 +73,19 @@ jobs:
         include:
           - os: windows-latest
             runtime: win-x64
+            executable: a2c.exe
+            icon_file: favicon.ico
+            icon_copy_name: a2c.ico
           - os: ubuntu-latest
             runtime: linux-x64
+            executable: a2c
+            icon_file: favicon-96x96.png
+            icon_copy_name: a2c.png
           - os: macos-latest
             runtime: osx-x64
+            executable: a2c
+            icon_file: apple-icon.png
+            icon_copy_name: a2c.png
 
     steps:
       - name: Checkout repo
@@ -87,14 +96,49 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Verify icon files exist
+        shell: bash
+        run: |
+          echo "Checking for icon files..."
+          if [ -f "logo/icons/${{ matrix.icon_file }}" ]; then
+            echo "✅ Icon file found: logo/icons/${{ matrix.icon_file }}"
+            ls -la "logo/icons/${{ matrix.icon_file }}"
+          else
+            echo "❌ Icon file not found: logo/icons/${{ matrix.icon_file }}"
+            echo "Available icons:"
+            ls -la logo/icons/ || echo "logo/icons directory not found"
+            exit 1
+          fi
+
       - name: Publish for ${{ matrix.os }}
         shell: bash
         run: |
           dotnet publish a2c/a2c.csproj \
             --configuration Release \
-            --runtime ${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }} \
+            --runtime ${{ matrix.runtime }} \
+            -p:PublishSingleFile=true \
+            -p:PublishReadyToRun=${{ matrix.os == 'windows-latest' && 'true' || 'false' }} \
+            -p:PublishTrimmed=false \
             -o publish \
             -p:Version=${{ needs.auto-build.outputs.version }}
+
+      - name: Copy platform-specific icon
+        shell: bash
+        run: |
+          echo "Copying icon for ${{ matrix.os }}..."
+          cp "logo/icons/${{ matrix.icon_file }}" "publish/${{ matrix.icon_copy_name }}"
+          echo "Icon copied successfully"
+          ls -la "publish/${{ matrix.icon_copy_name }}"
+
+      - name: Verify executable and icon
+        shell: bash
+        run: |
+          echo "Build verification for ${{ matrix.os }}:"
+          echo "Executable: publish/${{ matrix.executable }}"
+          ls -la "publish/${{ matrix.executable }}"
+          echo "Icon: publish/${{ matrix.icon_copy_name }}"
+          ls -la "publish/${{ matrix.icon_copy_name }}"
+          echo "✅ Build verification complete"
 
       # Windows installer (Inno Setup)
       - name: Install Inno Setup
@@ -121,13 +165,18 @@ jobs:
           Compression=lzma
           SolidCompression=yes
           ChangesEnvironment=yes
-
+          SetupIconFile=publish\a2c.ico
+          
           [Files]
-          Source: "./publish/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+          Source: "publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
           [Icons]
-          Name: "{group}\Api2Cli"; Filename: "{app}\a2c.exe"
+          Name: "{group}\Api2Cli"; Filename: "{app}\a2c.exe"; IconFilename: "{app}\a2c.ico"
           Name: "{group}\Uninstall Api2Cli"; Filename: "{uninstallexe}"
+          Name: "{commondesktop}\Api2Cli"; Filename: "{app}\a2c.exe"; IconFilename: "{app}\a2c.ico"; Tasks: desktopicon
+
+          [Tasks]
+          Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
           [Registry]
           Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Check: NeedsAddPath('{app}')
@@ -159,7 +208,7 @@ jobs:
             Write-Error "Installer script not found: $script"
             exit 1
           }
-          # Compile into the 'publish' folder
+          # Compile into the 'Output' folder
           & $innoSetup $script
 
       # Linux installer (.deb)
@@ -168,9 +217,27 @@ jobs:
         shell: bash
         run: |
           mkdir -p ./Output
-          mkdir -p debian/DEBIAN debian/usr/local/bin
+          mkdir -p debian/DEBIAN debian/usr/local/bin debian/usr/share/pixmaps debian/usr/share/applications
+          
+          # Copy executable and icon
           cp -r publish/* debian/usr/local/bin/
           chmod +x debian/usr/local/bin/a2c
+          cp publish/a2c.png debian/usr/share/pixmaps/
+          
+          # Create desktop entry
+          cat > debian/usr/share/applications/api2cli.desktop << EOF
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Api2Cli
+          Comment=API Management CLI Tool
+          Exec=a2c
+          Icon=a2c
+          Terminal=true
+          Categories=Development;Network;
+          EOF
+          
+          # Create package control file
           cat > debian/DEBIAN/control << EOF
           Package: api2cli
           Version: ${{ needs.auto-build.outputs.version }}
@@ -178,8 +245,12 @@ jobs:
           Priority: optional
           Architecture: amd64
           Maintainer: Parks Computing <paul@parkscomputing.com>
-          Description: Api2Cli - API Management CLI Tool.
+          Description: Api2Cli - API Management CLI Tool
+           A powerful command-line interface for HTTP API management, testing, and automation.
+           Provides workspace-based API organization with JavaScript scripting support.
           EOF
+          
+          # Build the package
           dpkg-deb --build debian "./Output/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb"
 
       # macOS installer (.pkg)
@@ -187,9 +258,20 @@ jobs:
         if: matrix.os == 'macos-latest' && github.actor != 'nektos/act'
         shell: bash
         run: |
-          pkgbuild --root publish \
+          # Create directory structure for macOS package
+          mkdir -p macos-pkg/usr/local/bin
+          mkdir -p macos-pkg/usr/local/share/pixmaps
+          
+          # Copy files
+          cp publish/a2c macos-pkg/usr/local/bin/
+          cp publish/a2c.png macos-pkg/usr/local/share/pixmaps/
+          chmod +x macos-pkg/usr/local/bin/a2c
+          
+          # Build the package
+          pkgbuild --root macos-pkg \
                    --identifier com.parkscomputing.api2cli \
-                   --install-location /usr/local \
+                   --version ${{ needs.auto-build.outputs.version }} \
+                   --install-location / \
                    Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
 
       - name: Upload Windows Installer Artifact
@@ -213,6 +295,20 @@ jobs:
           name: installer-osx-x64
           path: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
 
+      # Upload standalone executables with icons as additional artifacts
+      - name: Create Standalone Archive
+        shell: bash
+        run: |
+          mkdir -p standalone-${{ matrix.runtime }}
+          cp publish/${{ matrix.executable }} standalone-${{ matrix.runtime }}/
+          cp publish/${{ matrix.icon_copy_name }} standalone-${{ matrix.runtime }}/
+
+      - name: Upload Standalone Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-${{ matrix.runtime }}
+          path: standalone-${{ matrix.runtime }}/
+
   publish-release:
     name: Publish GitHub Release
     needs: [auto-build, cross-platform-builds]
@@ -222,11 +318,15 @@ jobs:
       contents: write
 
     steps:
-      - name: Download all installers
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: release-assets
-          merge-multiple: true
+
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find release-assets -type f -exec ls -la {} \;
 
       - name: Create Release
         uses: actions/create-release@v1
@@ -237,19 +337,48 @@ jobs:
           tag_name: v${{ needs.auto-build.outputs.version }}
           release_name: Api2Cli v${{ needs.auto-build.outputs.version }}
           body: |
-            ## Changelog
-            Auto-generated release for version ${{ needs.auto-build.outputs.version }}
+            ## 🚀 Api2Cli v${{ needs.auto-build.outputs.version }}
+            
+            ### 📦 Installation Options
+            
+            #### Platform-Specific Installers (Recommended)
+            - **Windows**: Download and run the `.exe` installer
+            - **Linux**: Install the `.deb` package with `sudo dpkg -i filename.deb`
+            - **macOS**: Install the `.pkg` package
+            
+            #### Standalone Executables
+            - Download the appropriate standalone build for your platform
+            - Extract and run directly (no installation required)
+            
+            ### ✨ Features
+            - 🎯 Cross-platform HTTP API testing and automation
+            - 📝 Workspace-based request organization
+            - ⚡ JavaScript scripting engine for advanced workflows
+            - 🔧 Environment variable and configuration management
+            - 🖥️ Interactive REPL mode and command-line execution
+            
+            ### 🔧 Quick Start        ```bash
+        # Simple GET request
+        a2c get https://api.example.com/users
+        
+        # POST with JSON
+        echo '{"name": "test"}' | a2c post https://api.example.com/users
+        
+        # Start interactive mode
+        a2c
+        ```            
+            **Note**: This is a pre-release version. Please report any issues on GitHub.
           draft: false
           prerelease: true
 
-      - name: Upload macOS installer
+      - name: Upload Windows installer
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
-          asset_name: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
+          asset_path: release-assets/installer-win-x64/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
+          asset_name: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
           asset_content_type: application/octet-stream
 
       - name: Upload Linux installer
@@ -258,16 +387,47 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
+          asset_path: release-assets/installer-linux-x64/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
           asset_name: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
           asset_content_type: application/octet-stream
 
-      - name: Upload Windows installer
+      - name: Upload macOS installer
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
-          asset_name: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
+          asset_path: release-assets/installer-osx-x64/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
+          asset_name: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
+          asset_content_type: application/octet-stream
+
+      # Upload standalone builds
+      - name: Upload Windows Standalone
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release-assets/standalone-win-x64/a2c.exe
+          asset_name: a2c-v${{ needs.auto-build.outputs.version }}-standalone-win-x64.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload Linux Standalone
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release-assets/standalone-linux-x64/a2c
+          asset_name: a2c-v${{ needs.auto-build.outputs.version }}-standalone-linux-x64
+          asset_content_type: application/octet-stream
+
+      - name: Upload macOS Standalone  
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release-assets/standalone-osx-x64/a2c
+          asset_name: a2c-v${{ needs.auto-build.outputs.version }}-standalone-osx-x64
           asset_content_type: application/octet-stream

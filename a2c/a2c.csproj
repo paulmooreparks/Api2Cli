@@ -6,10 +6,35 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>ParksComputing.Api2Cli.Cli</RootNamespace>
-  <AssemblyName>a2c</AssemblyName>
+    <AssemblyName>a2c</AssemblyName>
     <Version>0.6.0</Version>
     <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+    
+    <!-- Application Icon Configuration -->
+    <ApplicationIcon>..\logo\icons\favicon.ico</ApplicationIcon>
+    
+    <!-- Assembly Metadata for all platforms -->
+    <AssemblyTitle>Api2Cli - API Management CLI Tool</AssemblyTitle>
+    <AssemblyDescription>A powerful command-line interface for HTTP API management, testing, and automation</AssemblyDescription>
+    <AssemblyCompany>Parks Computing</AssemblyCompany>
+    <AssemblyProduct>Api2Cli</AssemblyProduct>
+    <AssemblyCopyright>Copyright © Parks Computing 2025</AssemblyCopyright>
+    <AssemblyVersion>0.6.0.0</AssemblyVersion>
+    <FileVersion>0.6.0.0</FileVersion>
   </PropertyGroup>
+
+  <!-- Include icon files as embedded resources for cross-platform use -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\logo\icons\favicon.ico">
+      <LogicalName>app.ico</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\logo\icons\apple-icon.png">
+      <LogicalName>app.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\logo\icons\favicon-96x96.png">
+      <LogicalName>app-96.png</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Cliffer" Version="0.5.0-prerelease" />
