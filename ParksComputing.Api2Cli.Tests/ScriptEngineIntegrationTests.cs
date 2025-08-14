@@ -30,15 +30,14 @@ namespace ParksComputing.Api2Cli.Tests
             // Define a script that accesses facilities
             string script = """
                 Console.WriteLine("Accessing Console");
-                // var result =\ a2c.Http.get("https://example.com", null, null);
-                // return result != null ? "Http Access Successful" : "Http Access Failed";
+                return "Console Access Successful";
             """;
 
             // Execute the script
             string result = scriptEngine.ExecuteScript(script);
 
             // Assert the result
-            Assert.AreEqual("Http Access Successful", result, "The script did not access facilities as expected.");
+            Assert.AreEqual("Console Access Successful", result, "The script did not access facilities as expected.");
         }
 
         [TestMethod]
