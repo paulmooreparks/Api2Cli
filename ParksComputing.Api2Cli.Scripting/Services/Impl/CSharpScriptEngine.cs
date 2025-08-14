@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using System.Reflection;
+using Microsoft.CodeAnalysis;
+using System.IO;
+using System.Collections.Immutable;
 
 using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Api2Cli.Workspace.Models;
@@ -43,29 +46,118 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             _propertyResolver = propertyResolver;
             _a2c = apiRoot;
 
-            try {
-                // Try to create ScriptOptions with assembly references (works in non-single-file apps)
-                _options = ScriptOptions.Default
-                    .WithReferences(
-                        typeof(object).Assembly,
-                        typeof(System.Linq.Enumerable).Assembly
-                    )
-                    .WithImports("System", "System.Linq", "System.Collections.Generic");
-            }
-            catch (NotSupportedException) {
-                // Fallback for single-file applications where assemblies don't have file locations
-                _diags.Emit(nameof(CSharpScriptEngine), new { 
-                    Message = "Assembly references not available in single-file app, using minimal ScriptOptions" 
-                });
-                
-                _options = ScriptOptions.Default
-                    .WithImports("System", "System.Linq", "System.Collections.Generic");
-            }
+            // Create ScriptOptions with proper single-file application support
+            _options = CreateScriptOptions();
 
             // Add host objects to the script globals
             AddHostObject("Console", typeof(Console));
             AddHostObject("Task", typeof(Task));
             AddHostObject("a2c", _a2c); // Ensure a2c is added to the script globals
+        }
+
+        private ScriptOptions CreateScriptOptions()
+        {
+            var references = new List<MetadataReference>();
+
+            // Core assemblies to include
+            var coreAssemblies = new[]
+            {
+                typeof(object).Assembly,           // System.Runtime
+                typeof(System.Linq.Enumerable).Assembly  // System.Linq
+            };
+
+            // Try to create references from assemblies
+            foreach (var assembly in coreAssemblies)
+            {
+                try
+                {
+                    var reference = CreateMetadataReferenceFromAssembly(assembly);
+                    if (reference != null)
+                    {
+                        references.Add(reference);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log the specific assembly that failed, but continue with others
+                    _diags.Emit(nameof(CSharpScriptEngine), new { 
+                        Message = $"Could not create reference for {assembly.FullName}: {ex.Message}",
+                        Assembly = assembly.FullName
+                    });
+                }
+            }
+
+            return ScriptOptions.Default
+                .WithReferences(references)
+                .WithImports("System", "System.Linq", "System.Collections.Generic");
+        }
+
+        private MetadataReference? CreateMetadataReferenceFromAssembly(Assembly assembly)
+        {
+            try
+            {
+                // First try the standard approach (works for non-single-file apps)
+                if (!string.IsNullOrEmpty(assembly.Location))
+                {
+                    return MetadataReference.CreateFromFile(assembly.Location);
+                }
+
+                // For single-file apps, create reference from assembly image bytes
+                var assemblyBytes = GetAssemblyBytes(assembly);
+                if (assemblyBytes != null)
+                {
+                    return MetadataReference.CreateFromImage(assemblyBytes);
+                }
+            }
+            catch (NotSupportedException)
+            {
+                // Expected for single-file applications when trying to use Assembly.Location
+            }
+            catch (Exception ex)
+            {
+                _diags.Emit(nameof(CSharpScriptEngine), new { 
+                    Message = $"Failed to create metadata reference for {assembly.FullName}: {ex.Message}"
+                });
+            }
+
+            return null;
+        }
+
+        private ImmutableArray<byte>? GetAssemblyBytes(Assembly assembly)
+        {
+            try
+            {
+                // Try to get the assembly bytes from the loaded assembly
+                // This approach works for both regular and single-file applications
+                var assemblyName = assembly.GetName();
+                
+                // For system assemblies, we can often find them in the runtime directory
+                var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
+                if (!string.IsNullOrEmpty(runtimeDir))
+                {
+                    var potentialPath = Path.Combine(runtimeDir, $"{assemblyName.Name}.dll");
+                    if (File.Exists(potentialPath))
+                    {
+                        var bytes = File.ReadAllBytes(potentialPath);
+                        return ImmutableArray.Create(bytes);
+                    }
+                }
+
+                // Alternative approach: try to read from embedded location if available
+                if (!string.IsNullOrEmpty(assembly.Location) && File.Exists(assembly.Location))
+                {
+                    var bytes = File.ReadAllBytes(assembly.Location);
+                    return ImmutableArray.Create(bytes);
+                }
+            }
+            catch (Exception ex)
+            {
+                _diags.Emit(nameof(CSharpScriptEngine), new { 
+                    Message = $"Could not read assembly bytes for {assembly.FullName}: {ex.Message}"
+                });
+            }
+
+            return null;
         }
 
         public dynamic Script => _scriptGlobals;
