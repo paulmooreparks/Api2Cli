@@ -34,6 +34,39 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParksComputing.Api2Cli.Test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "a2c", "a2c\a2c.csproj", "{DE4830A2-F14B-4529-AC1C-C83666A21090}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "logo", "logo", "{64EC58AA-EE6A-43F6-A7A8-3C460D961577}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "icons", "icons", "{1C0FBD33-B3BF-4E6A-BB7E-9188B46EC23F}"
+	ProjectSection(SolutionItems) = preProject
+		logo\icons\android-icon-144x144.png = logo\icons\android-icon-144x144.png
+		logo\icons\android-icon-192x192.png = logo\icons\android-icon-192x192.png
+		logo\icons\android-icon-36x36.png = logo\icons\android-icon-36x36.png
+		logo\icons\android-icon-48x48.png = logo\icons\android-icon-48x48.png
+		logo\icons\android-icon-72x72.png = logo\icons\android-icon-72x72.png
+		logo\icons\android-icon-96x96.png = logo\icons\android-icon-96x96.png
+		logo\icons\apple-icon-114x114.png = logo\icons\apple-icon-114x114.png
+		logo\icons\apple-icon-120x120.png = logo\icons\apple-icon-120x120.png
+		logo\icons\apple-icon-144x144.png = logo\icons\apple-icon-144x144.png
+		logo\icons\apple-icon-152x152.png = logo\icons\apple-icon-152x152.png
+		logo\icons\apple-icon-180x180.png = logo\icons\apple-icon-180x180.png
+		logo\icons\apple-icon-57x57.png = logo\icons\apple-icon-57x57.png
+		logo\icons\apple-icon-60x60.png = logo\icons\apple-icon-60x60.png
+		logo\icons\apple-icon-72x72.png = logo\icons\apple-icon-72x72.png
+		logo\icons\apple-icon-76x76.png = logo\icons\apple-icon-76x76.png
+		logo\icons\apple-icon-precomposed.png = logo\icons\apple-icon-precomposed.png
+		logo\icons\apple-icon.png = logo\icons\apple-icon.png
+		logo\icons\browserconfig.xml = logo\icons\browserconfig.xml
+		logo\icons\favicon-16x16.png = logo\icons\favicon-16x16.png
+		logo\icons\favicon-32x32.png = logo\icons\favicon-32x32.png
+		logo\icons\favicon-96x96.png = logo\icons\favicon-96x96.png
+		logo\icons\favicon.ico = logo\icons\favicon.ico
+		logo\icons\manifest.json = logo\icons\manifest.json
+		logo\icons\ms-icon-144x144.png = logo\icons\ms-icon-144x144.png
+		logo\icons\ms-icon-150x150.png = logo\icons\ms-icon-150x150.png
+		logo\icons\ms-icon-310x310.png = logo\icons\ms-icon-310x310.png
+		logo\icons\ms-icon-70x70.png = logo\icons\ms-icon-70x70.png
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -135,6 +168,8 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{93AE49E2-9F10-4BFD-B83E-B6FA00834823} = {47A4F442-5258-4AC2-83D0-7D4063BB4A7D}
 		{02EA681E-C7D8-13C7-8484-4AC65E1B71E8} = {47A4F442-5258-4AC2-83D0-7D4063BB4A7D}
+		{64EC58AA-EE6A-43F6-A7A8-3C460D961577} = {47A4F442-5258-4AC2-83D0-7D4063BB4A7D}
+		{1C0FBD33-B3BF-4E6A-BB7E-9188B46EC23F} = {64EC58AA-EE6A-43F6-A7A8-3C460D961577}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {598DCE09-FB2A-4599-94B4-4F3FA1B81884}

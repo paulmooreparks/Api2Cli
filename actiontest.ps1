@@ -1,1 +1,0 @@
-act push -j cross-platform-builds -P ubuntu-latest=catthehacker/ubuntu:act-latest -P windows-latest=catthehacker/ubuntu:act-latest -P macos-latest=catthehacker/ubuntu:act-latest -s ACTIONS_RUNTIME_TOKEN=testtoken
