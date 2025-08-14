@@ -384,7 +384,7 @@ xk.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
             string versionString = version != null
                 ? $"{version.Major}.{version.Minor}.{version.Build}"
                 : "Unknown";
-            Console.WriteLine($"xk v{versionString}");
+            Console.WriteLine($"a2c v{versionString}");
             return Result.Success;
         }
 

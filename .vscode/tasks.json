@@ -64,7 +64,7 @@
 			]
 		},
 		{
-			"label": "run xk",
+			"label": "run a2c",
 			"command": "dotnet",
 			"type": "shell",
 			"args": [
