@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ClearScript.Complete" Version="7.5.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ParksComputing.Api2Cli.DataStore\ParksComputing.Api2Cli.DataStore.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Http\ParksComputing.Api2Cli.Http.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Workspace\ParksComputing.Api2Cli.Workspace.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Diagnostics\ParksComputing.Api2Cli.Diagnostics.csproj" />
+  </ItemGroup>
+
+
+</Project>

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ParksComputing.Api2Cli.Cli</RootNamespace>
+  <AssemblyName>a2c</AssemblyName>
+    <Version>0.6.0</Version>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Cliffer" Version="0.5.0-prerelease" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Diagnostics\ParksComputing.Api2Cli.Diagnostics.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Scripting\ParksComputing.Api2Cli.Scripting.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Workspace\ParksComputing.Api2Cli.Workspace.csproj" />
+  </ItemGroup>
+
+</Project>

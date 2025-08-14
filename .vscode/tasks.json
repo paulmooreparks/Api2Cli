@@ -7,7 +7,7 @@
 			"type": "shell",
 			"args": [
 				"build",
-				"XferKit.sln"
+				"Api2Cli.sln"
 			],
 			"group": {
 				"kind": "build",
@@ -29,7 +29,7 @@
 			"type": "shell",
 			"args": [
 				"clean",
-				"XferKit.sln"
+				"Api2Cli.sln"
 			],
 			"group": "build",
 			"problemMatcher": [
@@ -42,7 +42,7 @@
 			"type": "shell",
 			"args": [
 				"build",
-				"XferKit.sln",
+				"Api2Cli.sln",
 				"--no-incremental"
 			],
 			"group": "build",
@@ -56,7 +56,7 @@
 			"type": "shell",
 			"args": [
 				"restore",
-				"XferKit.sln"
+				"Api2Cli.sln"
 			],
 			"group": "build",
 			"problemMatcher": [
@@ -64,13 +64,12 @@
 			]
 		},
 		{
-			"label": "run xk",
+			"label": "run a2c",
 			"command": "dotnet",
 			"type": "shell",
 			"args": [
 				"run",
-				"--project",
-				"xk"
+				"--project","a2c"
 			],
 			"group": "test",
 			"problemMatcher": [

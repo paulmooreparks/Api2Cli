@@ -1,5 +1,5 @@
 {
-    "dotnet.defaultSolution": "XferKit.sln",
+    "dotnet.defaultSolution": "Api2Cli.sln",
     "omnisharp.enableRoslynAnalyzers": true,
     "omnisharp.enableEditorConfigSupport": true,
     "files.associations": {

@@ -42,7 +42,7 @@ jobs:
         id: read-version
         run: |
           # grab the full Version (e.g. "0.4.0")
-          base=$(grep -oPm1 "(?<=<Version>)[^<]+" xk/xk.csproj)
+          base=$(grep -oPm1 "(?<=<Version>)[^<]+" a2c/a2c.csproj)
           # remove the patch (".0") to get "0.4"
           base2=${base%.*}
 
@@ -90,7 +90,7 @@ jobs:
       - name: Publish for ${{ matrix.os }}
         shell: bash
         run: |
-          dotnet publish xk/xk.csproj \
+          dotnet publish a2c/a2c.csproj \
             --configuration Release \
             --runtime ${{ matrix.os == 'windows-latest' && 'win-x64' || matrix.os == 'ubuntu-latest' && 'linux-x64' || 'osx-x64' }} \
             -o publish \
@@ -113,11 +113,11 @@ jobs:
         run: |
           $scriptContent = @"
           [Setup]
-          AppName=XferKit
+          AppName=Api2Cli
           AppVersion=${{ needs.auto-build.outputs.version }}
-          DefaultDirName={pf}\XferKit
-          DefaultGroupName=XferKit
-          OutputBaseFilename=XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64
+          DefaultDirName={pf}\Api2Cli
+          DefaultGroupName=Api2Cli
+          OutputBaseFilename=Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-win-x64
           Compression=lzma
           SolidCompression=yes
           ChangesEnvironment=yes
@@ -126,8 +126,8 @@ jobs:
           Source: "./publish/*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
           [Icons]
-          Name: "{group}\XferKit"; Filename: "{app}\xk.exe"
-          Name: "{group}\Uninstall XferKit"; Filename: "{uninstallexe}"
+          Name: "{group}\Api2Cli"; Filename: "{app}\a2c.exe"
+          Name: "{group}\Uninstall Api2Cli"; Filename: "{uninstallexe}"
 
           [Registry]
           Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Check: NeedsAddPath('{app}')
@@ -170,17 +170,17 @@ jobs:
           mkdir -p ./Output
           mkdir -p debian/DEBIAN debian/usr/local/bin
           cp -r publish/* debian/usr/local/bin/
-          chmod +x debian/usr/local/bin/xk
+          chmod +x debian/usr/local/bin/a2c
           cat > debian/DEBIAN/control << EOF
-          Package: xferkit
+          Package: api2cli
           Version: ${{ needs.auto-build.outputs.version }}
           Section: utils
           Priority: optional
           Architecture: amd64
           Maintainer: Parks Computing <paul@parkscomputing.com>
-          Description: XferKit - API Management CLI Tool.
+          Description: Api2Cli - API Management CLI Tool.
           EOF
-          dpkg-deb --build debian "./Output/XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb"
+          dpkg-deb --build debian "./Output/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb"
 
       # macOS installer (.pkg)
       - name: Package Installer (macOS)
@@ -188,30 +188,30 @@ jobs:
         shell: bash
         run: |
           pkgbuild --root publish \
-                   --identifier com.yourorg.xferkit \
+                   --identifier com.parkscomputing.api2cli \
                    --install-location /usr/local \
-                   XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
+                   Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
 
       - name: Upload Windows Installer Artifact
         if: matrix.os == 'windows-latest' && github.actor != 'nektos/act'
         uses: actions/upload-artifact@v4
         with:
           name: installer-win-x64
-          path: Output/XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
+          path: Output/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
 
       - name: Upload Linux Installer Artifact
         if: matrix.os == 'ubuntu-latest' && github.actor != 'nektos/act'
         uses: actions/upload-artifact@v4
         with:
           name: installer-linux-x64
-          path: Output/XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
+          path: Output/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
 
       - name: Upload macOS Installer Artifact
         if: matrix.os == 'macos-latest' && github.actor != 'nektos/act'
         uses: actions/upload-artifact@v4
         with:
           name: installer-osx-x64
-          path: XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
+          path: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
 
   publish-release:
     name: Publish GitHub Release
@@ -235,7 +235,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ needs.auto-build.outputs.version }}
-          release_name: XferKit v${{ needs.auto-build.outputs.version }}
+          release_name: Api2Cli v${{ needs.auto-build.outputs.version }}
           body: |
             ## Changelog
             Auto-generated release for version ${{ needs.auto-build.outputs.version }}
@@ -248,8 +248,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
-          asset_name: XferKit-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
+          asset_path: release-assets/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
+          asset_name: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
           asset_content_type: application/octet-stream
 
       - name: Upload Linux installer
@@ -258,8 +258,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
-          asset_name: XferKit-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
+          asset_path: release-assets/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
+          asset_name: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
           asset_content_type: application/octet-stream
 
       - name: Upload Windows installer
@@ -268,6 +268,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
-          asset_name: XferKit-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
+          asset_path: release-assets/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
+          asset_name: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
           asset_content_type: application/octet-stream

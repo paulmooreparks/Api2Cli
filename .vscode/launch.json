@@ -5,13 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": ".NET Run xk",
+            "name": ".NET Run a2c",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/xk/bin/Debug/net8.0/xk.dll",
+            "program": "${workspaceFolder}/a2c/bin/Debug/net8.0/a2c.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/xk",
+            "cwd": "${workspaceFolder}/a2c",
             "stopAtEntry": false,
             "console": "externalTerminal"
         }

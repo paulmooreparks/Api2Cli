@@ -1,6 +1,6 @@
-# XferKit GitHub Actions
+#\ Api2Cli\ GitHub Actions
 
-This repository includes automated GitHub Actions workflows for building, versioning, and releasing XferKit:
+This repository includes automated GitHub Actions workflows for building, versioning, and releasing Api2Cli:
 
 ## 🔄 Auto-Version and Build - `auto-version.yml`
 
@@ -10,7 +10,7 @@ This repository includes automated GitHub Actions workflows for building, versio
 - Automatically increments version number based on commit count
 - Updates project file with new version
 - Creates version tags for main branch pushes
-- Builds XferKit on Ubuntu, Windows, and macOS
+- Builds\ Api2Cli\ on Ubuntu, Windows, and macOS
 - Runs tests and creates build artifacts
 - **Provides guidance for manual release creation**
 
@@ -35,14 +35,14 @@ This repository includes automated GitHub Actions workflows for building, versio
 **Output Files**:
 
 *Portable (No Installation Required)*:
-- `xk-windows-x64.zip` - Windows executable
-- `xk-linux-x64.tar.gz` - Linux executable
-- `xk-macos-x64.tar.gz` - macOS executable
+- `a2c-windows-x64.zip` - Windows executable
+- `a2c-linux-x64.tar.gz` - Linux executable
+- `a2c-macos-x64.tar.gz` - macOS executable
 
 *Installers (Automatic PATH Setup)*:
-- `xk-VERSION-windows-x64.msi` - Windows MSI installer
-- `xk-VERSION-linux-x64.deb` - Debian/Ubuntu package
-- `xk-VERSION-macos-x64.pkg` - macOS installer package
+- `a2c-VERSION-windows-x64.msi` - Windows MSI installer
+- `a2c-VERSION-linux-x64.deb` - Debian/Ubuntu package
+- `a2c-VERSION-macos-x64.pkg` - macOS installer package
 
 ## 🎯 How to Use
 
@@ -84,7 +84,7 @@ You can modify the workflows by editing the files in `.github/workflows/`:
 - `auto-version.yml` - Auto-versioning and CI builds
 - `release.yml` - Unified release creation with installers
 
-The workflows are configured for the `xk` project as the main executable, but can be adapted for other .NET projects.
+The workflows are configured for the `a2c` project as the main executable, but can be adapted for other .NET projects.
 
 ## 🚀 Benefits of This Setup
 

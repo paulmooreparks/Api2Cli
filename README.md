@@ -1,19 +1,19 @@
-![XferKit Logo](https://raw.githubusercontent.com/paulmooreparks/XferKit/master/logo/XferKit-sm.png)
+![Api2Cli Logo](https://raw.githubusercontent.com/paulmooreparks/Api2Cli/master/logo/Api2Cli-sm.png)
 
-# XferKit - API Management CLI Tool
+# Api2Cli - API Management CLI Tool
 
 <p>
-  <a href="https://github.com/paulmooreparks/XferKit/releases">
-    <img alt="XferKit CLI Version" src="https://img.shields.io/github/v/release/paulmooreparks/XferKit?include_prereleases">
+  <a href="https://github.com/paulmooreparks/Api2Cli/releases">
+    <img alt="Api2Cli CLI Version" src="https://img.shields.io/github/v/release/paulmooreparks/Api2Cli?include_prereleases">
   </a>
-  <a href="https://github.com/paulmooreparks/XferKit">
-    <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/paulmooreparks/XferKit">
+  <a href="https://github.com/paulmooreparks/Api2Cli">
+    <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/paulmooreparks/Api2Cli">
   </a>
-  <a href="https://github.com/paulmooreparks/XferKit/issues">
-    <img alt="GitHub issues" src="https://img.shields.io/github/issues/paulmooreparks/XferKit">
+  <a href="https://github.com/paulmooreparks/Api2Cli/issues">
+    <img alt="GitHub issues" src="https://img.shields.io/github/issues/paulmooreparks/Api2Cli">
   </a>
-  <a href="https://github.com/paulmooreparks/XferKit/actions">
-    <img alt="Build Status" src="https://img.shields.io/github/actions/workflow/status/paulmooreparks/XferKit/auto-build.yml?branch=main">
+  <a href="https://github.com/paulmooreparks/Api2Cli/actions">
+    <img alt="Build Status" src="https://img.shields.io/github/actions/workflow/status/paulmooreparks/Api2Cli/auto-build.yml?branch=main">
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg">
@@ -23,9 +23,9 @@
   </a>
 </p>
 
-## XferKit Overview
+## Api2Cli Overview
 
-**XferKit** is a powerful command-line interface (CLI) tool for HTTP API management, testing, and automation. It provides a workspace-based approach to organize API interactions, supports JavaScript scripting for advanced workflows, and offers an intuitive command-line experience for developers working with REST APIs. It bridges the gap between simple command-line tools like curl and complex GUI applications like Postman, providing the power and flexibility developers need for modern API workflows.
+**Api2Cli** is a powerful command-line interface (CLI) tool for HTTP API management, testing, and automation. It provides a workspace-based approach to organize API interactions, supports JavaScript scripting for advanced workflows, and offers an intuitive command-line experience for developers working with REST APIs. It bridges the gap between simple command-line tools like curl and complex GUI applications like Postman, providing the power and flexibility developers need for modern API workflows.
 
 ### 🚀 Key Features
 
@@ -68,38 +68,40 @@
 
 #### Pre-built Downloads
 
-Download the latest release from [GitHub Releases](https://github.com/paulmooreparks/XferKit/releases) for your platform:
+Download the latest release from [GitHub Releases](https://github.com/paulmooreparks/Api2Cli/releases) for your platform:
 
 ##### Installers (Automatic PATH Setup)
-- **Windows**: `xk-VERSION-installer-win-x64.exe` - Windows Installer
-- **Linux**: `XferKit-vVERSION-installer-linux-x64.deb` - Debian Package (`sudo dpkg -i`)
-- **macOS**: `XferKit-vVERSION-installer-osx-x64.pkg` - macOS Installer Package
+- **Windows**: `a2c-VERSION-installer-win-x64.exe` - Windows Installer
+- **Linux**: `Api2Cli-vVERSION-installer-linux-x64.deb` - Debian Package (`sudo dpkg -i`)
+- **macOS**: `Api2Cli-vVERSION-installer-osx-x64.pkg` - macOS Installer Package
 
-#### Build from Sourcegit clone https://github.com/paulmooreparks/XferKit.git
-cd XferKit
+#### Build from Sourcegit clone https://github.com/paulmooreparks/Api2Cli.git
+```bash
+cd Api2Cli
 dotnet build --configuration Release
-dotnet publish xk/xk.csproj --configuration Release --output ./publish
+dotnet publish a2c/a2c.csproj --configuration Release --output ./publish
+```
 ### 🎯 Quick Start
 
 #### 1. First Run
 
-When you run `xk` for the first time, it creates a `.xk` folder in your home directory with initial configuration files:xk --helpThis creates:
-- `~/.xk/workspaces.xfer` - Workspace definitions
-- `~/.xk/.env` - Environment variables
-- `~/.xk/packages/` - NuGet packages storage
+When you run `a2c` for the first time, it creates a `.a2c` folder in your home directory with initial configuration files:a2c --helpThis creates:
+- `~/.a2c/workspaces.xfer` - Workspace definitions
+- `~/.a2c/.env` - Environment variables
+- `~/.a2c/packages/` - NuGet packages storage
 
 #### 2. Basic HTTP Requests# Simple GET request
-`xk get https://api.example.com/users`
+`a2c get https://api.example.com/users`
 
 # POST with JSON payload
-`echo '{"name": "John"}' | xk post https://api.example.com/users`
+`echo '{"name": "John"}' | a2c post https://api.example.com/users`
 
 # Add headers
-`xk get https://api.example.com/users --headers "Authorization: Bearer token"`
+`a2c get https://api.example.com/users --headers "Authorization: Bearer token"`
 
 ### 📖 Configuration
 
-#### Workspace Configuration (`~/.xk/workspaces.xfer`)
+#### Workspace Configuration (`~/.a2c/workspaces.xfer`)
 
 Workspaces are defined using the XferLang configuration language. Here's a realistic example showing enterprise-grade patterns:
 ```xferlang
@@ -162,7 +164,7 @@ Workspaces are defined using the XferLang configuration language. Here's a reali
             // Workspace initialization
             initScript <'
                 if (workspace.tokenName != null) {
-                    let token = xk.store.get(workspace.tokenName);
+                    let token =\ a2c.store.get(workspace.tokenName);
                     if (token) {
                         Environment.SetEnvironmentVariable(workspace.tokenName, token);
                     }
@@ -192,7 +194,7 @@ Workspaces are defined using the XferLang configuration language. Here's a reali
                         // Store token for future requests
                         const tokenName = workspace.tokenName ?? "API_TOKEN";
                         Environment.SetEnvironmentVariable(tokenName, token);
-                        xk.store.set(tokenName, token);
+                       \ a2c.store.set(tokenName, token);
 
                         console.log("✅ Authentication successful");
                         return token;
@@ -233,9 +235,9 @@ Workspaces are defined using the XferLang configuration language. Here's a reali
 
                         let fileContent;
                         if (filePath.endsWith('.json')) {
-                            fileContent = xk.fileSystem.readText(filePath);
+                            fileContent =\ a2c.fileSystem.readText(filePath);
                         } else {
-                            fileContent = xk.fileSystem.readBytes(filePath);
+                            fileContent =\ a2c.fileSystem.readBytes(filePath);
                         }
 
                         const result = workspace.post_Upload.execute(fileContent, resourceType);
@@ -247,13 +249,13 @@ Workspaces are defined using the XferLang configuration language. Here's a reali
 
             // Global pre-request authentication
             preRequest <'
-                let token = xk.store.get(workspace.tokenName);
+                let token =\ a2c.store.get(workspace.tokenName);
                 if (token) {
                     request.headers["Authorization"] = "Bearer " + token;
                 }
                 request.headers["Content-Type"] = "application/json";
                 request.headers["Accept"] = "application/json";
-                request.headers["User-Agent"] = "XferKit/1.0";
+                request.headers["User-Agent"] = "Api2Cli/1.0";
             '>
 
             requests {
@@ -288,7 +290,7 @@ Workspaces are defined using the XferLang configuration language. Here's a reali
                             let data = JSON.parse(content);
                             if (data.data && data.data.metadata) {
                                 // Store metadata for later use
-                                xk.store.set("lastResourceMeta", data.data.metadata);
+                               \ a2c.store.set("lastResourceMeta", data.data.metadata);
                             }
                         }
                         return nextHandler();
@@ -334,10 +336,10 @@ Workspaces are defined using the XferLang configuration language. Here's a reali
                         console.log("🚀 Starting local services...");
 
                         // Start API server
-                        xk.process.run("npm", ".", "start");
+                       \ a2c.process.run("npm", ".", "start");
 
                         // Start database
-                        xk.process.runCommand(false, ".", "docker-compose", "up -d postgres");
+                       \ a2c.process.runCommand(false, ".", "docker-compose", "up -d postgres");
 
                         console.log("✅ Services started");
                     '>
@@ -413,7 +415,7 @@ Workspaces are defined using the XferLang configuration language. Here's a reali
 }
 ```
 
-#### Environment Variables (`~/.xk/.env`)
+#### Environment Variables (`~/.a2c/.env`)
 
 The `.env` file contains sensitive configuration that should never be committed to version control:
 
@@ -448,7 +450,7 @@ AWS_REGION=us-west-2
 
 ### Advanced Parameter Substitution
 
-XferKit supports complex parameter replacement patterns:
+Api2Cli supports complex parameter replacement patterns:
 
 ```xferlang
 requests {
@@ -471,7 +473,7 @@ requests {
         headers {
             Authorization <'Bearer {{[store]::API_TOKEN}}'>
             X-User-Context <'{{[arg]::context}}'>
-            X-Request-Source <'xferkit-{{[env]::USERNAME}}'>
+            X-Request-Source <'Api2Cli-{{[env]::USERNAME}}'>
         }
     }
 
@@ -524,7 +526,7 @@ workspaces {
                     const tokenResponse = workspace.post_OAuth_Token.execute(clientId, clientSecret);
                     const token = JSON.parse(tokenResponse).access_token;
 
-                    xk.store.set("oauth_token", token);
+                   \ a2c.store.set("oauth_token", token);
                     Environment.SetEnvironmentVariable("API_TOKEN", token);
 
                     return token;
@@ -539,7 +541,7 @@ workspaces {
         description "Generic API client with authentication"
 
         preRequest <'
-            let token = xk.store.get("oauth_token");
+            let token =\ a2c.store.get("oauth_token");
             if (!token) {
                 console.log("🔐 No token found, authenticating...");
                 token = workspace.oauth2Login();
@@ -565,7 +567,7 @@ workspaces {
                     console.log(`📊 Found ${users.length} users`);
 
                     // Store user count for reporting
-                    xk.store.set("last_user_count", users.length);
+                   \ a2c.store.set("last_user_count", users.length);
 
                     return nextHandler();
                 '>
@@ -577,17 +579,17 @@ workspaces {
 
 ### CI/CD Pipeline Integration
 
-Integrate XferKit into your deployment pipelines:
+Integrate Api2Cli into your deployment pipelines:
 #!/bin/bash
-# deploy.sh - Deployment script using XferKit
+# deploy.sh - Deployment script using Api2Cli
 
 echo "🚀 Starting deployment pipeline..."
 
 # Login to API
-xk prod login
+a2c prod login
 
 # Run health check
-if ! xk prod healthCheck; then
+if ! a2c prod healthCheck; then
     echo "❌ Environment unhealthy, aborting deployment"
     exit 1
 fi
@@ -596,17 +598,17 @@ fi
 VERSION=${CI_COMMIT_TAG:-"latest"}
 APPROVAL_TICKET=${JIRA_TICKET:-""}
 
-xk prod deployService --version "$VERSION" --approvalTicket "$APPROVAL_TICKET"
+a2c prod deployService --version "$VERSION" --approvalTicket "$APPROVAL_TICKET"
 
 # Verify deployment
 sleep 30
-if xk prod verifyDeployment --version "$VERSION"; then
+if a2c prod verifyDeployment --version "$VERSION"; then
     echo "✅ Deployment successful"
     # Notify team
-    xk prod notifyTeam --message "Deployment of $VERSION completed successfully"
+    a2c prod notifyTeam --message "Deployment of $VERSION completed successfully"
 else
     echo "❌ Deployment verification failed, rolling back..."
-    xk prod rollback
+    a2c prod rollback
     exit 1
 fi
 ### Microservices Testing Automation
@@ -711,7 +713,7 @@ scripts {
                 }
 
                 // Store for cleanup
-                xk.store.set("testUserId", userData.id);
+               \ a2c.store.set("testUserId", userData.id);
 
             } catch (e) {
                 errors.push(`User creation error: ${e.message}`);
@@ -719,7 +721,7 @@ scripts {
 
             // Test user retrieval
             try {
-                let userId = xk.store.get("testUserId");
+                let userId =\ a2c.store.get("testUserId");
                 if (userId) {
                     let user = workspace.get_UserById.execute(userId);
                     let userData = JSON.parse(user);
@@ -734,7 +736,7 @@ scripts {
 
             // Cleanup test user
             try {
-                let userId = xk.store.get("testUserId");
+                let userId =\ a2c.store.get("testUserId");
                 if (userId) {
                     workspace.delete_User.execute(userId);
                 }
@@ -774,18 +776,18 @@ workspaces {
                     console.log("🌅 Starting development session...");
 
                     // 1. Check git status
-                    let gitStatus = xk.process.runCommand(true, ".", "git", "status --porcelain");
+                    let gitStatus =\ a2c.process.runCommand(true, ".", "git", "status --porcelain");
                     if (gitStatus.trim()) {
                         console.log("⚠️ Uncommitted changes detected");
                     }
 
                     // 2. Pull latest changes
                     console.log("📥 Pulling latest changes...");
-                    xk.process.runCommand(false, ".", "git", "pull origin main");
+                   \ a2c.process.runCommand(false, ".", "git", "pull origin main");
 
                     // 3. Start services
                     console.log("🐳 Starting Docker services...");
-                    xk.process.runCommand(false, workspace.dockerComposePath, "docker-compose", "up -d");
+                   \ a2c.process.runCommand(false, workspace.dockerComposePath, "docker-compose", "up -d");
 
                     // 4. Run database migrations
                     console.log("🗄️ Running migrations...");
@@ -793,7 +795,7 @@ workspaces {
 
                     // 5. Start API in watch mode
                     console.log("👀 Starting API in watch mode...");
-                    xk.process.run("npm", ".", "run", "dev");
+                   \ a2c.process.run("npm", ".", "run", "dev");
 
                     console.log("✅ Development environment ready!");
                 '>
@@ -805,10 +807,10 @@ workspaces {
                     console.log("🌙 Ending development session...");
 
                     // 1. Stop services
-                    xk.process.runCommand(false, workspace.dockerComposePath, "docker-compose", "down");
+                   \ a2c.process.runCommand(false, workspace.dockerComposePath, "docker-compose", "down");
 
                     // 2. Show git status
-                    let status = xk.process.runCommand(true, ".", "git", "status");
+                    let status =\ a2c.process.runCommand(true, ".", "git", "status");
                     console.log("📊 Git Status:\n" + status);
 
                     // 3. Generate daily report
@@ -840,7 +842,7 @@ workspaces {
                     let allPassed = true;
                     for (let cmd of testCommands) {
                         try {
-                            let result = xk.process.runCommand(true, ".", "pwsh", `-Command ${cmd}`);
+                            let result =\ a2c.process.runCommand(true, ".", "pwsh", `-Command ${cmd}`);
                             console.log(`✅ ${cmd} completed`);
                         } catch (e) {
                             console.log(`❌ ${cmd} failed: ${e.message}`);
@@ -866,7 +868,7 @@ workspaces {
 
 ### API Documentation Generation
 
-Auto-generate API documentation from your XferKit workspace:
+Auto-generate API documentation from your Api2Cli workspace:
 
 ```xferlang
 scripts {
@@ -910,7 +912,7 @@ scripts {
 
             // Save documentation
             let docsJson = JSON.stringify(docs, null, 2);
-            xk.fileSystem.writeText("./docs/api-docs.json", docsJson);
+           \ a2c.fileSystem.writeText("./docs/api-docs.json", docsJson);
 
             console.log(`✅ Documentation generated for ${docs.endpoints.length} endpoints`);
             return docs;
@@ -923,53 +925,53 @@ scripts {
 
 ### Global Commands
 # Get help
-`xk --help`
-`xk <command> --help`
+`a2c --help`
+`a2c <command> --help`
 
 # Set base URL globally
-`xk --baseurl https://api.example.com <command>`
+`a2c --baseurl https://api.example.com <command>`
 
 # Use specific workspace file
-`xk --workspace /path/to/workspace.xfer <command>`
+`a2c --workspace /path/to/workspace.xfer <command>`
 
 ### HTTP Commands
 # GET request
-`xk get <url> [--headers <headers>] [--parameters <params>]`
+`a2c get <url> [--headers <headers>] [--parameters <params>]`
 
 # POST request
-`xk post <url> [--payload <data>] [--headers <headers>]`
+`a2c post <url> [--payload <data>] [--headers <headers>]`
 
 # PUT request
-`xk put <url> [--payload <data>] [--headers <headers>]`
+`a2c put <url> [--payload <data>] [--headers <headers>]`
 
 # PATCH request
-`xk patch <url> [--payload <data>] [--headers <headers>]`
+`a2c patch <url> [--payload <data>] [--headers <headers>]`
 
 # DELETE request
-`xk delete <url> [--headers <headers>]`
+`a2c delete <url> [--headers <headers>]`
 
 # HEAD request
-`xk head <url> [--headers <headers>]`
+`a2c head <url> [--headers <headers>]`
 
 ### Workspace Commands
 # List workspaces
-`xk workspace list`
+`a2c workspace list`
 
 # Execute workspace request
-`xk <workspace> <request> [options]`    
+`a2c <workspace> <request> [options]`
 
 ### Scripting Commands
 # Execute JavaScript
-`xk script <code>`
+`a2c script <code>`
 
 # Run workspace script
-`xk <workspace> <script> [arguments]`
+`a2c <workspace> <script> [arguments]`
 
 ## 🏗️ Architecture
 
-XferKit is built on .NET 8.0 and consists of several modular components:
+Api2Cli is built on .NET 8.0 and consists of several modular components:
 
-- **Core CLI** (`xk`): Main executable and command processing
+- **Core CLI** (`a2c`): Main executable and command processing
 - **HTTP Service**: HTTP client functionality and request handling
 - **Workspace Service**: Configuration management and workspace operations
 - **Scripting Engine**: JavaScript execution and API integration
@@ -996,14 +998,14 @@ Contributions are welcome! Please feel free to submit issues, feature requests, 
 
 ### Project Structure
 
-  XferKit/
-  ├── xk/                                    # Main CLI executable
-  ├── ParksComputing.XferKit.Api/           # Core API interfaces
-  ├── ParksComputing.XferKit.Http/          # HTTP services
-  ├── ParksComputing.XferKit.Workspace/     # Workspace management
-  ├── ParksComputing.XferKit.Scripting/     # JavaScript engine
-  ├── ParksComputing.XferKit.DataStore/     # Data persistence
-  ├── ParksComputing.XferKit.Diagnostics/   # Logging and diagnostics
+  Api2Cli/
+  ├── a2c/                                    # Main CLI executable
+  ├── ParksComputing.Api2Cli.Api/           # Core API interfaces
+  ├── ParksComputing.Api2Cli.Http/          # HTTP services
+  ├── ParksComputing.Api2Cli.Workspace/     # Workspace management
+  ├── ParksComputing.Api2Cli.Scripting/     # JavaScript engine
+  ├── ParksComputing.Api2Cli.DataStore/     # Data persistence
+  ├── ParksComputing.Api2Cli.Diagnostics/   # Logging and diagnostics
   └── .github/workflows/                    # CI/CD pipelines
 
 ## 📄 License
@@ -1012,12 +1014,12 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 ## 🔗 Related Projects
 
-- [Cliffer](https://github.com/paulmooreparks/Cliffer) - CLI framework used by XferKit
+- [Cliffer](https://github.com/paulmooreparks/Cliffer) - CLI framework used by Api2Cli
 - [XferLang](https://github.com/paulmooreparks/Xfer) - Configuration language specification
 
 ## 📞 Support
 
-- 🐛 [Report Issues](https://github.com/paulmooreparks/XferKit/issues)
-- 💡 [Feature Requests](https://github.com/paulmooreparks/XferKit/issues)
-- 📖 [Documentation](https://github.com/paulmooreparks/XferKit/wiki) (Coming Soon)
+- 🐛 [Report Issues](https://github.com/paulmooreparks/Api2Cli/issues)
+- 💡 [Feature Requests](https://github.com/paulmooreparks/Api2Cli/issues)
+- 📖 [Documentation](https://github.com/paulmooreparks/Api2Cli/wiki) (Coming Soon)
 
