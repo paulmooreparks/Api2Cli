@@ -8,12 +8,12 @@ namespace ParksComputing.Api2Cli.Cli.Commands.PackageCommand.SubCommands;
 [Command("search", "Search for packages.", Parent = "package")]
 [Argument(typeof(string), "packageName", "Name or partial name of the package to search for")]
 internal class SearchCommand(
-    Api2CliApi Api2CliApi
-    ) 
+    A2CApi Api2CliApi
+    )
 {
     public async Task<int> Execute(
         [ArgumentParam("packageName")] string packageName
-        ) 
+        )
     {
         var searchResult = await Api2CliApi.Package.SearchAsync(packageName);
 

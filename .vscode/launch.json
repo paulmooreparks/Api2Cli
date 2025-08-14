@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/xk/bin/Debug/net8.0/a2c.dll",
+            "program": "${workspaceFolder}/a2c/bin/Debug/net8.0/a2c.dll",
             "args": [],
             "cwd": "${workspaceFolder}/a2c",
             "stopAtEntry": false,

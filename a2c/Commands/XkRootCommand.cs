@@ -17,32 +17,32 @@ using ParksComputing.Api2Cli.Workspace;
 
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
-[RootCommand("Xfer CLI Application")]
+[RootCommand("Api2Cli Application")]
 [Option(typeof(string), "--baseurl", "The base URL of the API to send HTTP requests to.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(string), "--workspace", "Path to a workspace file to use, other than the default.", new[] { "-w" }, IsRequired = false)]
 [Option(typeof(bool), "--version", "Display the version information.", new[] { "-v" }, IsRequired = false)]
 [Option(typeof(bool), "--recursive", "Indicates if this is a recursive call.", IsHidden = true, IsRequired = false)]
-internal class XkRootCommand {
+internal class A2CRootCommand {
     private readonly Option _recursionOption;
     private readonly IServiceProvider _serviceProvider;
     private readonly IWorkspaceService _workspaceService;
     private readonly IReplContext _replContext;
     private readonly System.CommandLine.RootCommand _rootCommand;
-    private readonly IXferScriptEngine _scriptEngine;
-    private readonly IXferScriptEngineFactory _scriptEngineFactory;
-    private readonly Api2CliApi _xk;
+    private readonly IApi2CliScriptEngine _scriptEngine;
+    private readonly IApi2CliScriptEngineFactory _scriptEngineFactory;
+    private readonly A2CApi _a2c;
     private readonly IScriptCliBridge _scriptCliBridge;
     private readonly ISettingsService _settingsService;
 
     private string _currentWorkspaceName = string.Empty;
 
-    public XkRootCommand(
+    public A2CRootCommand(
         IServiceProvider serviceProvider,
         IWorkspaceService workspaceService,
         System.CommandLine.RootCommand rootCommand,
         ICommandSplitter splitter,
-        IXferScriptEngineFactory scriptEngineFactory,
-        Api2CliApi Api2CliApi,
+        IApi2CliScriptEngineFactory scriptEngineFactory,
+        A2CApi Api2CliApi,
         IScriptCliBridge scriptCliBridge,
         ISettingsService settingsService,
         [OptionParam("--recursive")] Option recursionOption
@@ -53,9 +53,9 @@ internal class XkRootCommand {
         _rootCommand = rootCommand;
         _scriptEngineFactory = scriptEngineFactory;
         _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
-        _xk = Api2CliApi;
+        _a2c = Api2CliApi;
         _recursionOption = recursionOption;
-        _replContext = new XkReplContext(_rootCommand, _serviceProvider, _workspaceService, splitter, _recursionOption);
+        _replContext = new A2CReplContext(_rootCommand, _serviceProvider, _workspaceService, splitter, _recursionOption);
         _scriptCliBridge = scriptCliBridge;
         _settingsService = settingsService;
         _scriptCliBridge.RootCommand = rootCommand;
@@ -79,34 +79,11 @@ function myFunction(baseUrl, page) {{
 #endif
     }
 
-    private void LoadEnvironmentVariables(string? environmentFilePath) {
-        if (File.Exists(environmentFilePath)) {
-            var lines = File.ReadAllLines(environmentFilePath);
-
-            foreach (var line in lines) {
-                var trimmedLine = line.Trim();
-
-                if (string.IsNullOrWhiteSpace(trimmedLine) || trimmedLine.StartsWith('#')) {
-                    continue;
-                }
-
-                var parts = trimmedLine.Split('=', 2);
-
-                if (parts.Length == 2) {
-                    var key = parts[0].Trim();
-                    var value = parts[1].Trim().Trim('"');
-                    Environment.SetEnvironmentVariable(key, value);
-                }
-            }
-        }
-    }
-
     public void ConfigureWorkspaces() {
         // TODO: I'll eventually add parameters here to limit what configuration info is loaded
         // and processed in order to speed up initialization. This will be important in scenarios
-        // where xk is being called from a script.
+        // where a2c is being called from a script.
 
-        LoadEnvironmentVariables(_settingsService.EnvironmentFilePath);
         _scriptEngine.InitializeScriptEnvironment();
 
         if (_workspaceService.BaseConfig is not null) {
@@ -169,7 +146,7 @@ function __script__{scriptName}({paramString}) {{
 {scriptBody}
 }};
 
-xk.{scriptName} = __script__{scriptName};
+a2c.{scriptName} = __script__{scriptName};
 ");
                 }
                 catch (Exception ex) {
@@ -178,7 +155,7 @@ xk.{scriptName} = __script__{scriptName};
             }
         }
 
-        var workspaceColl = _xk.Workspaces as IDictionary<string, object>;
+        var workspaceColl = _a2c.Workspaces as IDictionary<string, object>;
 
         foreach (var workspaceKvp in _workspaceService.BaseConfig?.Workspaces ?? new Dictionary<string, Workspace.Models.WorkspaceDefinition>()) {
             var workspaceName = workspaceKvp.Key;
@@ -266,8 +243,8 @@ function __script__{workspaceName}__{scriptName}(workspace, {paramString}) {{
 {scriptBody}
 }};
 
-xk.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
-    return __script__{workspaceName}__{scriptName}(xk.workspaces.{workspaceName}, {paramString});
+a2c.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
+    return __script__{workspaceName}__{scriptName}(a2c.workspaces.{workspaceName}, {paramString});
 }}
 ");
                 }
@@ -288,7 +265,7 @@ xk.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
 
                 var requestCommand = new Command(requestName, $"[request] {description}");
                 requestCommand.IsHidden = workspaceConfig.IsHidden;
-                var requestHandler = new SendCommand(Utility.GetService<IHttpService>()!, _xk, _workspaceService, Utility.GetService<IXferScriptEngineFactory>()!, Utility.GetService<IPropertyResolver>(), Utility.GetService<ISettingsService>());
+                var requestHandler = new SendCommand(Utility.GetService<IHttpService>()!, _a2c, _workspaceService, Utility.GetService<IApi2CliScriptEngineFactory>()!, Utility.GetService<IPropertyResolver>(), Utility.GetService<ISettingsService>());
                 var requestObj = requests![requestName] as IDictionary<string, object>;
                 var requestCaller = new RequestCaller(_rootCommand, requestHandler, workspaceName, requestName, workspaceKvp.Value.BaseUrl);
 #pragma warning disable CS8974 // Converting method group to non-delegate type

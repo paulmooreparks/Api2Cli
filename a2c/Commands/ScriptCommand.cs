@@ -19,13 +19,13 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 [Command("script", "Run JavaScript interactively")]
 [Argument(typeof(IEnumerable<string>), "scriptBody", "Optional script text to execute.", Arity = Cliffer.ArgumentArity.ZeroOrMore)]
 internal class ScriptCommand {
-    private readonly IXferScriptEngine _scriptEngine;
-    private readonly IXferScriptEngineFactory _scriptEngineFactory;
+    private readonly IApi2CliScriptEngine _scriptEngine;
+    private readonly IApi2CliScriptEngineFactory _scriptEngineFactory;
     private readonly IReplContext _replContext;
 
     public ScriptCommand(
         Command command,
-        IXferScriptEngineFactory scriptEngineFactory,
+        IApi2CliScriptEngineFactory scriptEngineFactory,
         ICommandSplitter splitter,
         IWorkspaceService workspaceService
         )

@@ -8,12 +8,12 @@ namespace ParksComputing.Api2Cli.Cli.Commands.PackageCommand.SubCommands;
 [Command("update", "Update a package.", Parent = "package")]
 [Argument(typeof(string), "packageName", "Name of the package to update")]
 internal class UpdateCommand(
-    Api2CliApi Api2CliApi
-    ) 
+    A2CApi Api2CliApi
+    )
 {
     public async Task<int> Execute(
         [ArgumentParam("packageName")] string packageName
-        ) 
+        )
     {
         var packageInstallResult = await Api2CliApi.Package.UpdateAsync(packageName);
 

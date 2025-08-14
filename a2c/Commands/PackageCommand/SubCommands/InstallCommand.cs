@@ -8,8 +8,8 @@ namespace ParksComputing.Api2Cli.Cli.Commands.PackageCommand.SubCommands;
 [Command("install", "Install a package.", Parent = "package")]
 [Argument(typeof(string), "packageName", "Name of the package to install")]
 internal class InstallCommand(
-    Api2CliApi Api2CliApi
-    ) 
+    A2CApi Api2CliApi
+    )
 {
     public async Task<int> Execute(
         [ArgumentParam("packageName")] string packageName

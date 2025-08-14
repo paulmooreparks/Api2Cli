@@ -13,8 +13,8 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 [Option(typeof(IEnumerable<string>), "--cookies", "Cookies to include in the request.", new[] { "-c" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
 [Option(typeof(bool), "--quiet", "If true, suppress echo of the response to the console.", new[] { "-q" }, Arity = ArgumentArity.ZeroOrOne, IsRequired = false)]
 internal class GetCommand(
-    Api2CliApi xk
-    ) 
+    A2CApi a2c
+    )
 {
     public string ResponseContent { get; protected set; } = string.Empty;
     public int StatusCode { get; protected set; } = 0;
@@ -27,11 +27,11 @@ internal class GetCommand(
         [OptionParam("--headers")] IEnumerable<string> headers,
         [OptionParam("--cookies")] IEnumerable<string> cookies,
         [OptionParam("--quiet")] bool isQuiet = true
-        ) 
+        )
     {
         // Validate URL format
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
-            baseUrl ??=\ a2c.ActiveWorkspace.BaseUrl;
+            baseUrl ??= a2c.ActiveWorkspace.BaseUrl;
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
@@ -42,7 +42,7 @@ internal class GetCommand(
         baseUrl = baseUri.ToString();
         var paramList = new List<string>();
 
-        if (parameters is not null) { 
+        if (parameters is not null) {
             paramList.AddRange(parameters!);
         }
         else if (Console.IsInputRedirected) {
@@ -58,7 +58,7 @@ internal class GetCommand(
         int result = Result.Success;
 
         try {
-            var response =\ a2c.Http.Get(baseUrl, paramList, headers);
+            var response = a2c.Http.Get(baseUrl, paramList, headers);
 
             if (response is null) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUrl}");
@@ -69,9 +69,9 @@ internal class GetCommand(
                 result = Result.Error;
             }
 
-            Headers =\ a2c.Http.Headers;
-            ResponseContent =\ a2c.Http.ResponseContent;
-            StatusCode =\ a2c.Http.StatusCode;
+            Headers = a2c.Http.Headers;
+            ResponseContent = a2c.Http.ResponseContent;
+            StatusCode = a2c.Http.StatusCode;
             // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
 
             if (!isQuiet) {

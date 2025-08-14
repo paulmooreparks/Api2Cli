@@ -12,7 +12,7 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 [Option(typeof(string), "--endpoint", "The endpoint to send the DELETE request to.", new[] { "-e" }, IsRequired = false, Arity = ArgumentArity.ExactlyOne)]
 [Option(typeof(string), "--baseurl", "The base URL of the API.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(IEnumerable<string>), "--headers", "Headers to include in the request.", new[] { "-h" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
-internal class DeleteCommand(Api2CliApi xk) {
+internal class DeleteCommand(A2CApi a2c) {
     public string ResponseContent { get; protected set; } = string.Empty;
     public int StatusCode { get; protected set; } = 0;
     public HttpResponseHeaders? Headers { get; protected set; }
@@ -23,7 +23,7 @@ internal class DeleteCommand(Api2CliApi xk) {
         [OptionParam("--headers")] IEnumerable<string>? headers
     ) {
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var fullUri) || string.IsNullOrWhiteSpace(fullUri.Scheme)) {
-            baseUrl ??=\ a2c.ActiveWorkspace.BaseUrl;
+            baseUrl ??= a2c.ActiveWorkspace.BaseUrl;
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out fullUri) || string.IsNullOrWhiteSpace(fullUri.Scheme)) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
@@ -34,7 +34,7 @@ internal class DeleteCommand(Api2CliApi xk) {
         int result = Result.Success;
 
         try {
-            var response =\ a2c.Http.Delete(fullUri.ToString(), headers);
+            var response = a2c.Http.Delete(fullUri.ToString(), headers);
 
             if (response is null) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {fullUri}");
@@ -45,9 +45,9 @@ internal class DeleteCommand(Api2CliApi xk) {
                 result = Result.Error;
             }
 
-            Headers =\ a2c.Http.Headers;
-            ResponseContent =\ a2c.Http.ResponseContent;
-            StatusCode =\ a2c.Http.StatusCode;
+            Headers = a2c.Http.Headers;
+            ResponseContent = a2c.Http.ResponseContent;
+            StatusCode = a2c.Http.StatusCode;
         }
         catch (Exception ex) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Error: {ex.Message}");

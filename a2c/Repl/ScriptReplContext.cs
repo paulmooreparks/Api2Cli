@@ -16,14 +16,14 @@ namespace ParksComputing.Api2Cli.Cli.Repl;
 
 internal class ScriptReplContext : DefaultReplContext
 {
-    private readonly IXferScriptEngine _scriptEngine;
-    private readonly IXferScriptEngineFactory _scriptEngineFactory;
+    private readonly IApi2CliScriptEngine _scriptEngine;
+    private readonly IApi2CliScriptEngineFactory _scriptEngineFactory;
     private readonly ICommandSplitter _commandSplitter;
     private readonly IWorkspaceService _workspaceService;
 
     public ScriptReplContext(
         Command currentCommand,
-        IXferScriptEngineFactory scriptEngineFactory,
+        IApi2CliScriptEngineFactory scriptEngineFactory,
         ICommandSplitter commandSplitter,
         IWorkspaceService workspaceService
         ) : base( currentCommand )

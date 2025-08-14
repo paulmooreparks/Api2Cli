@@ -10,17 +10,17 @@ using ParksComputing.Api2Cli.Workspace.Services;
 
 namespace ParksComputing.Api2Cli.Cli.Repl;
 
-internal class XkReplContext : DefaultReplContext
+internal class A2CReplContext : DefaultReplContext
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly IWorkspaceService _workspaceService;
     private readonly ICommandSplitter _commandSplitter;
     private readonly Option _recursionOption;
 
-    public string Title => "Xfer CLI Application";
+    public string Title => "Api2Cli Application";
     public override string[] PopCommands => [];
 
-    public XkReplContext(
+    public A2CReplContext(
         System.CommandLine.RootCommand rootCommand,
         IServiceProvider serviceProvider,
         IWorkspaceService workspaceService,

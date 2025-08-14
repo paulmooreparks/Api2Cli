@@ -7,7 +7,7 @@ namespace ParksComputing.Api2Cli.Cli.Commands.PackageCommand.SubCommands;
 
 [Command("list", "List installed packages.", Parent = "package")]
 internal class ListCommand(
-    Api2CliApi Api2CliApi
+    A2CApi Api2CliApi
     )
 {
     public int Execute()

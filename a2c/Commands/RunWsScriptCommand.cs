@@ -18,14 +18,14 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 
 internal class RunWsScriptCommand {
     private readonly IWorkspaceService _workspaceService;
-    private readonly IXferScriptEngineFactory _scriptEngineFactory;
-    private readonly IXferScriptEngine _scriptEngine;
+    private readonly IApi2CliScriptEngineFactory _scriptEngineFactory;
+    private readonly IApi2CliScriptEngine _scriptEngine;
 
     public object? CommandResult { get; private set; } = null;
 
     public RunWsScriptCommand(
         IWorkspaceService workspaceService,
-        IXferScriptEngineFactory scriptEngineFactory
+        IApi2CliScriptEngineFactory scriptEngineFactory
         )
     {
         _workspaceService = workspaceService;

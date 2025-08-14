@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.4" />
+    <PackageReference Include="NuGet.Common" Version="6.13.2" />
+    <PackageReference Include="NuGet.Configuration" Version="6.13.2" />
+    <PackageReference Include="NuGet.PackageManagement" Version="6.13.2" />
+    <PackageReference Include="NuGet.Packaging" Version="6.13.2" />
+    <PackageReference Include="NuGet.Protocol" Version="6.13.2" />
+    <PackageReference Include="ParksComputing.Xfer.Lang" Version="0.15.23-prerelease" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ParksComputing.Api2Cli.DataStore\ParksComputing.Api2Cli.DataStore.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Diagnostics\ParksComputing.Api2Cli.Diagnostics.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -71,31 +71,33 @@
 Download the latest release from [GitHub Releases](https://github.com/paulmooreparks/Api2Cli/releases) for your platform:
 
 ##### Installers (Automatic PATH Setup)
-- **Windows**: `xk-VERSION-installer-win-x64.exe` - Windows Installer
+- **Windows**: `a2c-VERSION-installer-win-x64.exe` - Windows Installer
 - **Linux**: `Api2Cli-vVERSION-installer-linux-x64.deb` - Debian Package (`sudo dpkg -i`)
 - **macOS**: `Api2Cli-vVERSION-installer-osx-x64.pkg` - macOS Installer Package
 
 #### Build from Sourcegit clone https://github.com/paulmooreparks/Api2Cli.git
+```bash
 cd Api2Cli
 dotnet build --configuration Release
-dotnet publish xk/xk.csproj --configuration Release --output ./publish
+dotnet publish a2c/a2c.csproj --configuration Release --output ./publish
+```
 ### 🎯 Quick Start
 
 #### 1. First Run
 
-When you run `xk` for the first time, it creates a `.a2c` folder in your home directory with initial configuration files:xk --helpThis creates:
+When you run `a2c` for the first time, it creates a `.a2c` folder in your home directory with initial configuration files:a2c --helpThis creates:
 - `~/.a2c/workspaces.xfer` - Workspace definitions
 - `~/.a2c/.env` - Environment variables
 - `~/.a2c/packages/` - NuGet packages storage
 
 #### 2. Basic HTTP Requests# Simple GET request
-`xk get https://api.example.com/users`
+`a2c get https://api.example.com/users`
 
 # POST with JSON payload
-`echo '{"name": "John"}' | xk post https://api.example.com/users`
+`echo '{"name": "John"}' | a2c post https://api.example.com/users`
 
 # Add headers
-`xk get https://api.example.com/users --headers "Authorization: Bearer token"`
+`a2c get https://api.example.com/users --headers "Authorization: Bearer token"`
 
 ### 📖 Configuration
 
@@ -584,10 +586,10 @@ Integrate Api2Cli into your deployment pipelines:
 echo "🚀 Starting deployment pipeline..."
 
 # Login to API
-xk prod login
+a2c prod login
 
 # Run health check
-if ! xk prod healthCheck; then
+if ! a2c prod healthCheck; then
     echo "❌ Environment unhealthy, aborting deployment"
     exit 1
 fi
@@ -596,17 +598,17 @@ fi
 VERSION=${CI_COMMIT_TAG:-"latest"}
 APPROVAL_TICKET=${JIRA_TICKET:-""}
 
-xk prod deployService --version "$VERSION" --approvalTicket "$APPROVAL_TICKET"
+a2c prod deployService --version "$VERSION" --approvalTicket "$APPROVAL_TICKET"
 
 # Verify deployment
 sleep 30
-if xk prod verifyDeployment --version "$VERSION"; then
+if a2c prod verifyDeployment --version "$VERSION"; then
     echo "✅ Deployment successful"
     # Notify team
-    xk prod notifyTeam --message "Deployment of $VERSION completed successfully"
+    a2c prod notifyTeam --message "Deployment of $VERSION completed successfully"
 else
     echo "❌ Deployment verification failed, rolling back..."
-    xk prod rollback
+    a2c prod rollback
     exit 1
 fi
 ### Microservices Testing Automation
@@ -923,53 +925,53 @@ scripts {
 
 ### Global Commands
 # Get help
-`xk --help`
-`xk <command> --help`
+`a2c --help`
+`a2c <command> --help`
 
 # Set base URL globally
-`xk --baseurl https://api.example.com <command>`
+`a2c --baseurl https://api.example.com <command>`
 
 # Use specific workspace file
-`xk --workspace /path/to/workspace.xfer <command>`
+`a2c --workspace /path/to/workspace.xfer <command>`
 
 ### HTTP Commands
 # GET request
-`xk get <url> [--headers <headers>] [--parameters <params>]`
+`a2c get <url> [--headers <headers>] [--parameters <params>]`
 
 # POST request
-`xk post <url> [--payload <data>] [--headers <headers>]`
+`a2c post <url> [--payload <data>] [--headers <headers>]`
 
 # PUT request
-`xk put <url> [--payload <data>] [--headers <headers>]`
+`a2c put <url> [--payload <data>] [--headers <headers>]`
 
 # PATCH request
-`xk patch <url> [--payload <data>] [--headers <headers>]`
+`a2c patch <url> [--payload <data>] [--headers <headers>]`
 
 # DELETE request
-`xk delete <url> [--headers <headers>]`
+`a2c delete <url> [--headers <headers>]`
 
 # HEAD request
-`xk head <url> [--headers <headers>]`
+`a2c head <url> [--headers <headers>]`
 
 ### Workspace Commands
 # List workspaces
-`xk workspace list`
+`a2c workspace list`
 
 # Execute workspace request
-`xk <workspace> <request> [options]`    
+`a2c <workspace> <request> [options]`
 
 ### Scripting Commands
 # Execute JavaScript
-`xk script <code>`
+`a2c script <code>`
 
 # Run workspace script
-`xk <workspace> <script> [arguments]`
+`a2c <workspace> <script> [arguments]`
 
 ## 🏗️ Architecture
 
 Api2Cli is built on .NET 8.0 and consists of several modular components:
 
-- **Core CLI** (`xk`): Main executable and command processing
+- **Core CLI** (`a2c`): Main executable and command processing
 - **HTTP Service**: HTTP client functionality and request handling
 - **Workspace Service**: Configuration management and workspace operations
 - **Scripting Engine**: JavaScript execution and API integration
@@ -997,7 +999,7 @@ Contributions are welcome! Please feel free to submit issues, feature requests, 
 ### Project Structure
 
   Api2Cli/
-  ├── xk/                                    # Main CLI executable
+  ├── a2c/                                    # Main CLI executable
   ├── ParksComputing.Api2Cli.Api/           # Core API interfaces
   ├── ParksComputing.Api2Cli.Http/          # HTTP services
   ├── ParksComputing.Api2Cli.Workspace/     # Workspace management

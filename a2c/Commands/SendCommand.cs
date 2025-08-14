@@ -22,10 +22,10 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 
 public class SendCommand {
     private readonly IHttpService _httpService;
-    private readonly Api2CliApi _xk;
+    private readonly A2CApi _a2c;
     private readonly IWorkspaceService _ws;
-    private readonly IXferScriptEngineFactory _scriptEngineFactory;
-    private readonly IXferScriptEngine _scriptEngine;
+    private readonly IApi2CliScriptEngineFactory _scriptEngineFactory;
+    private readonly IApi2CliScriptEngine _scriptEngine;
     private readonly IPropertyResolver _propertyResolver;
     private readonly ISettingsService _settingsService;
 
@@ -33,9 +33,9 @@ public class SendCommand {
 
     public SendCommand(
         IHttpService httpService,
-        Api2CliApi xk,
+        A2CApi a2c,
         IWorkspaceService workspaceService,
-        IXferScriptEngineFactory scriptEngineFactory,
+        IApi2CliScriptEngineFactory scriptEngineFactory,
         IPropertyResolver? propertyResolver,
         ISettingsService? settingsService
         )
@@ -44,7 +44,7 @@ public class SendCommand {
             throw new ArgumentNullException(nameof(httpService), "HTTP service cannot be null.");
         }
         _httpService = httpService;
-        _xk = xk;
+        _a2c = a2c;
         _ws = workspaceService;
         _scriptEngineFactory = scriptEngineFactory;
         _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
@@ -296,7 +296,7 @@ public class SendCommand {
 
         switch (method) {
             case "GET": {
-                    var getCommand = new GetCommand(_xk);
+                    var getCommand = new GetCommand(_a2c);
 
                     if (getCommand is null) {
                         Console.Error.WriteLine($"{Constants.ErrorChar} Error: Unable to find GET command.");
@@ -322,7 +322,7 @@ public class SendCommand {
                 }
 
             case "POST": {
-                    var postCommand = new PostCommand(_xk);
+                    var postCommand = new PostCommand(_a2c);
 
                     if (postCommand is null) {
                         Console.Error.WriteLine($"{Constants.ErrorChar} Error: Unable to find POST command.");

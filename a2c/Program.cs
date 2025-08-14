@@ -19,7 +19,7 @@ using ParksComputing.Api2Cli.Cli.Commands;
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.DataStore;
 
-namespace ParksComputing.Xfer.Cli;
+namespace ParksComputing.Api2Cli.Cli;
 
 internal class Program {
     static Program() {
@@ -39,10 +39,10 @@ internal class Program {
 
                 string databasePath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    Constants.XferDirectoryName,
+                    Constants.Api2CliDirectoryName,
                     Constants.StoreFileName
                 );
-                
+
                 if (!Directory.Exists(Path.GetDirectoryName(databasePath))) {
                     Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
                 }
@@ -53,7 +53,7 @@ internal class Program {
 
         Cliffer.Macro.CustomMacroArgumentProcessor += CustomMacroArgumentProcessor;
         Utility.SetServiceProvider(cli.ServiceProvider);
-        var rootCommand = cli.RootCommandInstance as XkRootCommand;
+        var rootCommand = cli.RootCommandInstance as A2CRootCommand;
 
         if (rootCommand is not null) {
             rootCommand.ConfigureWorkspaces();
@@ -70,17 +70,17 @@ internal class Program {
 
     private static string[] CustomMacroArgumentProcessor(string[] args) {
         for (int i = 0; i < args.Length; i++) {
-            // Find the first instance of the baseurl option flag and its argument. 
+            // Find the first instance of the baseurl option flag and its argument.
             if (args[i] == "-b" || args[i] == "--baseurl") {
                 // Index 'i' now points to the first occurrence.
                 // Continue the loop with index 'j' starting at 'i + 2'.
                 for (int j = i + 2; j < args.Length; ++j) {
-                    // If there is a second instance of the baseurl option flag, 
+                    // If there is a second instance of the baseurl option flag,
                     // remove the first instance and its argument.
                     if (args[j] == "-b" || args[j] == "--baseurl") {
                         var newArgs = new List<string>();
 
-                        // Copy all arguments to a new collection, except the 
+                        // Copy all arguments to a new collection, except the
                         // first and second occurrences.
                         for (int k = 0; k < args.Length; k++) {
                             if (k == i || k == i + 1) {
@@ -90,7 +90,7 @@ internal class Program {
                             newArgs.Add(args[k]);
                         }
 
-                        // We only expect to find another instance after the 
+                        // We only expect to find another instance after the
                         // first one, so early termination is okay.
                         return newArgs.ToArray();
                     }
@@ -104,7 +104,7 @@ internal class Program {
 
 public class MyObserver : IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object?>> {
     public void OnNext(DiagnosticListener listener) {
-        if (listener.Name == Constants.XferDiagnosticsName) {
+        if (listener.Name == Constants.Api2CliDiagnosticsName) {
             // Explicitly subscribe only to events matching specific criteria:
             // listener.Subscribe(this, eventName => eventName.StartsWith("MyEventPrefix"));
             listener.Subscribe(this);

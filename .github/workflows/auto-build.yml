@@ -170,15 +170,15 @@ jobs:
           mkdir -p ./Output
           mkdir -p debian/DEBIAN debian/usr/local/bin
           cp -r publish/* debian/usr/local/bin/
-          chmod +x debian/usr/local/bin/xk
+          chmod +x debian/usr/local/bin/a2c
           cat > debian/DEBIAN/control << EOF
-          Package:\ api2cli
+          Package: api2cli
           Version: ${{ needs.auto-build.outputs.version }}
           Section: utils
           Priority: optional
           Architecture: amd64
           Maintainer: Parks Computing <paul@parkscomputing.com>
-          Description:\ Api2Cli\ - API Management CLI Tool.
+          Description: Api2Cli - API Management CLI Tool.
           EOF
           dpkg-deb --build debian "./Output/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb"
 
@@ -188,7 +188,7 @@ jobs:
         shell: bash
         run: |
           pkgbuild --root publish \
-                   --identifier\ com.yourorg.api2cli \
+                   --identifier com.parkscomputing.api2cli \
                    --install-location /usr/local \
                    Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
 
@@ -235,7 +235,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ needs.auto-build.outputs.version }}
-          release_name:\ Api2Cli v${{ needs.auto-build.outputs.version }}
+          release_name: Api2Cli v${{ needs.auto-build.outputs.version }}
           body: |
             ## Changelog
             Auto-generated release for version ${{ needs.auto-build.outputs.version }}
@@ -248,8 +248,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path:\ release-assets/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
-          asset_name:\ Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
+          asset_path: release-assets/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
+          asset_name: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
           asset_content_type: application/octet-stream
 
       - name: Upload Linux installer
@@ -258,8 +258,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path:\ release-assets/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
-          asset_name:\ Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
+          asset_path: release-assets/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
+          asset_name: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-linux-x64.deb
           asset_content_type: application/octet-stream
 
       - name: Upload Windows installer
@@ -268,6 +268,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path:\ release-assets/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
-          asset_name:\ Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
+          asset_path: release-assets/Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
+          asset_name: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-win-x64.exe
           asset_content_type: application/octet-stream

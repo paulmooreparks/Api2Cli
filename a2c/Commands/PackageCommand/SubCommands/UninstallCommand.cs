@@ -8,12 +8,12 @@ namespace ParksComputing.Api2Cli.Cli.Commands.PackageCommand.SubCommands;
 [Command("uninstall", "Uninstall a package.", Parent = "package")]
 [Argument(typeof(string), "packageName", "Name of the package to uninstall")]
 internal class UninstallCommand(
-    Api2CliApi Api2CliApi
-    ) 
+    A2CApi Api2CliApi
+    )
 {
     public async Task<int> Execute(
         [ArgumentParam("packageName")] string packageName
-        ) 
+        )
     {
         var uninstallResult = await Api2CliApi.Package.UninstallAsync(packageName);
 

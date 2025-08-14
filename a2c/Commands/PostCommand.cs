@@ -20,8 +20,8 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 [Option(typeof(string), "--baseurl", "The base URL of the API to send HTTP requests to.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(IEnumerable<string>), "--headers", "Headers to include in the request.", new[] { "-h" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
 internal class PostCommand(
-    Api2CliApi xk
-    ) 
+    A2CApi a2c
+    )
 {
     public string ResponseContent { get; protected set; } = string.Empty;
     public int StatusCode { get; protected set; } = 0;
@@ -32,11 +32,11 @@ internal class PostCommand(
         [OptionParam("--endpoint")] string? endpoint,
         [OptionParam("--baseurl")] string? baseUrl,
         [OptionParam("--headers")] IEnumerable<string> headers
-        ) 
+        )
     {
         // Validate URL format
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
-            baseUrl ??=\ a2c.ActiveWorkspace.BaseUrl;
+            baseUrl ??= a2c.ActiveWorkspace.BaseUrl;
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
@@ -54,7 +54,7 @@ internal class PostCommand(
         int result = Result.Success;
 
         try {
-            var response =\ a2c.Http.Post(baseUrl, payload, headers);
+            var response = a2c.Http.Post(baseUrl, payload, headers);
 
             if (response is null) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUrl}");
@@ -65,9 +65,9 @@ internal class PostCommand(
                 result = Result.Error;
             }
 
-            Headers =\ a2c.Http.Headers;
-            ResponseContent =\ a2c.Http.ResponseContent;
-            StatusCode =\ a2c.Http.StatusCode;
+            Headers = a2c.Http.Headers;
+            ResponseContent = a2c.Http.ResponseContent;
+            StatusCode = a2c.Http.StatusCode;
             // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
         }
         catch (HttpRequestException ex) {
