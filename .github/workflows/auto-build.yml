@@ -17,15 +17,20 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: build-version-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   auto-build:
     name: Compute Version & Pack
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
 
     outputs:
-      version: ${{ steps.read-version.outputs.version }}
+      version: ${{ steps.compute-version.outputs.version }}
 
     steps:
       - name: Checkout repo
@@ -38,31 +43,79 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Read version from csproj
-        id: read-version
-        run: |
-          # grab the full Version (e.g. "0.4.0")
-          base=$(grep -oPm1 "(?<=<Version>)[^<]+" a2c/a2c.csproj)
-          # remove the patch (".0") to get "0.4"
-          base2=${base%.*}
+      - name: Compute per-series version
+        id: compute-version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'a2c/a2c.csproj';
+            const xml = fs.readFileSync(path, 'utf8');
+            const m = xml.match(/<Version>([^<]+)<\/Version>/);
+            if (!m) {
+              core.setFailed('Unable to find <Version> in a2c/a2c.csproj');
+              return;
+            }
+            const base = m[1].trim(); // e.g. 0.6.0
+            const parts = base.split('.');
+            const base2 = parts[0] + '.' + parts[1]; // e.g. 0.6
 
-          # Check if the build number should be reset
-          if [[ "${{ github.event.inputs.reset_build_number }}" == "true" ]]; then
-            build=1
-          else
-            # use the GitHub run number as your build counter
-            build=${GITHUB_RUN_NUMBER}
-          fi
-          full="$base2.$build"
-          echo "Computed version = $full"
-          # expose it to later steps
-          echo "version=$full" >> $GITHUB_OUTPUT
+            // variable name holds the LAST built number for this major.minor
+            const seriesKey = base2.replace(/\./g, '_');
+            const varName = `A2C_BUILD_LAST_${seriesKey}`; // e.g. A2C_BUILD_LAST_0_6
+
+            // read optional dispatch input
+            const resetInput = (context.payload.inputs && context.payload.inputs.reset_build_number) || 'false';
+
+            let last = 0;
+            try {
+              const { data } = await github.rest.actions.getRepoVariable({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: varName,
+              });
+              last = parseInt(data.value, 10) || 0;
+            } catch (e) {
+              if (e.status !== 404) throw e; // 404 means first build for this series
+              last = 0;
+            }
+
+            if (String(resetInput).toLowerCase() === 'true') {
+              last = 0;
+            }
+
+            const next = last + 1; // next build number to use
+            const full = `${base2}.${next}`;
+            core.info(`Computed version for ${base2} = ${full} (prev: ${last})`);
+
+            core.setOutput('version', full);
+            core.setOutput('series_variable', varName);
+            core.setOutput('next_build', String(next));
 
       - name: Tag release
         if: ${{ github.actor != 'nektos/act' }}
         run: |
-          git tag v${{ steps.read-version.outputs.version }}
-          git push origin v${{ steps.read-version.outputs.version }}
+          git tag v${{ steps.compute-version.outputs.version }}
+          git push origin v${{ steps.compute-version.outputs.version }}
+
+      - name: Update per-series build variable
+        if: ${{ github.actor != 'nektos/act' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const name = '${{ steps.compute-version.outputs.series_variable }}';
+            const value = '${{ steps.compute-version.outputs.next_build }}';
+            try {
+              await github.rest.actions.updateRepoVariable({ owner, repo, name, value });
+            } catch (e) {
+              if (e.status === 404) {
+                await github.rest.actions.createRepoVariable({ owner, repo, name, value });
+              } else {
+                throw e;
+              }
+            }
 
   cross-platform-builds:
     name: Build & Package All Platforms
