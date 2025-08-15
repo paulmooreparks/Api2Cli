@@ -18,6 +18,7 @@ using ParksComputing.Api2Cli.Orchestration.Services;
 
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
+
 [RootCommand("Api2Cli Application")]
 [Option(typeof(string), "--baseurl", "The base URL of the API to send HTTP requests to.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(string), "--workspace", "Path to a workspace file to use, other than the default.", new[] { "-w" }, IsRequired = false)]
@@ -47,8 +48,7 @@ internal class A2CRootCommand {
         IScriptCliBridge scriptCliBridge,
         ISettingsService settingsService,
         [OptionParam("--recursive")] Option recursionOption
-        )
-    {
+        ) {
         _serviceProvider = serviceProvider;
         _workspaceService = workspaceService;
         _rootCommand = rootCommand;
@@ -60,58 +60,17 @@ internal class A2CRootCommand {
         _scriptCliBridge = scriptCliBridge;
         _settingsService = settingsService;
         _scriptCliBridge.RootCommand = rootCommand;
-
-#if false
-        string functionScript = $@"
-function myFunction(baseUrl, page) {{
-    log(baseUrl);
-    return page;
-}}
-";
-
-        // Compile the function
-        _scriptEngine.EvaluateScript(functionScript);
-
-        string baseUrl = "https://example.com";
-        string page = "https://example.com/page";
-
-        // Call it with your values
-        _scriptEngine.Script["myFunction"](baseUrl, page);
-#endif
     }
 
     public void ConfigureWorkspaces() {
-        // TODO: I'll eventually add parameters here to limit what configuration info is loaded
-        // and processed in order to speed up initialization. This will be important in scenarios
-        // where a2c is being called from a script.
-    // Initialize scripts via orchestration layer (decoupled from Workspace)
-    var orchestrator = Utility.GetService<IWorkspaceScriptingOrchestrator>();
-    orchestrator!.Initialize();
-    var doWarm = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "1", StringComparison.OrdinalIgnoreCase);
-    int limit = 25;
-    if (int.TryParse(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP_LIMIT"), out var parsed) && parsed > 0) { limit = parsed; }
-    var debug = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
-    orchestrator.Warmup(limit, doWarm, debug);
-
-        #if false
-        // script-exists command: probe if a script is resolvable
-        var existsCmd = new Command("script-exists", "Check if a script exists and is resolvable at runtime") {
-            new Argument<string>("name", description: "Script name"),
-            new Option<string?>(new[]{"--workspace","-w"}, description: "Workspace name", getDefaultValue: () => null)
-        };
-        existsCmd.Handler = CommandHandler.Create<string, string?, InvocationContext>((name, workspace, ctx) => {
-            var engine = _scriptEngineFactory.GetEngine("javascript");
-            var handler = new ParksComputing.Api2Cli.Cli.Commands.RunWsScriptCommand(_workspaceService, _scriptEngineFactory, engine);
-            if (handler.TryResolveScriptFunction(name, workspace, out var location, out var lang)) {
-                Console.WriteLine($"found: {location}; language: {lang}");
-                ctx.ExitCode = 0;
-            } else {
-                Console.WriteLine("not found");
-                ctx.ExitCode = 1;
-            }
-        });
-        _rootCommand.AddCommand(existsCmd);
-        #endif
+        // Initialize scripts via orchestration layer (decoupled from Workspace)
+        var orchestrator = Utility.GetService<IWorkspaceScriptingOrchestrator>();
+        orchestrator!.Initialize();
+        var doWarm = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "1", StringComparison.OrdinalIgnoreCase);
+        int limit = 25;
+        if (int.TryParse(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP_LIMIT"), out var parsed) && parsed > 0) { limit = parsed; }
+        var debug = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
+        orchestrator.Warmup(limit, doWarm, debug);
 
         if (_workspaceService.BaseConfig is not null) {
             foreach (var macro in _workspaceService.BaseConfig.Macros) {
@@ -384,10 +343,8 @@ function myFunction(baseUrl, page) {{
         [OptionParam("--recursive")] bool isRecursive,
         Command command,
         InvocationContext context
-        )
-    {
-        if (showVersion)
-        {
+        ) {
+        if (showVersion) {
             Assembly assembly = Assembly.GetExecutingAssembly();
             Version? version = assembly.GetName().Version;
             string versionString = version != null
