@@ -21,6 +21,8 @@ public class ScriptDefinition {
     public string? Script { get; set; }
     [XferCaptureTag("script")]
     public List<string>? ScriptTags { get; set; }
+    [XferProperty("language")]
+    public string? ScriptLanguage { get; set; }
     [XferProperty("arguments")]
     public Dictionary<string, Argument> Arguments { get; set; } = [];
 
@@ -31,7 +33,13 @@ public class ScriptDefinition {
 
         Name ??= parentScript.Name;
         Description ??= parentScript.Description;
-        InitScript ??= parentScript.Script;
-        Script ??= parentScript.Script;
+    InitScript ??= parentScript.InitScript;
+    Script ??= parentScript.Script;
+    }
+
+    public (string Lang, string Body) ResolveLanguageAndBody()
+    {
+    var lang = ScriptLanguage ?? ScriptTags?.FirstOrDefault() ?? "javascript";
+    return (lang, Script ?? string.Empty);
     }
 }

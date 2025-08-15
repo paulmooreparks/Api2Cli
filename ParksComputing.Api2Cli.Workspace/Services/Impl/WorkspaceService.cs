@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 using ParksComputing.Xfer.Lang;
 using ParksComputing.Xfer.Lang.Attributes;
@@ -127,7 +128,12 @@ internal class WorkspaceService : IWorkspaceService
     private BaseConfig LoadWorkspace() {
         var baseConfig = new BaseConfig();
 
-        var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
+    var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
+
+    // Normalize single-line 'script <lang> <"...">' or 'initScript <lang> <"...">' to
+    // 'language "<lang>"' + 'script <"...">' (or 'initScript' respectively) so the
+    // existing Xfer model can deserialize reliably.
+    xfer = NormalizeScriptLanguageInlineForms(xfer);
         var document = XferParser.Parse(xfer);
 
         if (document is null) {
@@ -173,6 +179,30 @@ internal class WorkspaceService : IWorkspaceService
         }
 
         return baseConfig;
+    }
+
+    private static string NormalizeScriptLanguageInlineForms(string xfer)
+    {
+        if (string.IsNullOrEmpty(xfer))
+        {
+            return xfer;
+        }
+
+        // Matches: leading indent, keyword (script|initScript), language token, <"...">
+        // Captures body non-greedily across lines.
+        var pattern = "^(\\s*)(script|initScript)\\s+([A-Za-z][\\w-]*)\\s+<\"([\\s\\S]*?)\">";
+        var regex = new Regex(pattern, RegexOptions.Multiline);
+        string Evaluator(Match m)
+        {
+            var indent = m.Groups[1].Value;
+            var key = m.Groups[2].Value; // script or initScript
+            var lang = m.Groups[3].Value;
+            var body = m.Groups[4].Value;
+            // Insert language line just above, keep indentation
+            return $"{indent}language \"{lang}\"\n{indent}{key} <\"{body}\">";
+        }
+
+        return regex.Replace(xfer, new MatchEvaluator(Evaluator));
     }
 
 #if false

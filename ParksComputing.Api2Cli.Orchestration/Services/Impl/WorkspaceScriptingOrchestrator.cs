@@ -57,12 +57,11 @@ internal class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrchestrator
     }));
     js.EvaluateScript("a2c.csharpInvoke = function(name, args) { return a2cCsharpInvoke(name, args); };");
 
-        // Register root scripts into JS engine's a2c and C# engine globals
+    // Register root scripts into JS engine's a2c and C# engine globals
     foreach (var script in _workspaceService.BaseConfig.Scripts) {
             var name = script.Key;
             var def = script.Value;
-            var lang = def.ScriptTags?.FirstOrDefault() ?? "javascript";
-            var body = def.Script ?? string.Empty;
+        var (lang, body) = def.ResolveLanguageAndBody();
             var paramList = string.Join(", ", def.Arguments.Select(a => a.Value.Name ?? a.Key));
 
             if (string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) {
@@ -108,8 +107,7 @@ __script__{name}
             foreach (var script in ws.Scripts) {
                 var name = script.Key;
                 var def = script.Value;
-                var lang = def.ScriptTags?.FirstOrDefault() ?? "javascript";
-                var body = def.Script ?? string.Empty;
+                var (lang, body) = def.ResolveLanguageAndBody();
                 var paramList = string.Join(", ", def.Arguments.Select(a => a.Value.Name ?? a.Key));
                 if (string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) {
                     var source = $@"function __script__{wsName}__{name}(workspace, {paramList}) {{
