@@ -27,7 +27,11 @@ internal class SettingsService : ISettingsService {
             ? overrideConfig
             : Path.Combine(a2cDirectory, Constants.WorkspacesFileName);
         string storeFilePath = Path.Combine(a2cDirectory, Constants.StoreFileName);
-        string pluginDirectory = Path.Combine(a2cDirectory, Constants.PackageDirName);
+        // Allow overriding the packages directory via env var (set by --packages in CLI)
+        string? overridePackages = Environment.GetEnvironmentVariable("A2C_PACKAGES_DIR");
+        string pluginDirectory = !string.IsNullOrWhiteSpace(overridePackages)
+            ? overridePackages!
+            : Path.Combine(a2cDirectory, Constants.PackageDirName);
         string environmentFilePath = Path.Combine(a2cDirectory, Constants.EnvironmentFileName);
 
         if (!Directory.Exists(pluginDirectory)) {
