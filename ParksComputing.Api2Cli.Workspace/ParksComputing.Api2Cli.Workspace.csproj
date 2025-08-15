@@ -13,7 +13,7 @@
     <PackageReference Include="NuGet.PackageManagement" Version="6.13.2" />
     <PackageReference Include="NuGet.Packaging" Version="6.13.2" />
     <PackageReference Include="NuGet.Protocol" Version="6.13.2" />
-    <PackageReference Include="ParksComputing.Xfer.Lang" Version="0.15.23-prerelease" />
+    <PackageReference Include="ParksComputing.Xfer.Lang" Version="0.15.24-prerelease" />
   </ItemGroup>
 
   <ItemGroup>

@@ -53,12 +53,13 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             _options = CreateScriptOptions();
 
             // Initialize typed globals
-            _typedGlobals = new ScriptGlobals { a2c = _a2c };
+            _typedGlobals = new ScriptGlobals { a2c = _a2c, a2cjs = new CaseInsensitiveDynamicProxy(_a2c) };
 
             // Add host objects to the script globals (for any dynamic access patterns)
             AddHostObject("Console", typeof(Console));
             AddHostObject("Task", typeof(Task));
             AddHostObject("a2c", _a2c); // Ensure a2c is available; typed via _typedGlobals
+            AddHostObject("a2cjs", new CaseInsensitiveDynamicProxy(_a2c));
         }
 
         private ScriptOptions CreateScriptOptions()
@@ -68,10 +69,14 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             // Core assemblies to include
             var coreAssemblies = new[]
             {
-                typeof(object).Assembly,                 // System.Runtime
-                typeof(System.Linq.Enumerable).Assembly, // System.Linq
-                typeof(Console).Assembly,                // System.Console
-                typeof(Task).Assembly                    // System.Threading.Tasks
+                typeof(object).Assembly,                      // System.Runtime
+                typeof(System.Linq.Enumerable).Assembly,      // System.Linq
+                typeof(Console).Assembly,                     // System.Console
+                typeof(Task).Assembly,                        // System.Threading.Tasks
+                typeof(System.Dynamic.ExpandoObject).Assembly,// System.Dynamic.Runtime
+                typeof(Microsoft.CSharp.RuntimeBinder.Binder).Assembly, // Microsoft.CSharp (dynamic binder)
+                typeof(A2CApi).Assembly,                      // Api root type assembly
+                typeof(ScriptGlobals).Assembly                 // Globals container assembly
             };
 
             // Try to create references from assemblies
@@ -101,7 +106,8 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                     "System",
                     "System.Linq",
                     "System.Collections.Generic",
-                    "System.Threading.Tasks"
+                    "System.Threading.Tasks",
+                    "System.Dynamic"
                 );
         }
 
@@ -181,12 +187,13 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             _state = null;
 
             // Reset typed globals
-            _typedGlobals = new ScriptGlobals { a2c = _a2c };
+            _typedGlobals = new ScriptGlobals { a2c = _a2c, a2cjs = new CaseInsensitiveDynamicProxy(_a2c) };
 
             // Re-add host objects after reinitialization
             AddHostObject("Console", typeof(Console));
             AddHostObject("Task", typeof(Task));
             AddHostObject("a2c", _a2c); // Ensure a2c is re-added to the script globals
+            AddHostObject("a2cjs", new CaseInsensitiveDynamicProxy(_a2c));
         }
 
         public void SetValue(string name, object? value) {
@@ -233,7 +240,17 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
 
         public object? Invoke(string script, params object?[] args) {
             if (((IDictionary<string, object?>) _scriptGlobals).TryGetValue(script, out var func) && func is Delegate d) {
-                return d.DynamicInvoke(args);
+                try {
+                    var parameters = d.Method.GetParameters();
+                    if (parameters.Length == 1 && parameters[0].ParameterType.IsArray && parameters[0].ParameterType.GetElementType() == typeof(object)) {
+                        // Target delegate expects a single object[]; wrap args accordingly
+                        return d.DynamicInvoke(new object?[] { args });
+                    }
+                    return d.DynamicInvoke(args);
+                } catch (Exception ex) {
+                    _diags.Emit("InvokeError", new { Script = script, Message = ex.Message });
+                    throw;
+                }
             }
             return null;
         }

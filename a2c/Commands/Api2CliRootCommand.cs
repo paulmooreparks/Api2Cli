@@ -14,10 +14,13 @@ using ParksComputing.Api2Cli.Cli.Services.Impl;
 using ParksComputing.Api2Cli.Cli.Repl;
 using ParksComputing.Api2Cli.Http.Services;
 using ParksComputing.Api2Cli.Workspace;
+using ParksComputing.Api2Cli.Orchestration.Services;
 
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
+
 [RootCommand("Api2Cli Application")]
+[Option(typeof(string), "--config", "Path to an alternate workspaces.xfer configuration file.", new[] { "-c" }, IsRequired = false)]
 [Option(typeof(string), "--baseurl", "The base URL of the API to send HTTP requests to.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(string), "--workspace", "Path to a workspace file to use, other than the default.", new[] { "-w" }, IsRequired = false)]
 [Option(typeof(bool), "--version", "Display the version information.", new[] { "-v" }, IsRequired = false)]
@@ -28,7 +31,7 @@ internal class A2CRootCommand {
     private readonly IWorkspaceService _workspaceService;
     private readonly IReplContext _replContext;
     private readonly System.CommandLine.RootCommand _rootCommand;
-    private readonly IApi2CliScriptEngine _scriptEngine;
+    // private readonly IApi2CliScriptEngine _scriptEngine;
     private readonly IApi2CliScriptEngineFactory _scriptEngineFactory;
     private readonly A2CApi _a2c;
     private readonly IScriptCliBridge _scriptCliBridge;
@@ -46,45 +49,29 @@ internal class A2CRootCommand {
         IScriptCliBridge scriptCliBridge,
         ISettingsService settingsService,
         [OptionParam("--recursive")] Option recursionOption
-        )
-    {
+        ) {
         _serviceProvider = serviceProvider;
         _workspaceService = workspaceService;
         _rootCommand = rootCommand;
         _scriptEngineFactory = scriptEngineFactory;
-        _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
+        // _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
         _a2c = Api2CliApi;
         _recursionOption = recursionOption;
         _replContext = new A2CReplContext(_rootCommand, _serviceProvider, _workspaceService, splitter, _recursionOption);
         _scriptCliBridge = scriptCliBridge;
         _settingsService = settingsService;
         _scriptCliBridge.RootCommand = rootCommand;
-
-#if false
-        string functionScript = $@"
-function myFunction(baseUrl, page) {{
-    log(baseUrl);
-    return page;
-}}
-";
-
-        // Compile the function
-        _scriptEngine.EvaluateScript(functionScript);
-
-        string baseUrl = "https://example.com";
-        string page = "https://example.com/page";
-
-        // Call it with your values
-        _scriptEngine.Script["myFunction"](baseUrl, page);
-#endif
     }
 
     public void ConfigureWorkspaces() {
-        // TODO: I'll eventually add parameters here to limit what configuration info is loaded
-        // and processed in order to speed up initialization. This will be important in scenarios
-        // where a2c is being called from a script.
-
-        _scriptEngine.InitializeScriptEnvironment();
+        // Initialize scripts via orchestration layer (decoupled from Workspace)
+        var orchestrator = Utility.GetService<IWorkspaceScriptingOrchestrator>();
+        orchestrator!.Initialize();
+        var doWarm = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "1", StringComparison.OrdinalIgnoreCase);
+        int limit = 25;
+        if (int.TryParse(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP_LIMIT"), out var parsed) && parsed > 0) { limit = parsed; }
+        var debug = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
+        orchestrator.Warmup(limit, doWarm, debug);
 
         if (_workspaceService.BaseConfig is not null) {
             foreach (var macro in _workspaceService.BaseConfig.Macros) {
@@ -96,12 +83,14 @@ function myFunction(baseUrl, page) {{
             foreach (var script in _workspaceService.BaseConfig.Scripts) {
                 var scriptName = script.Key;
                 var scriptBody = script.Value.Script;
+                var scriptLanguage = script.Value.ScriptTags?.FirstOrDefault() ?? "javascript";
                 var description = script.Value.Description ?? string.Empty;
                 var arguments = script.Value.Arguments;
                 var paramList = new List<string>();
 
                 var scriptCommand = new Command(scriptName, $"[script] {description}");
-                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory);
+                var scriptEngine = _scriptEngineFactory.GetEngine(scriptLanguage);
+                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory, scriptEngine);
 
                 foreach (var kvp in arguments) {
                     var argument = kvp.Value;
@@ -140,18 +129,32 @@ function myFunction(baseUrl, page) {{
                 _rootCommand.AddCommand(scriptCommand);
                 var paramString = string.Join(", ", paramList);
 
-                try {
-                    _scriptEngine.EvaluateScript($@"
-function __script__{scriptName}({paramString}) {{
-{scriptBody}
-}};
+                // Build a typed parameter list and Func<> signature for C# scripts
+                var typedParams = new List<string>();
+                var typeArgsOnly = new List<string>();
+                foreach (var name in paramList) {
+                    if (arguments.TryGetValue(name, out var argDef)) {
+                        var csType = argDef.Type switch {
+                            "string" => "string",
+                            "number" => "double",
+                            "boolean" => "bool",
+                            "object" => "object?",
+                            _ => "object?"
+                        };
+                        typedParams.Add($"{csType} {name}");
+                        typeArgsOnly.Add(csType);
+                    }
+                    else {
+                        typedParams.Add($"object? {name}");
+                        typeArgsOnly.Add("object?");
+                    }
+                }
+                var typedParamString = string.Join(", ", typedParams);
+                var funcGenericArgs = typeArgsOnly.Count > 0
+                    ? string.Join(", ", typeArgsOnly.Concat(new[] { "object?" }))
+                    : "object?";
 
-a2c.{scriptName} = __script__{scriptName};
-");
-                }
-                catch (Exception ex) {
-                    Console.Error.WriteLine($"{Workspace.Constants.ErrorChar} Error: {ex.Message}");
-                }
+                // Script registration moved to WorkspaceScriptingService
             }
         }
 
@@ -191,13 +194,15 @@ a2c.{scriptName} = __script__{scriptName};
             foreach (var script in workspaceConfig.Scripts) {
                 var scriptName = script.Key;
                 var scriptBody = script.Value.Script;
+                var scriptLanguage = script.Value.ScriptTags?.FirstOrDefault() ?? "javascript";
                 var description = script.Value.Description ?? string.Empty;
                 var arguments = script.Value.Arguments;
                 var paramList = new List<string>();
 
                 var scriptCommand = new Command(scriptName, $"[script] {description}");
                 scriptCommand.IsHidden = workspaceConfig.IsHidden;
-                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory);
+                var scriptEngine = _scriptEngineFactory.GetEngine(scriptLanguage);
+                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory, scriptEngine);
 
                 foreach (var kvp in arguments) {
                     var argument = kvp.Value;
@@ -237,20 +242,7 @@ a2c.{scriptName} = __script__{scriptName};
 
                 var paramString = string.Join(", ", paramList);
 
-                try {
-                    _scriptEngine.EvaluateScript($@"
-function __script__{workspaceName}__{scriptName}(workspace, {paramString}) {{
-{scriptBody}
-}};
-
-a2c.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
-    return __script__{workspaceName}__{scriptName}(a2c.workspaces.{workspaceName}, {paramString});
-}}
-");
-                }
-                catch (Exception ex) {
-                    Console.Error.WriteLine($"{Workspace.Constants.ErrorChar} Error: {ex.Message}");
-                }
+                // Workspace script/wrapper registration moved to WorkspaceScriptingService
             }
 
             var requests = workspace.requests as IDictionary<string, object>;
@@ -346,16 +338,18 @@ a2c.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
     }
 
     public async Task<int> Execute(
+    [OptionParam("--config")] string? configPath,
         [OptionParam("--baseurl")] string? baseUrl,
         [OptionParam("--workspace")] string? workspace,
         [OptionParam("--version")] bool showVersion,
         [OptionParam("--recursive")] bool isRecursive,
         Command command,
         InvocationContext context
-        )
-    {
-        if (showVersion)
-        {
+        ) {
+    // Note: The --config override is applied early in Program.Main via env var
+    // A2C_WORKSPACE_CONFIG so services (SettingsService/WorkspaceService) pick it up
+    // before initialization. Keeping it here ensures help/usage shows the option.
+        if (showVersion) {
             Assembly assembly = Assembly.GetExecutingAssembly();
             Version? version = assembly.GetName().Version;
             string versionString = version != null

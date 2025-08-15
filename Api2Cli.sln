@@ -1,3 +1,4 @@
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.35201.131
@@ -66,6 +67,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "icons", "icons", "{1C0FBD33
 		logo\icons\ms-icon-310x310.png = logo\icons\ms-icon-310x310.png
 		logo\icons\ms-icon-70x70.png = logo\icons\ms-icon-70x70.png
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParksComputing.Api2Cli.Orchestration", "ParksComputing.Api2Cli.Orchestration\ParksComputing.Api2Cli.Orchestration.csproj", "{B70F26A0-B584-4291-BAE1-76410439FE0B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -161,6 +164,18 @@ Global
 		{DE4830A2-F14B-4529-AC1C-C83666A21090}.Release|x64.Build.0 = Release|Any CPU
 		{DE4830A2-F14B-4529-AC1C-C83666A21090}.Release|x86.ActiveCfg = Release|Any CPU
 		{DE4830A2-F14B-4529-AC1C-C83666A21090}.Release|x86.Build.0 = Release|Any CPU
+		{B70F26A0-B584-4291-BAE1-76410439FE0B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B70F26A0-B584-4291-BAE1-76410439FE0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B70F26A0-B584-4291-BAE1-76410439FE0B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B70F26A0-B584-4291-BAE1-76410439FE0B}.Debug|x64.Build.0 = Debug|Any CPU
+		{B70F26A0-B584-4291-BAE1-76410439FE0B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B70F26A0-B584-4291-BAE1-76410439FE0B}.Debug|x86.Build.0 = Debug|Any CPU
+		{B70F26A0-B584-4291-BAE1-76410439FE0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B70F26A0-B584-4291-BAE1-76410439FE0B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B70F26A0-B584-4291-BAE1-76410439FE0B}.Release|x64.ActiveCfg = Release|Any CPU
+		{B70F26A0-B584-4291-BAE1-76410439FE0B}.Release|x64.Build.0 = Release|Any CPU
+		{B70F26A0-B584-4291-BAE1-76410439FE0B}.Release|x86.ActiveCfg = Release|Any CPU
+		{B70F26A0-B584-4291-BAE1-76410439FE0B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

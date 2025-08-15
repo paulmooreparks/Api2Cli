@@ -18,6 +18,7 @@ using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Api2Cli.Cli.Commands;
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.DataStore;
+using ParksComputing.Api2Cli.Orchestration;
 
 namespace ParksComputing.Api2Cli.Cli;
 
@@ -28,11 +29,25 @@ internal class Program {
     static async Task<int> Main(string[] args) {
         DiagnosticListener.AllListeners.Subscribe(new MyObserver());
 
+        // Early parse: capture --config/-c before services initialize so we can override the workspace file path.
+        try {
+            for (int i = 0; i < args.Length; i++) {
+                if (string.Equals(args[i], "--config", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-c", StringComparison.OrdinalIgnoreCase)) {
+                    var next = (i + 1) < args.Length ? args[i + 1] : null;
+                    if (!string.IsNullOrWhiteSpace(next)) {
+                        Environment.SetEnvironmentVariable("A2C_WORKSPACE_CONFIG", next);
+                    }
+                    break;
+                }
+            }
+        } catch { /* ignore */ }
+
         var cli = new ClifferBuilder()
             .ConfigureServices(services => {
                 services.AddApi2CliWorkspaceServices();
                 services.AddApi2CliHttpServices();
                 services.AddApi2CliScriptingServices();
+                services.AddApi2CliOrchestration();
                 services.AddApi2CliDiagnosticsServices("Api2Cli");
                 services.AddSingleton<ICommandSplitter, CommandSplitter>();
                 services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();

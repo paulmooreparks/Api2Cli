@@ -1,0 +1,138 @@
+{
+    scripts {
+        echo2 {
+            description "Echo two params from C# and return sum."
+            arguments {
+                a { type "number" description "First number." }
+                b { type "number" description "Second number." }
+            }
+            <! tag "csharp" !>
+            script <"
+                Console.WriteLine($"a={a}, b={b}");
+                return a + b;
+            ">
+        }
+
+        csmessage {
+            description "Run a C# script to output a message."
+            arguments {
+                message {
+                    type "string"
+                    description "A message to output."
+                    default "Hello, World!"
+                }
+                count {
+                    type "number"
+                    description "The number of times to output the message."
+                    default 1
+                }
+            }
+            <! tag "csharp" !>
+            script <"
+                for (var i = 0; i < count; i++) {
+                    Console.WriteLine(message);
+                }
+
+                return $"Printed the message {count} times";
+            ">
+        }
+        jslaunch {
+            arguments {
+                process {
+                    type "string"
+                    description "The process to launch."
+                }
+            }
+            script <"
+                a2c.process.run(process);
+            ">
+        }
+        cslaunch {
+            arguments {
+                process {
+                    type "string"
+                    description "The process to launch."
+                }
+            }
+            <! tag "csharp" !>
+            script <"
+                a2c.Process.Run(process);
+            ">
+        }
+    }
+
+    workspaces {
+        demo {
+            description "Workspace used for JS and C# scripting tests."
+            scripts {
+                jswslaunch {
+                    arguments {
+                        process {
+                            type "string"
+                            description "The process to launch."
+                        }
+                    }
+                    script <"
+                        a2c.process.run(process);
+                    ">
+                }
+                testjs {
+                    arguments {
+                        message {
+                            type "string"
+                            description "Message to echo."
+                            default "Hello from workspace JS"
+                        }
+                    }
+                    script <"
+                        console.log(`${message} from testjs`);
+                    ">
+                }
+                wsecho {
+                    description "Echo a message from a workspace JS script and return its length."
+                    arguments {
+                        message {
+                            type "string"
+                            description "Message to echo."
+                            default "Hello from workspace JS"
+                        }
+                    }
+                    <! tag "javascript" !>
+                    script <"
+                        workspace.testjs(message);
+                        // This line used to work to call another JavaScript script from this one. It should still work for
+                        // JavaScript and also work for C# scripts.
+                        workspace.wssum(2, 3, 4);
+
+                        // JS workspace script: has implicit 'workspace' arg via wrapper
+                        Console.WriteLine(`WSECHO [${workspace.name}] ${message}`);
+
+                        return message?.length ?? 0;
+                    ">
+                }
+
+                wssum {
+                    description "Sum two numbers in a workspace C# script; prints result 'times' times."
+                    arguments {
+                        a { type "number" description "First number." }
+                        b { type "number" description "Second number." }
+                        times {
+                            type "number"
+                            description "How many times to print."
+                            default 1
+                        }
+                    }
+                    <! tag "csharp" !>
+                    script <"
+                        // This works for calling into JavaScript from C#
+                        workspace.testjs("Hello");
+                        for (var i = 0; i < times; i++) {
+                            Console.WriteLine($"WSSUM [{workspace.name}] {a} + {b} = {a + b}");
+                        }
+                        return a + b;
+                    ">
+                }
+            }
+        }
+    }
+}
