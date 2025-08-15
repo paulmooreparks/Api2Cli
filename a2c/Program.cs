@@ -42,6 +42,19 @@ internal class Program {
             }
         } catch { /* ignore */ }
 
+        // Early parse: capture --packages/-P before services initialize so we can override the packages directory.
+        try {
+            for (int i = 0; i < args.Length; i++) {
+                if (string.Equals(args[i], "--packages", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-P", StringComparison.OrdinalIgnoreCase)) {
+                    var next = (i + 1) < args.Length ? args[i + 1] : null;
+                    if (!string.IsNullOrWhiteSpace(next)) {
+                        Environment.SetEnvironmentVariable("A2C_PACKAGES_DIR", next);
+                    }
+                    break;
+                }
+            }
+        } catch { /* ignore */ }
+
         var cli = new ClifferBuilder()
             .ConfigureServices(services => {
                 services.AddApi2CliWorkspaceServices();

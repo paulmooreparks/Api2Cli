@@ -127,6 +127,24 @@
                         return a + b;
                     ">
                 }
+
+                wsjson {
+                    description "Serialize a payload using Newtonsoft.Json (NuGet validation)."
+                    arguments {
+                        message {
+                            type "string"
+                            description "Message to serialize."
+                            default "Hello from wsjson"
+                        }
+                    }
+                    script csharp <"
+                        // Validate that NuGet package assemblies are referenced for C# scripts
+                        var obj = new { message = message, when = DateTime.UtcNow };
+                        var json = Newtonsoft.Json.JsonConvert.SerializeObject(obj);
+                        Console.WriteLine($"WSJSON [{workspace.name}] => {json}");
+                        return json;
+                    ">
+                }
             }
         }
     }

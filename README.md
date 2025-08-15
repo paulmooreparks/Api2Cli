@@ -88,6 +88,13 @@ When you run `a2c` for the first time, it creates a `.a2c` folder in your home d
 
 ### 📖 Configuration
 
+#### Overrides
+
+- Workspace file: `--config <path>` or env `A2C_WORKSPACE_CONFIG`
+- Packages directory: `--packages <dir>` (alias `-P`) or env `A2C_PACKAGES_DIR`
+
+These flags are parsed early, so they take effect before services initialize.
+
 #### Workspace Configuration (`~/.a2c/workspaces.xfer`)
 
 Workspaces are defined using the XferLang configuration language. Here's a realistic example showing enterprise-grade patterns:

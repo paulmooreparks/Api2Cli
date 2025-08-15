@@ -19,14 +19,14 @@ using ParksComputing.Api2Cli.Scripting.Extensions;
 
 namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
     internal class CSharpScriptEngine : IApi2CliScriptEngine {
-        private readonly IPackageService _packageService;
-        private readonly IWorkspaceService _workspaceService;
-        private readonly ISettingsService _settingsService;
-        private readonly IAppDiagnostics<CSharpScriptEngine> _diags;
-        private readonly IPropertyResolver _propertyResolver;
-        private readonly A2CApi _a2c;
+    private readonly IPackageService _packageService = null!;
+    private readonly IWorkspaceService _workspaceService = null!;
+    private readonly ISettingsService _settingsService = null!;
+    private readonly IAppDiagnostics<CSharpScriptEngine> _diags = null!;
+    private readonly IPropertyResolver _propertyResolver = null!;
+    private readonly A2CApi _a2c = null!;
 
-        private ScriptOptions _options;
+    private ScriptOptions _options = null!;
         private ScriptState<object?>? _state;
         private readonly Dictionary<string, object?> _globals = new();
         private dynamic _scriptGlobals = new ExpandoObject();
@@ -42,12 +42,18 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             IPropertyResolver propertyResolver,
             A2CApi apiRoot
         ) {
-            _packageService = packageService;
-            _workspaceService = workspaceService;
-            _settingsService = settingsService;
-            _diags = appDiagnostics;
-            _propertyResolver = propertyResolver;
-            _a2c = apiRoot;
+            _packageService = packageService ?? throw new ArgumentNullException(nameof(packageService));
+            _workspaceService = workspaceService ?? throw new ArgumentNullException(nameof(workspaceService));
+            _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+            _diags = appDiagnostics ?? throw new ArgumentNullException(nameof(appDiagnostics));
+            _propertyResolver = propertyResolver ?? throw new ArgumentNullException(nameof(propertyResolver));
+            _a2c = apiRoot ?? throw new ArgumentNullException(nameof(apiRoot));
+
+            // React to NuGet package updates (install/uninstall) by refreshing script references
+            if (_packageService is not null)
+            {
+                _packageService.PackagesUpdated += OnPackagesUpdated;
+            }
 
             // Create ScriptOptions with proper single-file application support
             _options = CreateScriptOptions();
@@ -60,6 +66,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             AddHostObject("Task", typeof(Task));
             AddHostObject("a2c", _a2c); // Ensure a2c is available; typed via _typedGlobals
             AddHostObject("a2cjs", new CaseInsensitiveDynamicProxy(_a2c));
+            AddHostObject("console", typeof(ConsoleScriptObject));
         }
 
         private ScriptOptions CreateScriptOptions()
@@ -100,6 +107,30 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                 }
             }
 
+            // Add references for any installed NuGet package assemblies under .a2c/packages
+            try
+            {
+                AddPackageAssemblyReferences(references);
+            }
+            catch (Exception ex)
+            {
+                _diags.Emit(nameof(CSharpScriptEngine), new {
+                    Message = $"Failed to add package assembly references: {ex.Message}",
+                });
+            }
+
+            // Add references for any assemblies configured in the workspace (plugins/packages)
+            try
+            {
+                AddWorkspaceAssemblyReferences(references);
+            }
+            catch (Exception ex)
+            {
+                _diags.Emit(nameof(CSharpScriptEngine), new {
+                    Message = $"Failed to add workspace assembly references: {ex.Message}",
+                });
+            }
+
             return ScriptOptions.Default
                 .WithReferences(references)
                 .WithImports(
@@ -109,6 +140,117 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                     "System.Threading.Tasks",
                     "System.Dynamic"
                 );
+        }
+
+        private void AddPackageAssemblyReferences(List<MetadataReference> references)
+        {
+            var dllPaths = _packageService?.GetInstalledPackagePaths();
+            if (dllPaths == null)
+            {
+                return;
+            }
+
+            // Track existing file names to avoid duplicates
+            var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var r in references)
+            {
+                if (r is PortableExecutableReference per && per.FilePath is string p && !string.IsNullOrEmpty(p))
+                {
+                    existing.Add(Path.GetFileName(p));
+                }
+            }
+
+            foreach (var path in dllPaths)
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                    {
+                        continue;
+                    }
+                    var fileName = Path.GetFileName(path);
+                    if (existing.Contains(fileName))
+                    {
+                        continue;
+                    }
+                    references.Add(MetadataReference.CreateFromFile(path));
+                    existing.Add(fileName);
+                }
+                catch (Exception ex)
+                {
+                    _diags.Emit(nameof(CSharpScriptEngine), new {
+                        Message = $"Failed to reference package assembly '{path}': {ex.Message}"
+                    });
+                }
+            }
+        }
+
+        private void OnPackagesUpdated()
+        {
+            // Rebuild ScriptOptions so new/removed packages are reflected in Roslyn references
+            _options = CreateScriptOptions();
+        }
+
+        private void AddWorkspaceAssemblyReferences(List<MetadataReference> references)
+        {
+            var assemblies = _workspaceService?.BaseConfig?.Assemblies;
+            if (assemblies == null || assemblies.Length == 0)
+            {
+                return;
+            }
+
+            // Build a set of existing reference file names to avoid duplicates
+            var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var r in references)
+            {
+                if (r is PortableExecutableReference per && per.FilePath is string p && !string.IsNullOrEmpty(p))
+                {
+                    existing.Add(Path.GetFileName(p));
+                }
+            }
+
+            string? pluginDir = null;
+            try { pluginDir = _settingsService?.PluginDirectory; } catch { /* ignore */ }
+
+            foreach (var name in assemblies)
+            {
+                try
+                {
+                    var path = name;
+                    if (!Path.IsPathRooted(path))
+                    {
+                        if (!string.IsNullOrEmpty(pluginDir))
+                        {
+                            path = Path.Combine(pluginDir!, name);
+                        }
+                    }
+
+                    if (!File.Exists(path))
+                    {
+                        _diags.Emit(nameof(CSharpScriptEngine), new {
+                            Message = $"Workspace assembly not found: {path}"
+                        });
+                        continue;
+                    }
+
+                    var fileName = Path.GetFileName(path);
+                    if (existing.Contains(fileName))
+                    {
+                        // Already referenced
+                        continue;
+                    }
+
+                    var reference = MetadataReference.CreateFromFile(path);
+                    references.Add(reference);
+                    existing.Add(fileName);
+                }
+                catch (Exception ex)
+                {
+                    _diags.Emit(nameof(CSharpScriptEngine), new {
+                        Message = $"Failed to reference workspace assembly '{name}': {ex.Message}"
+                    });
+                }
+            }
         }
 
         private MetadataReference? CreateMetadataReferenceFromAssembly(Assembly assembly)
@@ -188,6 +330,9 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
 
             // Reset typed globals
             _typedGlobals = new ScriptGlobals { a2c = _a2c, a2cjs = new CaseInsensitiveDynamicProxy(_a2c) };
+
+            // Rebuild ScriptOptions to pick up any newly configured workspace assemblies
+            _options = CreateScriptOptions();
 
             // Re-add host objects after reinitialization
             AddHostObject("Console", typeof(Console));
