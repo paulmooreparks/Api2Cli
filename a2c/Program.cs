@@ -18,6 +18,7 @@ using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Api2Cli.Cli.Commands;
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.DataStore;
+using ParksComputing.Api2Cli.Orchestration;
 
 namespace ParksComputing.Api2Cli.Cli;
 
@@ -33,6 +34,7 @@ internal class Program {
                 services.AddApi2CliWorkspaceServices();
                 services.AddApi2CliHttpServices();
                 services.AddApi2CliScriptingServices();
+                services.AddApi2CliOrchestration();
                 services.AddApi2CliDiagnosticsServices("Api2Cli");
                 services.AddSingleton<ICommandSplitter, CommandSplitter>();
                 services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();

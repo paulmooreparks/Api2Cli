@@ -14,6 +14,7 @@ using ParksComputing.Api2Cli.Cli.Services.Impl;
 using ParksComputing.Api2Cli.Cli.Repl;
 using ParksComputing.Api2Cli.Http.Services;
 using ParksComputing.Api2Cli.Workspace;
+using ParksComputing.Api2Cli.Orchestration.Services;
 
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
@@ -83,76 +84,16 @@ function myFunction(baseUrl, page) {{
         // TODO: I'll eventually add parameters here to limit what configuration info is loaded
         // and processed in order to speed up initialization. This will be important in scenarios
         // where a2c is being called from a script.
-        var jsScriptEngine = _scriptEngineFactory.GetEngine("javascript");
-        jsScriptEngine.InitializeScriptEnvironment();
+    // Initialize scripts via orchestration layer (decoupled from Workspace)
+    var orchestrator = Utility.GetService<IWorkspaceScriptingOrchestrator>();
+    orchestrator!.Initialize();
+    var doWarm = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "1", StringComparison.OrdinalIgnoreCase);
+    int limit = 25;
+    if (int.TryParse(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP_LIMIT"), out var parsed) && parsed > 0) { limit = parsed; }
+    var debug = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
+    orchestrator.Warmup(limit, doWarm, debug);
 
-        var csScriptEngine = _scriptEngineFactory.GetEngine("csharp");
-        csScriptEngine.InitializeScriptEnvironment();
-
-    // Invalidate any previously cached JS function references
-    ParksComputing.Api2Cli.Cli.Commands.RunWsScriptCommand.ClearJsFunctionCache();
-
-        // Optional: warm up resolution cache for a limited number of JS scripts.
-        // Disabled by default to preserve startup speed. Enable with A2C_SCRIPT_WARMUP=true|1
-        // Limit with A2C_SCRIPT_WARMUP_LIMIT (default 25)
-        var warmupFlag = Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP");
-        var doWarmup = string.Equals(warmupFlag, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(warmupFlag, "1", StringComparison.OrdinalIgnoreCase);
-        if (doWarmup) {
-            int limit = 25;
-            var limitStr = Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP_LIMIT");
-            if (!string.IsNullOrEmpty(limitStr) && int.TryParse(limitStr, out var parsed) && parsed > 0) {
-                limit = parsed;
-            }
-
-            var jsEngine = _scriptEngineFactory.GetEngine("javascript");
-            var resolver = new ParksComputing.Api2Cli.Cli.Commands.RunWsScriptCommand(_workspaceService, _scriptEngineFactory, jsEngine);
-
-            int warmed = 0;
-
-            // Root scripts
-            foreach (var kvp in _workspaceService.BaseConfig.Scripts) {
-                if (warmed >= limit) {
-                    break;
-                }
-                var name = kvp.Key;
-                var def = kvp.Value;
-                var lang = def.ScriptTags?.FirstOrDefault() ?? "javascript";
-                if (!string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) {
-                    continue;
-                }
-                resolver.TryResolveScriptFunction(name, null, out _, out _);
-                warmed++;
-            }
-
-            // Workspace scripts
-            if (warmed < limit) {
-                foreach (var wkvp in _workspaceService.BaseConfig.Workspaces) {
-                    if (warmed >= limit) {
-                        break;
-                    }
-                    var wsName = wkvp.Key;
-                    var ws = wkvp.Value;
-                    foreach (var skvp in ws.Scripts) {
-                        if (warmed >= limit) {
-                            break;
-                        }
-                        var name = skvp.Key;
-                        var def = skvp.Value;
-                        var lang = def.ScriptTags?.FirstOrDefault() ?? "javascript";
-                        if (!string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) {
-                            continue;
-                        }
-                        resolver.TryResolveScriptFunction(name, wsName, out _, out _);
-                        warmed++;
-                    }
-                }
-            }
-
-            var dbg = Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG");
-            if (string.Equals(dbg, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(dbg, "1", StringComparison.OrdinalIgnoreCase)) {
-                Console.Error.WriteLine($"[script-debug] warmup complete, warmed {warmed} scripts");
-            }
-        }
+        #if false
         // script-exists command: probe if a script is resolvable
         var existsCmd = new Command("script-exists", "Check if a script exists and is resolvable at runtime") {
             new Argument<string>("name", description: "Script name"),
@@ -170,6 +111,7 @@ function myFunction(baseUrl, page) {{
             }
         });
         _rootCommand.AddCommand(existsCmd);
+        #endif
 
         if (_workspaceService.BaseConfig is not null) {
             foreach (var macro in _workspaceService.BaseConfig.Macros) {
@@ -252,36 +194,7 @@ function myFunction(baseUrl, page) {{
                     ? string.Join(", ", typeArgsOnly.Concat(new[] { "object?" }))
                     : "object?";
 
-                try {
-                    switch (scriptLanguage.ToLowerInvariant()) {
-                        case "javascript": { }
-                            jsScriptEngine.EvaluateScript($@"
-function __script__{scriptName}({paramString}) {{
-{scriptBody}
-}};
-
-a2c.{scriptName} = __script__{scriptName};
-");
-                            break;
-                        case "csharp": {
-                            // In C#, 'a2c' is a strongly-typed A2CApi. To add dynamic members like a2c.foo
-                            // we must cast to dynamic so TrySetMember is used. Also, create a 'csharp' container.
-                            csScriptEngine.EvaluateScript($@"
-
-// Define a typed delegate for the script body
-System.Func<{funcGenericArgs}> __script__{scriptName} = ({typedParamString}) => {{
-{scriptBody}
-}};
-
-// a2c.{scriptName} = new System.Func<{funcGenericArgs}>(__script__{scriptName});
-");
-                            break;
-                        }
-                    }
-                }
-                catch (Exception ex) {
-                    Console.Error.WriteLine($"{Workspace.Constants.ErrorChar} Error: {ex.Message}");
-                }
+                // Script registration moved to WorkspaceScriptingService
             }
         }
 
@@ -369,20 +282,7 @@ System.Func<{funcGenericArgs}> __script__{scriptName} = ({typedParamString}) => 
 
                 var paramString = string.Join(", ", paramList);
 
-                try {
-                    scriptEngine.EvaluateScript($@"
-function __script__{workspaceName}__{scriptName}(workspace, {paramString}) {{
-{scriptBody}
-}};
-
-a2c.workspaces.{workspaceName}.{scriptName} = function({paramString}) {{
-    return __script__{workspaceName}__{scriptName}(a2c.workspaces.{workspaceName}, {paramString});
-}}
-");
-                }
-                catch (Exception ex) {
-                    Console.Error.WriteLine($"{Workspace.Constants.ErrorChar} Error: {ex.Message}");
-                }
+                // Workspace script/wrapper registration moved to WorkspaceScriptingService
             }
 
             var requests = workspace.requests as IDictionary<string, object>;

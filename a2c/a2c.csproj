@@ -44,6 +44,7 @@
     <ProjectReference Include="..\ParksComputing.Api2Cli.Diagnostics\ParksComputing.Api2Cli.Diagnostics.csproj" />
     <ProjectReference Include="..\ParksComputing.Api2Cli.Scripting\ParksComputing.Api2Cli.Scripting.csproj" />
     <ProjectReference Include="..\ParksComputing.Api2Cli.Workspace\ParksComputing.Api2Cli.Workspace.csproj" />
+  <ProjectReference Include="..\ParksComputing.Api2Cli.Orchestration\ParksComputing.Api2Cli.Orchestration.csproj" />
   </ItemGroup>
 
 </Project>
