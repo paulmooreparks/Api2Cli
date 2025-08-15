@@ -28,7 +28,7 @@ internal class A2CRootCommand {
     private readonly IWorkspaceService _workspaceService;
     private readonly IReplContext _replContext;
     private readonly System.CommandLine.RootCommand _rootCommand;
-    private readonly IApi2CliScriptEngine _scriptEngine;
+    // private readonly IApi2CliScriptEngine _scriptEngine;
     private readonly IApi2CliScriptEngineFactory _scriptEngineFactory;
     private readonly A2CApi _a2c;
     private readonly IScriptCliBridge _scriptCliBridge;
@@ -52,7 +52,7 @@ internal class A2CRootCommand {
         _workspaceService = workspaceService;
         _rootCommand = rootCommand;
         _scriptEngineFactory = scriptEngineFactory;
-        _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
+        // _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
         _a2c = Api2CliApi;
         _recursionOption = recursionOption;
         _replContext = new A2CReplContext(_rootCommand, _serviceProvider, _workspaceService, splitter, _recursionOption);
@@ -83,8 +83,93 @@ function myFunction(baseUrl, page) {{
         // TODO: I'll eventually add parameters here to limit what configuration info is loaded
         // and processed in order to speed up initialization. This will be important in scenarios
         // where a2c is being called from a script.
+        var jsScriptEngine = _scriptEngineFactory.GetEngine("javascript");
+        jsScriptEngine.InitializeScriptEnvironment();
 
-        _scriptEngine.InitializeScriptEnvironment();
+        var csScriptEngine = _scriptEngineFactory.GetEngine("csharp");
+        csScriptEngine.InitializeScriptEnvironment();
+
+    // Invalidate any previously cached JS function references
+    ParksComputing.Api2Cli.Cli.Commands.RunWsScriptCommand.ClearJsFunctionCache();
+
+        // Optional: warm up resolution cache for a limited number of JS scripts.
+        // Disabled by default to preserve startup speed. Enable with A2C_SCRIPT_WARMUP=true|1
+        // Limit with A2C_SCRIPT_WARMUP_LIMIT (default 25)
+        var warmupFlag = Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP");
+        var doWarmup = string.Equals(warmupFlag, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(warmupFlag, "1", StringComparison.OrdinalIgnoreCase);
+        if (doWarmup) {
+            int limit = 25;
+            var limitStr = Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP_LIMIT");
+            if (!string.IsNullOrEmpty(limitStr) && int.TryParse(limitStr, out var parsed) && parsed > 0) {
+                limit = parsed;
+            }
+
+            var jsEngine = _scriptEngineFactory.GetEngine("javascript");
+            var resolver = new ParksComputing.Api2Cli.Cli.Commands.RunWsScriptCommand(_workspaceService, _scriptEngineFactory, jsEngine);
+
+            int warmed = 0;
+
+            // Root scripts
+            foreach (var kvp in _workspaceService.BaseConfig.Scripts) {
+                if (warmed >= limit) {
+                    break;
+                }
+                var name = kvp.Key;
+                var def = kvp.Value;
+                var lang = def.ScriptTags?.FirstOrDefault() ?? "javascript";
+                if (!string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) {
+                    continue;
+                }
+                resolver.TryResolveScriptFunction(name, null, out _, out _);
+                warmed++;
+            }
+
+            // Workspace scripts
+            if (warmed < limit) {
+                foreach (var wkvp in _workspaceService.BaseConfig.Workspaces) {
+                    if (warmed >= limit) {
+                        break;
+                    }
+                    var wsName = wkvp.Key;
+                    var ws = wkvp.Value;
+                    foreach (var skvp in ws.Scripts) {
+                        if (warmed >= limit) {
+                            break;
+                        }
+                        var name = skvp.Key;
+                        var def = skvp.Value;
+                        var lang = def.ScriptTags?.FirstOrDefault() ?? "javascript";
+                        if (!string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) {
+                            continue;
+                        }
+                        resolver.TryResolveScriptFunction(name, wsName, out _, out _);
+                        warmed++;
+                    }
+                }
+            }
+
+            var dbg = Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG");
+            if (string.Equals(dbg, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(dbg, "1", StringComparison.OrdinalIgnoreCase)) {
+                Console.Error.WriteLine($"[script-debug] warmup complete, warmed {warmed} scripts");
+            }
+        }
+        // script-exists command: probe if a script is resolvable
+        var existsCmd = new Command("script-exists", "Check if a script exists and is resolvable at runtime") {
+            new Argument<string>("name", description: "Script name"),
+            new Option<string?>(new[]{"--workspace","-w"}, description: "Workspace name", getDefaultValue: () => null)
+        };
+        existsCmd.Handler = CommandHandler.Create<string, string?, InvocationContext>((name, workspace, ctx) => {
+            var engine = _scriptEngineFactory.GetEngine("javascript");
+            var handler = new ParksComputing.Api2Cli.Cli.Commands.RunWsScriptCommand(_workspaceService, _scriptEngineFactory, engine);
+            if (handler.TryResolveScriptFunction(name, workspace, out var location, out var lang)) {
+                Console.WriteLine($"found: {location}; language: {lang}");
+                ctx.ExitCode = 0;
+            } else {
+                Console.WriteLine("not found");
+                ctx.ExitCode = 1;
+            }
+        });
+        _rootCommand.AddCommand(existsCmd);
 
         if (_workspaceService.BaseConfig is not null) {
             foreach (var macro in _workspaceService.BaseConfig.Macros) {
@@ -96,12 +181,14 @@ function myFunction(baseUrl, page) {{
             foreach (var script in _workspaceService.BaseConfig.Scripts) {
                 var scriptName = script.Key;
                 var scriptBody = script.Value.Script;
+                var scriptLanguage = script.Value.ScriptTags?.FirstOrDefault() ?? "javascript";
                 var description = script.Value.Description ?? string.Empty;
                 var arguments = script.Value.Arguments;
                 var paramList = new List<string>();
 
                 var scriptCommand = new Command(scriptName, $"[script] {description}");
-                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory);
+                var scriptEngine = _scriptEngineFactory.GetEngine(scriptLanguage);
+                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory, scriptEngine);
 
                 foreach (var kvp in arguments) {
                     var argument = kvp.Value;
@@ -140,14 +227,57 @@ function myFunction(baseUrl, page) {{
                 _rootCommand.AddCommand(scriptCommand);
                 var paramString = string.Join(", ", paramList);
 
+                // Build a typed parameter list and Func<> signature for C# scripts
+                var typedParams = new List<string>();
+                var typeArgsOnly = new List<string>();
+                foreach (var name in paramList) {
+                    if (arguments.TryGetValue(name, out var argDef)) {
+                        var csType = argDef.Type switch {
+                            "string" => "string",
+                            "number" => "double",
+                            "boolean" => "bool",
+                            "object" => "object?",
+                            _ => "object?"
+                        };
+                        typedParams.Add($"{csType} {name}");
+                        typeArgsOnly.Add(csType);
+                    }
+                    else {
+                        typedParams.Add($"object? {name}");
+                        typeArgsOnly.Add("object?");
+                    }
+                }
+                var typedParamString = string.Join(", ", typedParams);
+                var funcGenericArgs = typeArgsOnly.Count > 0
+                    ? string.Join(", ", typeArgsOnly.Concat(new[] { "object?" }))
+                    : "object?";
+
                 try {
-                    _scriptEngine.EvaluateScript($@"
+                    switch (scriptLanguage.ToLowerInvariant()) {
+                        case "javascript": { }
+                            jsScriptEngine.EvaluateScript($@"
 function __script__{scriptName}({paramString}) {{
 {scriptBody}
 }};
 
 a2c.{scriptName} = __script__{scriptName};
 ");
+                            break;
+                        case "csharp": {
+                            // In C#, 'a2c' is a strongly-typed A2CApi. To add dynamic members like a2c.foo
+                            // we must cast to dynamic so TrySetMember is used. Also, create a 'csharp' container.
+                            csScriptEngine.EvaluateScript($@"
+
+// Define a typed delegate for the script body
+System.Func<{funcGenericArgs}> __script__{scriptName} = ({typedParamString}) => {{
+{scriptBody}
+}};
+
+// a2c.{scriptName} = new System.Func<{funcGenericArgs}>(__script__{scriptName});
+");
+                            break;
+                        }
+                    }
                 }
                 catch (Exception ex) {
                     Console.Error.WriteLine($"{Workspace.Constants.ErrorChar} Error: {ex.Message}");
@@ -191,13 +321,15 @@ a2c.{scriptName} = __script__{scriptName};
             foreach (var script in workspaceConfig.Scripts) {
                 var scriptName = script.Key;
                 var scriptBody = script.Value.Script;
+                var scriptLanguage = script.Value.ScriptTags?.FirstOrDefault() ?? "javascript";
                 var description = script.Value.Description ?? string.Empty;
                 var arguments = script.Value.Arguments;
                 var paramList = new List<string>();
 
                 var scriptCommand = new Command(scriptName, $"[script] {description}");
                 scriptCommand.IsHidden = workspaceConfig.IsHidden;
-                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory);
+                var scriptEngine = _scriptEngineFactory.GetEngine(scriptLanguage);
+                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory, scriptEngine);
 
                 foreach (var kvp in arguments) {
                     var argument = kvp.Value;
@@ -238,7 +370,7 @@ a2c.{scriptName} = __script__{scriptName};
                 var paramString = string.Join(", ", paramList);
 
                 try {
-                    _scriptEngine.EvaluateScript($@"
+                    scriptEngine.EvaluateScript($@"
 function __script__{workspaceName}__{scriptName}(workspace, {paramString}) {{
 {scriptBody}
 }};

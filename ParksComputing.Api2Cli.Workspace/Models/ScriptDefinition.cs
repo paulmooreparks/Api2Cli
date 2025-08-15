@@ -15,8 +15,12 @@ public class ScriptDefinition {
     public string? Description { get; set; }
     [XferProperty("initScript")]
     public string? InitScript { get; set; }
+    [XferCaptureTag("initScript")]
+    public List<string>? InitScriptTags { get; set; }
     [XferProperty("script")]
     public string? Script { get; set; }
+    [XferCaptureTag("script")]
+    public List<string>? ScriptTags { get; set; }
     [XferProperty("arguments")]
     public Dictionary<string, Argument> Arguments { get; set; } = [];
 

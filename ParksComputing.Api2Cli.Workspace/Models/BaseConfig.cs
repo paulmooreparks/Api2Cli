@@ -8,10 +8,16 @@ public class BaseConfig
     public string? ActiveWorkspace { get; set; }
     [XferProperty("initScript")]
     public string? InitScript { get; set; }
+    [XferCaptureTag("initScript")]
+    public List<string>? InitScriptTags { get; set; }
     [XferProperty("preRequest")]
     public string? PreRequest { get; set; }
+    [XferCaptureTag("preRequest")]
+    public List<string>? PreRequestTags { get; set; }
     [XferProperty("postResponse")]
     public string? PostResponse { get; set; }
+    [XferCaptureTag("postResponse")]
+    public List<string>? PostResponseTags { get; set; }
     [XferProperty("properties")]
     public Dictionary<string, object> Properties { get; set; } = [];
     [XferProperty("workspaces")]

@@ -68,10 +68,13 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             // Core assemblies to include
             var coreAssemblies = new[]
             {
-                typeof(object).Assembly,                 // System.Runtime
-                typeof(System.Linq.Enumerable).Assembly, // System.Linq
-                typeof(Console).Assembly,                // System.Console
-                typeof(Task).Assembly                    // System.Threading.Tasks
+                typeof(object).Assembly,                      // System.Runtime
+                typeof(System.Linq.Enumerable).Assembly,      // System.Linq
+                typeof(Console).Assembly,                     // System.Console
+                typeof(Task).Assembly,                        // System.Threading.Tasks
+                typeof(System.Dynamic.ExpandoObject).Assembly,// System.Dynamic.Runtime
+                typeof(A2CApi).Assembly,                      // Api root type assembly
+                typeof(ScriptGlobals).Assembly                 // Globals container assembly
             };
 
             // Try to create references from assemblies
@@ -101,7 +104,8 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                     "System",
                     "System.Linq",
                     "System.Collections.Generic",
-                    "System.Threading.Tasks"
+                    "System.Threading.Tasks",
+                    "System.Dynamic"
                 );
         }
 
