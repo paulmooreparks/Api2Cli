@@ -20,6 +20,7 @@ using ParksComputing.Api2Cli.Orchestration.Services;
 namespace ParksComputing.Api2Cli.Cli.Commands;
 
 [RootCommand("Api2Cli Application")]
+[Option(typeof(string), "--config", "Path to an alternate workspaces.xfer configuration file.", new[] { "-c" }, IsRequired = false)]
 [Option(typeof(string), "--baseurl", "The base URL of the API to send HTTP requests to.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(string), "--workspace", "Path to a workspace file to use, other than the default.", new[] { "-w" }, IsRequired = false)]
 [Option(typeof(bool), "--version", "Display the version information.", new[] { "-v" }, IsRequired = false)]
@@ -337,6 +338,7 @@ internal class A2CRootCommand {
     }
 
     public async Task<int> Execute(
+    [OptionParam("--config")] string? configPath,
         [OptionParam("--baseurl")] string? baseUrl,
         [OptionParam("--workspace")] string? workspace,
         [OptionParam("--version")] bool showVersion,
@@ -344,6 +346,9 @@ internal class A2CRootCommand {
         Command command,
         InvocationContext context
         ) {
+    // Note: The --config override is applied early in Program.Main via env var
+    // A2C_WORKSPACE_CONFIG so services (SettingsService/WorkspaceService) pick it up
+    // before initialization. Keeping it here ensures help/usage shows the option.
         if (showVersion) {
             Assembly assembly = Assembly.GetExecutingAssembly();
             Version? version = assembly.GetName().Version;

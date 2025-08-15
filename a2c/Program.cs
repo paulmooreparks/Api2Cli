@@ -29,6 +29,19 @@ internal class Program {
     static async Task<int> Main(string[] args) {
         DiagnosticListener.AllListeners.Subscribe(new MyObserver());
 
+        // Early parse: capture --config/-c before services initialize so we can override the workspace file path.
+        try {
+            for (int i = 0; i < args.Length; i++) {
+                if (string.Equals(args[i], "--config", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-c", StringComparison.OrdinalIgnoreCase)) {
+                    var next = (i + 1) < args.Length ? args[i + 1] : null;
+                    if (!string.IsNullOrWhiteSpace(next)) {
+                        Environment.SetEnvironmentVariable("A2C_WORKSPACE_CONFIG", next);
+                    }
+                    break;
+                }
+            }
+        } catch { /* ignore */ }
+
         var cli = new ClifferBuilder()
             .ConfigureServices(services => {
                 services.AddApi2CliWorkspaceServices();

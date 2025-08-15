@@ -44,6 +44,22 @@ https://xferlang.org/ />
     }
 
     scripts {
+        csmessage {
+            description "Run a C# script to output a message."
+            arguments {
+                message { type "string" description "A message to output." default "Hello, World!" }
+                count { type "number" description "The number of times to output the message." default 1 }
+            }
+            <! tag "csharp" !>
+            script <"
+                for (var i = 0; i < count; i++) {
+                    Console.WriteLine(message);
+                }
+
+                return $"Printed the message {count} times";
+            ">
+        }
+
         sample {
             description "An example of a top-level named script."
 

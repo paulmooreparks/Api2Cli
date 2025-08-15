@@ -224,7 +224,7 @@ internal class RunWsScriptCommand {
             }
         }
 
-        if (Console.IsInputRedirected && i < argumentDefinitions.Count) {
+    if (Console.IsInputRedirected && i < argumentDefinitions.Count) {
             var argString = Console.In.ReadToEnd().Trim();
             var argType = argumentDefinitions[i].Type;
 
@@ -248,6 +248,37 @@ internal class RunWsScriptCommand {
             }
 
             ++i;
+        }
+
+        // Apply default values for any remaining arguments not provided
+        while (i < argumentDefinitions.Count) {
+            var argDef = argumentDefinitions[i];
+            if (argDef.Default is not null) {
+                var argType = argDef.Type;
+                var defVal = argDef.Default;
+                switch (argType) {
+                    case "string":
+                        scriptParams.Add(defVal?.ToString());
+                        break;
+                    case "number":
+                        scriptParams.Add(Convert.ToDouble(defVal));
+                        break;
+                    case "boolean":
+                        scriptParams.Add(Convert.ToBoolean(defVal));
+                        break;
+                    case "object":
+                    case "stringArray":
+                        scriptParams.Add(defVal);
+                        break;
+                    default:
+                        scriptParams.Add(defVal);
+                        break;
+                }
+            } else {
+                // No default; pad with null to keep indexes consistent for wrappers
+                scriptParams.Add(null);
+            }
+            i++;
         }
 
         // First try to resolve and invoke via a2c.* function references (JS/ClearScript path)

@@ -6,5 +6,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl
     public class ScriptGlobals
     {
         public A2CApi a2c { get; set; } = default!;
+    // JS-style, case-insensitive facade for C# scripts wanting a2c.process.run-like access
+    public dynamic a2cjs { get; set; } = default!;
     }
 }
