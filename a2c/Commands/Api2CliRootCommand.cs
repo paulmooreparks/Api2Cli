@@ -82,8 +82,7 @@ internal class A2CRootCommand {
 
             foreach (var script in _workspaceService.BaseConfig.Scripts) {
                 var scriptName = script.Key;
-                var scriptBody = script.Value.Script;
-                var scriptLanguage = script.Value.ScriptTags?.FirstOrDefault() ?? "javascript";
+                var (scriptLanguage, scriptBody) = script.Value.ResolveLanguageAndBody();
                 var description = script.Value.Description ?? string.Empty;
                 var arguments = script.Value.Arguments;
                 var paramList = new List<string>();
@@ -193,8 +192,7 @@ internal class A2CRootCommand {
 
             foreach (var script in workspaceConfig.Scripts) {
                 var scriptName = script.Key;
-                var scriptBody = script.Value.Script;
-                var scriptLanguage = script.Value.ScriptTags?.FirstOrDefault() ?? "javascript";
+                var (scriptLanguage, scriptBody) = script.Value.ResolveLanguageAndBody();
                 var description = script.Value.Description ?? string.Empty;
                 var arguments = script.Value.Arguments;
                 var paramList = new List<string>();

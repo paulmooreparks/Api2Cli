@@ -6,8 +6,7 @@
                 a { type "number" description "First number." }
                 b { type "number" description "Second number." }
             }
-            <! tag "csharp" !>
-            script <"
+            script csharp <"
                 Console.WriteLine($"a={a}, b={b}");
                 return a + b;
             ">
@@ -27,8 +26,7 @@
                     default 1
                 }
             }
-            <! tag "csharp" !>
-            script <"
+            script csharp <"
                 for (var i = 0; i < count; i++) {
                     Console.WriteLine(message);
                 }
@@ -43,7 +41,7 @@
                     description "The process to launch."
                 }
             }
-            script <"
+            script javascript <"
                 a2c.process.run(process);
             ">
         }
@@ -54,8 +52,7 @@
                     description "The process to launch."
                 }
             }
-            <! tag "csharp" !>
-            script <"
+            script csharp <"
                 a2c.Process.Run(process);
             ">
         }
@@ -97,8 +94,7 @@
                             default "Hello from workspace JS"
                         }
                     }
-                    <! tag "javascript" !>
-                    script <"
+                    script javascript <"
                         workspace.testjs(message);
                         // This line used to work to call another JavaScript script from this one. It should still work for
                         // JavaScript and also work for C# scripts.
@@ -122,8 +118,7 @@
                             default 1
                         }
                     }
-                    <! tag "csharp" !>
-                    script <"
+                    script csharp <"
                         // This works for calling into JavaScript from C#
                         workspace.testjs("Hello");
                         for (var i = 0; i < times; i++) {
