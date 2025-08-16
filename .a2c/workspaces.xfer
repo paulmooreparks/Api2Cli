@@ -1,320 +1,222 @@
-﻿</ This file is written in XferLang. You may learn more about the syntax at this link:
-https://xferlang.org/ />
+﻿</ This file is written in XferLang. Learn more at https://xferlang.org/ />
 
 {
     assemblies [
     ]
 
-    </ activeWorkspace "httpbin" />
+    </ Set the default workspace that opens in the REPL />
+    activeWorkspace "httpbin"
 
-    </ These are global variables that may be referenced in scripts and configuration. />
+    </ Global properties available to scripts and requests />
     properties {
-        sampleValue "This is a sample value"
-        startWorkspace "httpbin"
-        baseLevel "global"
         hideReplMessages ~true
+        sampleValue "This is a sample value"
     }
 
+    </ Global init: convenience helpers available to all scripts />
     initScript <'
-        var clr = host.lib('mscorlib', 'System', 'System.Core');
-        var Dictionary = clr.System.Collections.Generic.Dictionary;
-        var Environment = clr.System.Environment;
-
-        var xferLang = host.lib('ParksComputing.Xfer.Lang');
-
-        var startWorkspace = a2c.startWorkspace;
-        // var startWorkspace = a2c.store.get("startWorkspace");
-
-        if (startWorkspace != null) {
-            a2c.setActiveWorkspace(startWorkspace);
-        }
-
         function formatJson(rawJson) {
-            let obj = JSON.parse(rawJson);
-            return JSON.stringify(obj, null, 2); // 2 = indentation spaces
+            try { let obj = (typeof rawJson === 'string') ? JSON.parse(rawJson) : rawJson; return JSON.stringify(obj, null, 2); }
+            catch { return String(rawJson); }
         }
 
-        function sayHello() {
-            console.log("Hello from globalInitScript.js");
-            return "";
+        function logHeader(title) {
+            console.log("\n=== " + title + " ===");
         }
     '>
 
-    macros {
-    }
-
+    </ Global scripts (JavaScript and C#) />
     scripts {
-        csmessage {
-            description "Run a C# script to output a message."
+        hello {
+            description "Simple JS script: prints a greeting and returns a value."
             arguments {
-                message { type "string" description "A message to output." default "Hello, World!" }
-                count { type "number" description "The number of times to output the message." default 1 }
+                name { type "string" description "Name to greet" default "World" }
             }
-            <! tag "csharp" !>
-            script <"
-                for (var i = 0; i < count; i++) {
-                    Console.WriteLine(message);
-                }
+            script <'
+                logHeader("Hello Script");
+                console.log(`Hello, ${name}!`);
+                return { greeted: name };
+            '>
+        }
 
-                return $"Printed the message {count} times";
+        csmessage {
+            description "C# script: repeat a message n times."
+            arguments {
+                message { type "string" description "Message to print" default "Hello from C#" }
+                count { type "number" description "Times to print" default 1 }
+            }
+            script csharp <"
+                for (var i = 0; i < count; i++) {
+                    Console.WriteLine($"[{i+1}] {message}");
+                }
+                return $"Printed {count} line(s).";
             ">
         }
 
-        sample {
-            description "An example of a top-level named script."
-
+        </ NuGet demo (C#): requires package 'Newtonsoft.Json'.
+           Install once via: a2c package install newtonsoft.json />
+        csjson {
+            description "C# + NuGet (Newtonsoft.Json): pretty-print an object as JSON."
             arguments {
-                arg1 {
-                    type "string"
-                    description "(string) The first argument."
-                    isRequired ~true
-                }
-                arg2 {
-                    type "number"
-                    description"(number) The second argument."
-                }
-                arg3 {
-                    type "boolean"
-                    description "(boolean) The third argument."
-                }
+                message { type "string" description "Message" default "Hi from NuGet" }
             }
-
-            script <'
-                log("Global script is executed.");
-                log("arg1: " + arg1);
-                log("arg2: " + arg2);
-                log("arg3: " + arg3);
-
-                if (typeof arg2 === "number") {
-                    return arg2 + 123;
-                } else {
-                    return null;
-                }
-            '>
-        }
-
-        echo {
-            description "Another way to do output."
-
-            arguments {
-                obj {
-                    type "object"
-                    description "The object to echo."
-                }
-            }
-
-            script <'
-                log(obj.toString())
-            '>
-        }
-
-        notepad {
-            description "Start notepad."
-
-            script <'
-                let path = `c:/users/paul`;
-                a2c.process.run("notepad.exe", path, "test.xfer");
-            '>
+            script csharp <"
+                var obj = new { message = message, when = DateTime.UtcNow };
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(obj, Newtonsoft.Json.Formatting.Indented);
+                Console.WriteLine(json);
+                return json;
+            ">
         }
     }
 
-    </ This is a global pre-request script that will be executed before each request. />
-    preRequest <'
+    </ Global request hooks />
+    preRequest csharp <'
+        // You can add headers or tracing here
+        // e.g., request.headers["X-Trace"] = Date.now().toString();
+        var x = 5;
+        Console.WriteLine(x);
     '>
 
-    </ This is a global post-request script that will be executed after each request completes. />
     postResponse <'
+        // Return the raw body by default
         return request.response.body;
     '>
 
-    </ A workspace is a collection of related requests and associated configuration. />
+    </ Two example workspaces showcasing web APIs />
     workspaces {
-
         httpbin {
-            description "Calling various endpoints in the httpbin.org service."
-
-            initScript <'
-            '>
-
-            properties {
-                wsLevel "httpbin wsLevel"
-                foo "bar"
-            }
-
-            macros {
-            }
-
+            description "Playground for https://httpbin.org"
             baseUrl "https://httpbin.org/"
 
             scripts {
-                test {
-                    description "An example of a script that can be executed from the command line."
-
-                    arguments {
-                        arg1 {
-                            type "string"
-                            description "(string) The first argument."
-                        }
-                    }
-
+                showip {
+                    description "JS: call GET /ip and print the result."
                     script <'
-                        log(workspace.name);
-                        // log(workspace.requests.gettest.name);
-                        let result = workspace.requests.gettest.execute(arg1);
-                        return result;
+                        logHeader("httpbin /ip");
+                        let body = workspace.requests.ip.execute();
+                        console.log(formatJson(body));
+                        return body;
                     '>
+                }
+
+                roundtrip {
+                    description "JS: POST /anything with a JSON payload and return echoed data."
+                    arguments {
+                        msg { type "string" description "Message to round-trip" default "ping" }
+                    }
+                    script <'
+                        logHeader("httpbin /anything");
+                        let body = workspace.requests.anything.execute(msg);
+                        console.log(formatJson(body));
+                        return body;
+                    '>
+                }
+
+                csPretty {
+                    description "C#: pretty-print the result of GET /get using Newtonsoft.Json (requires package)."
+                    script csharp <"
+                        // Ensure package installed: a2c package install newtonsoft.json
+                        var raw = (string)workspace.requests.get.execute();
+                        var parsed = Newtonsoft.Json.Linq.JToken.Parse(raw);
+                        var pretty = Newtonsoft.Json.JsonConvert.SerializeObject(parsed, Newtonsoft.Json.Formatting.Indented);
+                        Console.WriteLine(pretty);
+                        return pretty;
+                    ">
                 }
             }
 
-            </ These are requests that may be executed by name from the command line. />
             requests {
-                cookies {
-                    endpoint "/cookies"
+                ip {
+                    endpoint "/ip"
                     method "GET"
-                    cookies {
-                        session-id "1234567"
-                        session-token "abcdef"
-                    }
                 }
 
-                setcookies {
-                    endpoint "/cookies/set"
-                    method "GET"
-                    parameters (
-                        'key1=value1'
-                        'key2=value2'
-                    )
-                }
-
-                gettest {
+                get {
                     endpoint "/get"
                     method "GET"
-
-                    properties {
-                        reqLevel "gettest reqLevel"
-                    }
-
-                    arguments {
-                        arg1 {
-                            type "string"
-                            description "(string) The first argument."
-                        }
-                        arg2 {
-                            type "number"
-                            description"(number) The second argument."
-                        }
-                        arg3 {
-                            type "boolean"
-                            description "(boolean) The third argument."
-                        }
-                    }
-
-                    </ Default headers to be sent with the request unless overridden. />
-                    headers {
-                        Accept "application/json"
-                    }
-
-                    </ Default parameters to be sent with the request unless overridden. />
-                    parameters (
-                        'key1={{[arg]::arg1::key1}}'
-                        'key1={{[file]::c:/users/paul/sample.txt::key2}}'
-                        'key3={{[prop]::../../baseLevel::key3}}'
-                        'key4={{[prop]::/parkscomputing/wsLevel::key4}}'
-                        'key5={{[prop]::/parkscomputing/about/reqLevel::key5}}'
-                        'boo'
-                    )
-
+                    headers { Accept "application/json" }
                     preRequest <'
-                        log("This is the httpbin.gettest pre-request handler");
-                        // Delegate to upstream pre-request handler
+                        // Example: add a custom header per request
+                        request.headers["X-Demo"] = "a2c";
                         nextHandler();
-                        '>
-
-                    postResponse <'
-                        // Delegate to upstream post-request handler
-                        return nextHandler();
                     '>
                 }
-                posttest {
-                    properties {
-                        reqLevel "posttest regLevel"
-                    }
 
-                    endpoint "/post"
+                anything {
+                    endpoint "/anything"
                     method "POST"
-                    headers {
-                        Content-Type "application/json"
+                    headers { Content-Type "application/json" }
+                    arguments {
+                        msg { type "string" description "Message to send" }
                     }
-                    payload <'{ "key1": "value1", "key2": "value2"} '>
-                }
-
-                basic {
-                    endpoint '/basic-auth/{{[env]::httpBinBasicAuthUser}}/{{[env]::httpBinBasicAuthPassword}}'
-                    method "GET"
-
-                    preRequest <'
-                        var basicAuth = btoa("<|httpBinBasicAuthUser|>:<|httpBinBasicAuthPassword|>");
-                        request.headers["Authorization"] = "Basic " + basicAuth;
-                        nextHandler();
-                    '>
-                }
-
-                bearer {
-                    endpoint "/bearer"
-                    method "GET"
-                    headers {
-                        </ The httpBinBearerToken environment variable is set in the .a2c/.env file. />
-                        Authorization 'Bearer {{[env]::httpBinBearerToken}}'
-                    }
+                    payload <'{ "message": "{{[arg]::msg}}" }'>
                 }
             }
         }
 
-        foo {
-            extend "httpbin"
-            description "An example of extending an existing workspace, in this case the httpbin workspace."
+        jsonplaceholder {
+            description "Sample REST API: https://jsonplaceholder.typicode.com"
+            baseUrl "https://jsonplaceholder.typicode.com/"
 
-            properties {
-                foo "baz"
-            }
-
-            requests {
-                gettest {
-                    parameters (
-                        'key3=value1'
-                        'key4=value2'
-                        'yah'
-                    )
-
-                    preRequest <'
-                        log("This is the foo.gettest pre-request handler");
-                        // Delegate to base pre-request handler
-                        baseHandler();
-                    '>
-
-                    postResponse <'
-                        return request.response.body;
+            scripts {
+                listposts {
+                    description "JS: list the number of posts (GET /posts)."
+                    script <'
+                        let body = workspace.requests.posts.execute();
+                        let arr = JSON.parse(body);
+                        console.log(`There are ${arr.length} posts.`);
+                        return arr.length;
                     '>
                 }
+
+                getpost {
+                    description "JS: fetch a single post by id (GET /posts/{id})."
+                    arguments { id { type "number" description "Post id" default 1 } }
+                    script <'
+                        let body = workspace.requests.post.execute(id);
+                        console.log(formatJson(body));
+                        return body;
+                    '>
+                }
+
+                postsummary {
+                    description "C#: show a tiny summary of the first post using Newtonsoft.Json (requires package)."
+                    script csharp <"
+                        // Ensure package installed: a2c package install newtonsoft.json
+                        var raw = (string)workspace.requests.posts.execute();
+                        var arr = Newtonsoft.Json.Linq.JArray.Parse(raw);
+                        var first = arr.FirstOrDefault();
+                        if (first == null) return "No posts";
+                        Console.WriteLine($"#{first.Value<int>("id")}: {first.Value<string>("title")}");
+                        return Newtonsoft.Json.JsonConvert.SerializeObject(first, Newtonsoft.Json.Formatting.Indented);
+                    ">
+                }
             }
-        }
 
-        parkscomputing {
-            description "Making calls to the Parks Computing website."
-
-            properties {
-                wsLevel "parkscomputing wsLevel"
-            }
-
-            baseUrl "https://parkscomputing.com/"
             requests {
-                about {
-                    properties {
-                        reqLevel "parkscomputing.about regLevel"
-                    }
-
-                    endpoint "/content/about.html"
+                posts {
+                    endpoint "/posts"
                     method "GET"
+                    headers { Accept "application/json" }
+                }
+
+                post {
+                    endpoint "/posts/{{[arg]::id}}"
+                    method "GET"
+                    headers { Accept "application/json" }
+                    arguments { id { type "number" description "Post id" } }
+                }
+
+                createpost {
+                    endpoint "/posts"
+                    method "POST"
+                    headers { Content-Type "application/json" }
+                    arguments {
+                        title { type "string" description "Post title" default "hello" }
+                        body { type "string" description "Post body" default "lorem ipsum" }
+                        userId { type "number" description "User id" default 1 }
+                    }
+                    payload <'{ "title": "{{[arg]::title}}", "body": "{{[arg]::body}}", "userId": {{[arg]::userId}} }'>
                 }
             }
         }

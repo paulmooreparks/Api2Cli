@@ -258,9 +258,8 @@ internal class A2CRootCommand {
                 var requestHandler = new SendCommand(Utility.GetService<IHttpService>()!, _a2c, _workspaceService, Utility.GetService<IApi2CliScriptEngineFactory>()!, Utility.GetService<IPropertyResolver>(), Utility.GetService<ISettingsService>());
                 var requestObj = requests![requestName] as IDictionary<string, object>;
                 var requestCaller = new RequestCaller(_rootCommand, requestHandler, workspaceName, requestName, workspaceKvp.Value.BaseUrl);
-#pragma warning disable CS8974 // Converting method group to non-delegate type
-                requestObj!["execute"] = requestCaller.RunRequest;
-#pragma warning restore CS8974 // Converting method group to non-delegate type
+                // Wrap in an adapter that offers Invoke overloads for 0..N args, so dynamic C# and JS can both call it.
+                requestObj!["execute"] = new a2c.Services.Impl.RequestExecuteAdapter(requestCaller.RunRequest);
 
                 var reqBaseurlOption = new Option<string>(["--baseurl", "-b"], "The base URL of the API to send HTTP requests to.");
                 reqBaseurlOption.IsRequired = false;

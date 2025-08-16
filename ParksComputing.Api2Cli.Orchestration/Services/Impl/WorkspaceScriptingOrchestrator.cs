@@ -193,9 +193,7 @@ __script__{wsName}__{name}
                 }
             }
         }
-        if (debug) {
-            Console.Error.WriteLine($"[script-debug] warmup complete, warmed {warmed} scripts");
-        }
+
     }
     // Helper to build typed C# argument declarations inside the Roslyn script wrappers
     private static string BuildCsArgDeclaration(string? argType, string varName, int argIndex)

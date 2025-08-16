@@ -10,7 +10,12 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/a2c/bin/Debug/net8.0/a2c.dll",
-            "args": [],
+            "args": [
+                "--config",
+                "${workspaceFolder}/.a2c/workspaces.xfer",
+                "jsonplaceholder",
+                "postsummary"
+            ],
             "cwd": "${workspaceFolder}/a2c",
             "stopAtEntry": false,
             "console": "externalTerminal"

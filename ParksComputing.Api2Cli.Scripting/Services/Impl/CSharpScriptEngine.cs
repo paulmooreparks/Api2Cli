@@ -16,6 +16,7 @@ using ParksComputing.Api2Cli.Api;
 using ParksComputing.Api2Cli.Diagnostics.Services;
 using ParksComputing.Api2Cli.Workspace;
 using ParksComputing.Api2Cli.Scripting.Extensions;
+using ParksComputing.Xfer.Lang;
 
 namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
     internal class CSharpScriptEngine : IApi2CliScriptEngine {
@@ -393,8 +394,11 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                     }
                     return d.DynamicInvoke(args);
                 } catch (Exception ex) {
-                    _diags.Emit("InvokeError", new { Script = script, Message = ex.Message });
-                    throw;
+                    // Surface the inner exception (actual script failure) when present
+                    var inner = ex.InnerException ?? ex;
+                    var msg = $"{inner.GetType().FullName}: {inner.Message}";
+                    _diags.Emit("InvokeError", new { Script = script, Message = msg, StackTrace = inner.StackTrace });
+                    throw new InvalidOperationException($"CSharp script '{script}' failed: {msg}", inner);
                 }
             }
             return null;
@@ -418,6 +422,17 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                     ExecuteScript(script);
                 } catch (Exception ex) {
                     _diags.Emit("InitScriptError", new { Message = ex.Message });
+                }
+            }
+        }
+
+        // Overload for keyed value scenarios (initScript on workspace/baseConfig)
+        public void ExecuteInitScript(XferKeyedValue? script) {
+            var lang = script?.Keys?.FirstOrDefault();
+            if (string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase) || string.Equals(lang, "cs", StringComparison.OrdinalIgnoreCase)) {
+                var body = script?.PayloadAsString;
+                if (!string.IsNullOrWhiteSpace(body)) {
+                    try { ExecuteScript(body); } catch (Exception ex) { _diags.Emit("InitScriptError", new { Message = ex.Message }); }
                 }
             }
         }

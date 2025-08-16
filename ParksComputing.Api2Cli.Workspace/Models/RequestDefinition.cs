@@ -1,4 +1,5 @@
 using ParksComputing.Xfer.Lang.Attributes;
+using ParksComputing.Xfer.Lang;
 
 namespace ParksComputing.Api2Cli.Workspace.Models;
 
@@ -24,14 +25,14 @@ public class RequestDefinition {
     [XferProperty("properties")]
     public Dictionary<string, object> Properties { get; set; } = [];
     [XferProperty("preRequest")]
-    public string? PreRequest { get; set; }
+    public XferKeyedValue? PreRequest { get; set; }
     [XferProperty("postResponse")]
-    public string? PostResponse { get; set; }
+    public XferKeyedValue? PostResponse { get; set; }
     [XferProperty("response")]
     public ResponseDefinition Response { get; set; } = new ResponseDefinition();
 
     public void Merge(RequestDefinition parentRequest) {
-        if (parentRequest is null) { 
+        if (parentRequest is null) {
             return;
         }
 

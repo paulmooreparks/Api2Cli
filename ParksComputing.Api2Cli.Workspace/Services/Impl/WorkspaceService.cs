@@ -6,6 +6,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 
+using ParksComputing.Xfer.Lang.Configuration;
+using ParksComputing.Xfer.Lang.Converters;
+
 using ParksComputing.Xfer.Lang;
 using ParksComputing.Xfer.Lang.Attributes;
 using ParksComputing.Xfer.Lang.Elements;
@@ -14,8 +17,7 @@ using ParksComputing.Api2Cli.Workspace.Models;
 
 namespace ParksComputing.Api2Cli.Workspace.Services.Impl;
 
-internal class WorkspaceService : IWorkspaceService
-{
+internal class WorkspaceService : IWorkspaceService {
     private readonly ISettingsService _settingsService;
     private readonly IAppDiagnostics<WorkspaceService> _diags;
 
@@ -39,8 +41,7 @@ internal class WorkspaceService : IWorkspaceService
     public WorkspaceService(
         ISettingsService settingsService,
         IAppDiagnostics<WorkspaceService> appDiagnostics
-        )
-    {
+        ) {
         // WorkspaceInitializer.InitializeWorkspace(settingsService);
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         LoadEnvironmentVariables(_settingsService.EnvironmentFilePath);
@@ -107,7 +108,7 @@ internal class WorkspaceService : IWorkspaceService
 
             dict.Add("default", defaultConfig);
 
-            var baseConfig = new BaseConfig{
+            var baseConfig = new BaseConfig {
                 Workspaces = dict
             };
 
@@ -128,12 +129,8 @@ internal class WorkspaceService : IWorkspaceService
     private BaseConfig LoadWorkspace() {
         var baseConfig = new BaseConfig();
 
-    var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
+        var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
 
-    // Normalize single-line 'script <lang> <"...">' or 'initScript <lang> <"...">' to
-    // 'language "<lang>"' + 'script <"...">' (or 'initScript' respectively) so the
-    // existing Xfer model can deserialize reliably.
-    xfer = NormalizeScriptLanguageInlineForms(xfer);
         var document = XferParser.Parse(xfer);
 
         if (document is null) {
@@ -141,7 +138,6 @@ internal class WorkspaceService : IWorkspaceService
         }
 
         ObjectElement? baseConfigElement = null;
-
 
         if (document.Root is ObjectElement objectElement) {
             baseConfigElement = objectElement;
@@ -180,41 +176,6 @@ internal class WorkspaceService : IWorkspaceService
 
         return baseConfig;
     }
-
-    private static string NormalizeScriptLanguageInlineForms(string xfer)
-    {
-        if (string.IsNullOrEmpty(xfer))
-        {
-            return xfer;
-        }
-
-        // Matches: leading indent, keyword (script|initScript), language token, <"...">
-        // Captures body non-greedily across lines.
-        var pattern = "^(\\s*)(script|initScript)\\s+([A-Za-z][\\w-]*)\\s+<\"([\\s\\S]*?)\">";
-        var regex = new Regex(pattern, RegexOptions.Multiline);
-        string Evaluator(Match m)
-        {
-            var indent = m.Groups[1].Value;
-            var key = m.Groups[2].Value; // script or initScript
-            var lang = m.Groups[3].Value;
-            var body = m.Groups[4].Value;
-            // Insert language line just above, keep indentation
-            return $"{indent}language \"{lang}\"\n{indent}{key} <\"{body}\">";
-        }
-
-        return regex.Replace(xfer, new MatchEvaluator(Evaluator));
-    }
-
-#if false
-    public void LoadWorkspace(string workspaceFilePath) {
-        if (!File.Exists(workspaceFilePath)) {
-            throw new Exception($"Error: Workspace file '{workspaceFilePath}' not found.");
-        }
-
-        WorkspaceFilePath = workspaceFilePath;
-        BaseConfig = LoadWorkspace();
-    }
-#endif
 
     public IEnumerable<Assembly> LoadConfiguredAssemblies() {
         var loadedAssemblies = new List<Assembly>();

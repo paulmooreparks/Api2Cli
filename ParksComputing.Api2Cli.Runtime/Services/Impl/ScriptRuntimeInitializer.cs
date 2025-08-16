@@ -63,7 +63,7 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
 
             var dbg = Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG");
             if (string.Equals(dbg, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(dbg, "1", StringComparison.OrdinalIgnoreCase)) {
-                Console.Error.WriteLine($"[script-debug] warmup complete, warmed {warmed} scripts");
+
             }
         }
     }

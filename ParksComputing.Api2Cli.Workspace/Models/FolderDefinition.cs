@@ -1,4 +1,5 @@
 using ParksComputing.Xfer.Lang.Attributes;
+using ParksComputing.Xfer.Lang;
 
 namespace ParksComputing.Api2Cli.Workspace.Models;
 
@@ -10,11 +11,11 @@ public class FolderDefinition {
     [XferProperty("baseUrl")]
     public string? BaseUrl { get; set; }
     [XferProperty("initScript")]
-    public string? InitScript { get; set; }
+    public XferKeyedValue? InitScript { get; set; }
     [XferProperty("preRequest")]
-    public string? PreRequest { get; set; }
+    public XferKeyedValue? PreRequest { get; set; }
     [XferProperty("postResponse")]
-    public string? PostResponse { get; set; }
+    public XferKeyedValue? PostResponse { get; set; }
     [XferProperty("properties")]
     public Dictionary<string, object> Properties { get; set; } = [];
     [XferProperty("folders")]

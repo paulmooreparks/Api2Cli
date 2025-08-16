@@ -18,10 +18,11 @@ using ParksComputing.Api2Cli.Api;
 using ParksComputing.Api2Cli.Diagnostics.Services;
 using ParksComputing.Api2Cli.Workspace;
 using ParksComputing.Api2Cli.Scripting.Extensions;
+using ParksComputing.Xfer.Lang;
 
 namespace ParksComputing.Api2Cli.Scripting.Services.Impl;
 
-internal class ClearScriptEngine : IApi2CliScriptEngine {
+internal partial class ClearScriptEngine : IApi2CliScriptEngine {
     private readonly IPackageService _packageService;
     private readonly IWorkspaceService _workspaceService;
     private readonly ISettingsService _settingsService;
@@ -119,10 +120,11 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
             }
 
             try {
+                var globalPreRequestJs = GetJsScriptBody(_workspaceService.BaseConfig.PreRequest);
                 _engine.Execute(
     $@"
 function __preRequest(workspace, request) {{
-    {GetScriptContent(_workspaceService.BaseConfig.PreRequest)}
+    {GetScriptContent(globalPreRequestJs)}
 }};
 ");
             }
@@ -130,9 +132,9 @@ function __preRequest(workspace, request) {{
                 Console.Error.WriteLine(ex.ErrorDetails);
             }
 
-            var postResponseScriptContent = _workspaceService.BaseConfig.PostResponse;
+            var postResponseScriptContent = GetJsScriptBody(_workspaceService.BaseConfig.PostResponse);
 
-            if (string.IsNullOrEmpty(_workspaceService.BaseConfig.PostResponse)) {
+            if (string.IsNullOrEmpty(postResponseScriptContent)) {
                 postResponseScriptContent = "return request.response.body;";
             }
 
@@ -148,9 +150,10 @@ function __postResponse(workspace, request) {{
                 Console.Error.WriteLine(ex.ErrorDetails);
             }
 
-            if (_workspaceService.BaseConfig.InitScript is not null) {
+        if (_workspaceService.BaseConfig.InitScript is not null) {
                 try {
-                    ExecuteScript(_workspaceService.BaseConfig.InitScript);
+            var initBody = GetJsScriptBody(_workspaceService.BaseConfig.InitScript);
+            ExecuteScript(initBody);
                 }
                 catch (ScriptEngineException ex) {
                     Console.Error.WriteLine(ex.ErrorDetails);
@@ -204,13 +207,13 @@ function __postResponse(workspace, request) {{
 function __preRequest__{workspaceName}(workspace, request) {{
     let nextHandler = function() {{ __preRequest(workspace, request); }};
     let baseHandler = function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? "" : $"__preRequest__{workspace.Extend}(workspace, request);")} }};
-    {(workspace.PreRequest == null ? $"__preRequest(workspace, request)" : GetScriptContent(workspace.PreRequest))}
+    {((workspace.PreRequest == null || !IsJavaScript(workspace.PreRequest)) ? $"__preRequest(workspace, request)" : GetScriptContent(workspace.PreRequest.PayloadAsString))}
 }};
 
 function __postResponse__{workspaceName}(workspace, request) {{
     let nextHandler = function() {{ return __postResponse(workspace, request); }};
     let baseHandler = function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? "return null;" : $"return __postResponse__{workspace.Extend}(workspace, request);")} }};
-    {(workspace.PostResponse == null ? $"return __postResponse(workspace, request)" : GetScriptContent(workspace.PostResponse))}
+    {((workspace.PostResponse == null || !IsJavaScript(workspace.PostResponse)) ? $"return __postResponse(workspace, request)" : GetScriptContent(workspace.PostResponse.PayloadAsString))}
 }};
 
 ");
@@ -238,13 +241,13 @@ function __postResponse__{workspaceName}(workspace, request) {{
 function __preRequest__{workspaceName}__{requestName} (workspace, request{extraArgs}) {{
     let nextHandler = function() {{ __preRequest__{workspaceName}(workspace, request); }};
     let baseHandler = function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? ";" : $"__preRequest__{workspace.Extend}__{requestName}(workspace, request{extraArgs});")} }};
-    {(requestDef.PreRequest == null ? $"__preRequest__{workspaceName}(workspace, request)" : GetScriptContent(requestDef.PreRequest))}
+    {((requestDef.PreRequest == null || !IsJavaScript(requestDef.PreRequest)) ? $"__preRequest__{workspaceName}(workspace, request)" : GetScriptContent(requestDef.PreRequest.PayloadAsString))}
 }}
 
 function __postResponse__{workspaceName}__{requestName} (workspace, request{extraArgs}) {{
     let nextHandler = function() {{ return __postResponse__{workspaceName}(workspace, request); }};
     let baseHandler = function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? "return null;" : $"return __postResponse__{workspace.Extend}__{requestName}(workspace, request{extraArgs});")} }};
-    {(requestDef.PostResponse == null ? $"return __postResponse__{workspaceName}(workspace, request)" : GetScriptContent(requestDef.PostResponse))}
+    {((requestDef.PostResponse == null || !IsJavaScript(requestDef.PostResponse)) ? $"return __postResponse__{workspaceName}(workspace, request)" : GetScriptContent(requestDef.PostResponse.PayloadAsString))}
 }}
 
 ");
@@ -309,7 +312,8 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
 
     protected void DefineInitScript(WorkspaceDefinition workspace, dynamic workspaceObj) {
         if (workspace.InitScript is not null) {
-            var scriptCode = GetScriptContent(workspace.InitScript);
+            var initBody = GetJsScriptBody(workspace.InitScript);
+            var scriptCode = GetScriptContent(initBody);
             var scriptBody = $@"function __initScript__{workspace.Name}(workspace) {{ {scriptCode} }}";
             try {
                 _engine.Execute(scriptBody);
@@ -574,4 +578,20 @@ public static class DynamicObjectExtensions {
 
         return (ExpandoObject)expando;
     }
+}
+
+// Local helpers for keyed script handling
+partial class ClearScriptEngine
+{
+        private static bool IsJavaScript(XferKeyedValue? kv)
+        {
+            var lang = kv?.Keys?.FirstOrDefault();
+            return string.IsNullOrEmpty(lang) || string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase) || string.Equals(lang, "js", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetJsScriptBody(XferKeyedValue? kv)
+        {
+            if (kv is null) { return string.Empty; }
+            return IsJavaScript(kv) ? (kv.PayloadAsString ?? string.Empty) : string.Empty;
+        }
 }

@@ -1,4 +1,5 @@
 using ParksComputing.Xfer.Lang.Attributes;
+using ParksComputing.Xfer.Lang;
 
 namespace ParksComputing.Api2Cli.Workspace.Models;
 
@@ -7,15 +8,15 @@ public class BaseConfig
     [XferProperty("activeWorkspace")]
     public string? ActiveWorkspace { get; set; }
     [XferProperty("initScript")]
-    public string? InitScript { get; set; }
+    public XferKeyedValue? InitScript { get; set; }
     [XferCaptureTag("initScript")]
     public List<string>? InitScriptTags { get; set; }
     [XferProperty("preRequest")]
-    public string? PreRequest { get; set; }
+    public XferKeyedValue? PreRequest { get; set; }
     [XferCaptureTag("preRequest")]
     public List<string>? PreRequestTags { get; set; }
     [XferProperty("postResponse")]
-    public string? PostResponse { get; set; }
+    public XferKeyedValue? PostResponse { get; set; }
     [XferCaptureTag("postResponse")]
     public List<string>? PostResponseTags { get; set; }
     [XferProperty("properties")]

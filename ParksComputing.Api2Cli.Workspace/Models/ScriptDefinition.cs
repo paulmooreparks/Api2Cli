@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using ParksComputing.Xfer.Lang;
 using ParksComputing.Xfer.Lang.Attributes;
 
 namespace ParksComputing.Api2Cli.Workspace.Models;
@@ -17,8 +18,8 @@ public class ScriptDefinition {
     public string? InitScript { get; set; }
     [XferCaptureTag("initScript")]
     public List<string>? InitScriptTags { get; set; }
-    [XferProperty("script")]
-    public string? Script { get; set; }
+    [XferProperty("script")] // map to the document key
+    public XferKeyedValue? Script { get; set; }
     [XferCaptureTag("script")]
     public List<string>? ScriptTags { get; set; }
     [XferProperty("language")]
@@ -33,13 +34,12 @@ public class ScriptDefinition {
 
         Name ??= parentScript.Name;
         Description ??= parentScript.Description;
-    InitScript ??= parentScript.InitScript;
-    Script ??= parentScript.Script;
+        InitScript ??= parentScript.InitScript;
+        Script ??= parentScript.Script;
     }
 
-    public (string Lang, string Body) ResolveLanguageAndBody()
-    {
-    var lang = ScriptLanguage ?? ScriptTags?.FirstOrDefault() ?? "javascript";
-    return (lang, Script ?? string.Empty);
+    public (string Lang, string Body) ResolveLanguageAndBody() {
+        var lang = Script?.Keys?.FirstOrDefault() ?? ScriptLanguage ?? "javascript";
+        return (lang, Script?.PayloadAsString ?? string.Empty);
     }
 }

@@ -28,10 +28,7 @@ internal class RunWsScriptCommand {
     // Allow other components to invalidate cache (e.g., when workspaces reload)
     public static void ClearJsFunctionCache()
     {
-        _jsFuncCache.Clear();
-        if (IsScriptDebugEnabled()) {
-            Console.Error.WriteLine("[script-debug] JS function cache cleared");
-        }
+    _jsFuncCache.Clear();
     }
 
     private static bool IsScriptDebugEnabled()
@@ -286,15 +283,14 @@ internal class RunWsScriptCommand {
         // Workspace script: a2c.workspaces.{workspace}.{scriptName}(...args)
         bool invokedViaReference = false;
         try {
-            dynamic scriptRoot = _scriptEngine.Script;
+            var jsEngineForRef = _scriptEngineFactory.GetEngine("javascript");
+            dynamic scriptRoot = jsEngineForRef.Script;
             dynamic a2c = scriptRoot.a2c;
 
             if (string.IsNullOrEmpty(workspaceName)) {
                 var cacheKey = $"js:root:{scriptName}";
                 if (_jsFuncCache.TryGetValue(cacheKey, out var cachedFunc)) {
-                    if (IsScriptDebugEnabled()) {
-                        Console.Error.WriteLine($"[script-debug] cache hit: {cacheKey}");
-                    }
+
                     CommandResult = cachedFunc.Invoke(false, scriptParams.ToArray());
                     invokedViaReference = true;
                 } else {
@@ -310,9 +306,7 @@ internal class RunWsScriptCommand {
                 if (func is Microsoft.ClearScript.ScriptObject so) {
                     CommandResult = so.Invoke(false, scriptParams.ToArray());
                     _jsFuncCache.TryAdd(cacheKey, so);
-                    if (IsScriptDebugEnabled()) {
-                        Console.Error.WriteLine($"[script-debug] cache add: {cacheKey}");
-                    }
+
                     invokedViaReference = true;
                 }
                 }
@@ -320,9 +314,7 @@ internal class RunWsScriptCommand {
             else {
                 var cacheKey = $"js:ws:{workspaceName}:{scriptName}";
                 if (_jsFuncCache.TryGetValue(cacheKey, out var cachedFunc)) {
-                    if (IsScriptDebugEnabled()) {
-                        Console.Error.WriteLine($"[script-debug] cache hit: {cacheKey}");
-                    }
+
                     CommandResult = cachedFunc.Invoke(false, scriptParams.ToArray());
                     invokedViaReference = true;
                 } else {
@@ -343,9 +335,7 @@ internal class RunWsScriptCommand {
                     // Workspace wrapper already injects the workspace, so pass user args only
                     CommandResult = so.Invoke(false, scriptParams.ToArray());
                     _jsFuncCache.TryAdd(cacheKey, so);
-                    if (IsScriptDebugEnabled()) {
-                        Console.Error.WriteLine($"[script-debug] cache add: {cacheKey}");
-                    }
+
                     invokedViaReference = true;
                 }
                 }
@@ -366,16 +356,15 @@ internal class RunWsScriptCommand {
                 }
 
                 scriptBody = $"__script__{scriptName}";
-                if (IsScriptDebugEnabled()) {
-                    Console.Error.WriteLine($"[script-debug] fallback invoke: {scriptBody}");
-                }
+
                 try {
                     CommandResult = _scriptEngine.Invoke(scriptBody, scriptParams.ToArray());
                     // Promote: attempt to resolve and cache a2c.{scriptName} reference for next time
                     PromoteReferenceToCache(scriptName, null);
                 }
                 catch (Exception ex) {
-                    Console.Error.WriteLine($"{Constants.ErrorChar} Script '{scriptName}' (language: {resolvedLanguage}) could not be invoked. It does not appear to be registered as a function.\n- Check the script's language tag and that initialization completed.\n- If this is a workspace script, ensure the workspace name is correct.\nDetails: {ex.Message}");
+                    var root = ex.GetBaseException();
+                    Console.Error.WriteLine($"{Constants.ErrorChar} Script '{scriptName}' (language: {resolvedLanguage}) threw an error.\n- Verify the script body compiles and any required packages are installed.\n- Enable A2C_SCRIPT_DEBUG=1 for more details.\nDetails: {root.Message}\n{root.StackTrace}");
                     return Result.Error;
                 }
             }
@@ -389,9 +378,7 @@ internal class RunWsScriptCommand {
                     }
 
                     scriptBody = $"__script__{workspaceName}__{scriptName}";
-                    if (IsScriptDebugEnabled()) {
-                        Console.Error.WriteLine($"[script-debug] fallback invoke: {scriptBody}");
-                    }
+
 
                     // For the __script__ workspace function, inject the workspace as the first arg
                     var argsWithWorkspace = new List<object?>();
@@ -401,12 +388,14 @@ internal class RunWsScriptCommand {
                     argsWithWorkspace.AddRange(scriptParams);
 
                     try {
+                        // Workspace __script__ wrappers expect the first arg to be the workspace object
                         CommandResult = _scriptEngine.Invoke(scriptBody, argsWithWorkspace.ToArray());
                         // Promote: attempt to resolve and cache a2c.workspaces.{workspace}.{scriptName} reference for next time
                         PromoteReferenceToCache(scriptName, workspaceName);
                     }
                     catch (Exception ex) {
-                        Console.Error.WriteLine($"{Constants.ErrorChar} Script '{workspaceName}.{scriptName}' (language: {resolvedLanguage}) could not be invoked. It does not appear to be registered as a function.\n- Check the script's language tag and that initialization completed.\n- Verify the workspace name and that the script is under that workspace.\nDetails: {ex.Message}");
+                        var root = ex.GetBaseException();
+                        Console.Error.WriteLine($"{Constants.ErrorChar} Script '{workspaceName}.{scriptName}' (language: {resolvedLanguage}) threw an error.\n- Verify the script body compiles and any required packages are installed.\n- Enable A2C_SCRIPT_DEBUG=1 for more details.\nDetails: {root.Message}\n{root.StackTrace}");
                         return Result.Error;
                     }
                 }
@@ -428,26 +417,17 @@ internal class RunWsScriptCommand {
 
             if (string.IsNullOrEmpty(workspaceName)) {
                 var cacheKey = $"js:root:{scriptName}";
-                if (_jsFuncCache.ContainsKey(cacheKey)) {
-                    return;
-                }
+                if (_jsFuncCache.ContainsKey(cacheKey)) { return; }
                 object? func = null;
                 if (a2c is IDictionary<string, object?> a2cDict) {
                     a2cDict.TryGetValue(scriptName, out func);
                 } else {
                     try { func = ((object)a2c).GetType().GetProperty(scriptName)?.GetValue(a2c); } catch { func = null; }
                 }
-                if (func is Microsoft.ClearScript.ScriptObject so) {
-                    _jsFuncCache.TryAdd(cacheKey, so);
-                    if (IsScriptDebugEnabled()) {
-                        Console.Error.WriteLine($"[script-debug] promote cache add: {cacheKey}");
-                    }
-                }
+                if (func is Microsoft.ClearScript.ScriptObject so) { _jsFuncCache.TryAdd(cacheKey, so); }
             } else {
                 var cacheKey = $"js:ws:{workspaceName}:{scriptName}";
-                if (_jsFuncCache.ContainsKey(cacheKey)) {
-                    return;
-                }
+                if (_jsFuncCache.ContainsKey(cacheKey)) { return; }
                 object? wsObj = null;
                 object? func = null;
                 if (a2c.Workspaces is IDictionary<string, object?> workspaces && workspaces.TryGetValue(workspaceName, out wsObj) && wsObj is not null) {
@@ -457,12 +437,7 @@ internal class RunWsScriptCommand {
                         try { func = wsObj.GetType().GetProperty(scriptName)?.GetValue(wsObj); } catch { func = null; }
                     }
                 }
-                if (func is Microsoft.ClearScript.ScriptObject so) {
-                    _jsFuncCache.TryAdd(cacheKey, so);
-                    if (IsScriptDebugEnabled()) {
-                        Console.Error.WriteLine($"[script-debug] promote cache add: {cacheKey}");
-                    }
-                }
+                if (func is Microsoft.ClearScript.ScriptObject so) { _jsFuncCache.TryAdd(cacheKey, so); }
             }
         }
         catch { /* ignore promotion errors */ }
