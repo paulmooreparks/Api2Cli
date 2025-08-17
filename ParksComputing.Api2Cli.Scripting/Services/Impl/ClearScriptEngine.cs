@@ -23,6 +23,7 @@ using ParksComputing.Xfer.Lang;
 namespace ParksComputing.Api2Cli.Scripting.Services.Impl;
 
 internal partial class ClearScriptEngine : IApi2CliScriptEngine {
+    private bool _isInitialized = false;
     private readonly IPackageService _packageService;
     private readonly IWorkspaceService _workspaceService;
     private readonly ISettingsService _settingsService;
@@ -88,18 +89,21 @@ internal partial class ClearScriptEngine : IApi2CliScriptEngine {
     private readonly Dictionary<string, dynamic> _requestCache = new ();
 
     public void InitializeScriptEnvironment() {
+        if (_isInitialized) {
+            return;
+        }
         var assemblies = LoadPackageAssemblies();
 
         // _engine = new Engine(options => options.AllowClr(assemblies.ToArray()));
         _engine.AddHostObject("host", new ExtendedHostFunctions());
 
-        var typeCollection = new HostTypeCollection("mscorlib", "System", "System.Core", "ParksComputing.Api2Cli.Workspace");
+    // Expose selected host types; allow scripts to create their own 'clr' via host.lib to avoid name conflicts
+    var typeCollection = new HostTypeCollection("mscorlib", "System", "System.Core", "ParksComputing.Api2Cli.Workspace");
 
-        _engine.AddHostObject("clr", typeCollection);
-
-        _engine.AddHostType("Console", typeof(Console));
+    _engine.AddHostType("Console", typeof(Console));
         _engine.AddHostType("Task", typeof(Task));
         _engine.AddHostType("console", typeof(ConsoleScriptObject));
+    _engine.AddHostType("Environment", typeof(Environment));
         // _engine.AddHostObject("workspaceService", _workspaceService);
         _engine.AddHostObject("btoa", new Func<string, string>(s => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s))));
         _engine.AddHostObject("atob", new Func<string, string>(s => System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(s))));
@@ -107,7 +111,7 @@ internal partial class ClearScriptEngine : IApi2CliScriptEngine {
         _engine.AddHostObject("a2c", _a2c);
         dynamic da2c = _a2c;
 
-        if (_workspaceService is not null && _workspaceService.BaseConfig is not null && _workspaceService?.BaseConfig.Workspaces is not null) {
+    if (_workspaceService is not null && _workspaceService.BaseConfig is not null && _workspaceService?.BaseConfig.Workspaces is not null) {
             foreach (var kvp in _workspaceService.BaseConfig.Properties) {
                 if (!_a2c.TrySetProperty(kvp.Key, kvp.Value)) {
                     _diags.Emit(
@@ -119,6 +123,7 @@ internal partial class ClearScriptEngine : IApi2CliScriptEngine {
                 }
             }
 
+            // Define base handlers; defer global init execution until after projecting workspaces/requests
             try {
                 var globalPreRequestJs = GetJsScriptBody(_workspaceService.BaseConfig.PreRequest);
                 _engine.Execute(
@@ -148,19 +153,6 @@ function __postResponse(workspace, request) {{
             }
             catch (ScriptEngineException ex) {
                 Console.Error.WriteLine(ex.ErrorDetails);
-            }
-
-        if (_workspaceService.BaseConfig.InitScript is not null) {
-                try {
-            var initBody = GetJsScriptBody(_workspaceService.BaseConfig.InitScript);
-            ExecuteScript(initBody);
-                }
-                catch (ScriptEngineException ex) {
-                    Console.Error.WriteLine(ex.ErrorDetails);
-                }
-                catch (Exception ex) {
-                    Console.Error.WriteLine($"{Constants.ErrorChar} Error executing script: {ex.Message}");
-                }
             }
 
             foreach (var workspaceKvp in _workspaceService.BaseConfig.Workspaces) {
@@ -298,7 +290,33 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
                 DefineInitScript(workspace, workspaceObj);
                 CallInitScript(workspace, workspaceObj);
             }
+
+            // Now that workspaces and requests are projected, run the optional global init (JavaScript-only)
+            if (_workspaceService.BaseConfig.InitScript is not null) {
+                var initBody = GetJsScriptBody(_workspaceService.BaseConfig.InitScript);
+                if (!string.IsNullOrWhiteSpace(initBody)) {
+                    try {
+                        // Wrap as a function that accepts a workspace object
+                        var globalInit = $@"function __globalInitScript(workspace) {{ {GetScriptContent(initBody)} }}";
+                        _engine.Execute(globalInit);
+
+                        // Invoke for each workspace we projected
+                        foreach (var wsEntry in _workspaceCache) {
+                            var wsObj = wsEntry.Value;
+                            _engine.Invoke("__globalInitScript", wsObj);
+                        }
+                    }
+                    catch (ScriptEngineException ex) {
+                        Console.Error.WriteLine(ex.ErrorDetails);
+                    }
+                    catch (Exception ex) {
+                        Console.Error.WriteLine($"{Constants.ErrorChar} Error executing script: {ex.Message}");
+                    }
+                }
+            }
         }
+
+        _isInitialized = true;
     }
 
     public void AddHostObject(string itemName, object? target) {
@@ -367,9 +385,10 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
 
         var srcHeaders = args[2] as IDictionary<string, string>;
 
-        if (srcHeaders is not null && request.headers is not null) {
+        // Copy headers from the caller into the dynamic request, overwriting duplicates
+        if (srcHeaders is not null) {
             foreach (var kvp in srcHeaders) {
-                headers.Add(kvp.Key, kvp.Value);
+                headers[kvp.Key] = kvp.Value;
             }
         }
 
@@ -555,6 +574,18 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
             catch (Exception ex) {
                 Console.Error.WriteLine($"{Constants.ErrorChar} Error executing init script: {ex.Message}");
             }
+        }
+    }
+
+    // Keyed variant: run only when language is JavaScript
+    public void ExecuteInitScript(ParksComputing.Xfer.Lang.XferKeyedValue? script)
+    {
+        var body = GetJsScriptBody(script);
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            try { ExecuteScript(body); }
+            catch (ScriptEngineException ex) { Console.Error.WriteLine(ex.ErrorDetails); }
+            catch (Exception ex) { Console.Error.WriteLine($"{Constants.ErrorChar} Error executing init script: {ex.Message}"); }
         }
     }
 }

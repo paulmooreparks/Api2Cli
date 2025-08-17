@@ -5,6 +5,9 @@ using System.Linq;
 using ParksComputing.Api2Cli.Orchestration.Services;
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.Workspace.Services;
+using ParksComputing.Xfer.Lang;
+using ParksComputing.Api2Cli.Workspace.Models;
+using System.Net.Http.Headers;
 // Note: Do not depend on CLI layer here.
 
 namespace ParksComputing.Api2Cli.Orchestration.Services.Impl;
@@ -100,7 +103,7 @@ __script__{name}
             }
         }
 
-        // Register workspace scripts wrappers for both JS and C#; assume a2c.workspaces exists
+    // Register workspace scripts wrappers for both JS and C#; assume a2c.workspaces exists
         foreach (var wkvp in _workspaceService.BaseConfig.Workspaces) {
             var wsName = wkvp.Key;
             var ws = wkvp.Value;
@@ -144,6 +147,118 @@ __script__{wsName}__{name}
                 }
             }
         }
+
+        // Execute C# init scripts if present (global and per-workspace, following existing JS order)
+        try {
+            ExecuteCSharpInitScripts();
+        } catch { /* non-fatal */ }
+    }
+
+    public void InvokePreRequest(
+        string workspaceName,
+        string requestName,
+        IDictionary<string, string> headers,
+        IList<string> parameters,
+        ref string? payload,
+        IDictionary<string, string> cookies,
+        object?[] extraArgs
+    ) {
+        var baseConfig = _workspaceService.BaseConfig;
+        var js = _engineFactory.GetEngine("javascript");
+        var cs = _engineFactory.GetEngine("csharp");
+
+        // Prepare C# globals for mutation from scripts
+        var payloadBox = new PayloadBox { Value = payload };
+        cs.SetValue("Headers", headers);
+        cs.SetValue("Parameters", parameters);
+        cs.SetValue("Cookies", cookies);
+    // Provide hidden globals matching JS side: workspace and request dynamics
+    dynamic wsDyn = new System.Dynamic.ExpandoObject();
+    wsDyn.name = workspaceName;
+    dynamic reqDyn = new System.Dynamic.ExpandoObject();
+    reqDyn.name = requestName;
+    reqDyn.headers = headers;
+    reqDyn.parameters = parameters;
+    reqDyn.payload = payload;
+    cs.SetValue("workspace", wsDyn);
+    cs.SetValue("request", reqDyn);
+        cs.SetValue("WorkspaceName", workspaceName);
+        cs.SetValue("RequestName", requestName);
+        cs.SetValue("ExtraArgs", extraArgs);
+        cs.SetValue("PayloadBox", payloadBox);
+
+        // Execute C# preRequest handlers in request -> workspace -> global order (mirrors JS chain semantics)
+        if (TryGetRequestDefinition(workspaceName, requestName, out var ws, out var req) && IsCSharp(req?.PreRequest)) {
+            SafeExecuteCSharp(cs, req!.PreRequest!.PayloadAsString);
+        }
+        if (ws is not null && IsCSharp(ws.PreRequest)) {
+            SafeExecuteCSharp(cs, ws.PreRequest!.PayloadAsString);
+        }
+        if (IsCSharp(baseConfig.PreRequest)) {
+            SafeExecuteCSharp(cs, baseConfig.PreRequest!.PayloadAsString);
+        }
+
+        // Apply any payload change made by C# scripts
+        payload = payloadBox.Value;
+
+        // Defer to existing JS preRequest wrapper chain for JavaScript handlers
+        js.InvokePreRequest(workspaceName, requestName, headers, parameters, payload, cookies, extraArgs);
+    }
+
+    public object? InvokePostResponse(
+        string workspaceName,
+        string requestName,
+        int statusCode,
+        System.Net.Http.Headers.HttpResponseHeaders headers,
+        string responseContent,
+        object?[] extraArgs
+    ) {
+        var js = _engineFactory.GetEngine("javascript");
+        var cs = _engineFactory.GetEngine("csharp");
+
+        object? lastCsResult = null;
+
+        // Provide response-related globals to C# scripts
+        cs.SetValue("WorkspaceName", workspaceName);
+        cs.SetValue("RequestName", requestName);
+        cs.SetValue("StatusCode", statusCode);
+        cs.SetValue("ResponseHeaders", headers);
+        cs.SetValue("ResponseContent", responseContent);
+        cs.SetValue("ExtraArgs", extraArgs);
+
+    // Hidden workspace/request dynamics for postResponse
+    dynamic wsDyn = new System.Dynamic.ExpandoObject();
+    wsDyn.name = workspaceName;
+    dynamic reqDyn = new System.Dynamic.ExpandoObject();
+    reqDyn.name = requestName;
+    reqDyn.response = new System.Dynamic.ExpandoObject();
+    reqDyn.response.statusCode = statusCode;
+    reqDyn.response.headers = headers;
+    reqDyn.response.body = responseContent;
+    cs.SetValue("workspace", wsDyn);
+    cs.SetValue("request", reqDyn);
+
+        // Execute C# postResponse in request -> workspace -> global order
+        if (TryGetRequestDefinition(workspaceName, requestName, out var ws, out var req) && IsCSharp(req?.PostResponse)) {
+            lastCsResult = SafeEvaluateCSharp(cs, req!.PostResponse!.PayloadAsString);
+        }
+        if (ws is not null && IsCSharp(ws.PostResponse)) {
+            lastCsResult = SafeEvaluateCSharp(cs, ws.PostResponse!.PayloadAsString);
+        }
+        var baseConfig = _workspaceService.BaseConfig;
+        if (IsCSharp(baseConfig.PostResponse)) {
+            lastCsResult = SafeEvaluateCSharp(cs, baseConfig.PostResponse!.PayloadAsString);
+        }
+
+        // Then defer to JS chain; prefer JS result if provided, else return last non-null C# result
+        var jsResult = js.InvokePostResponse(workspaceName, requestName, statusCode, headers, responseContent, extraArgs);
+        return jsResult ?? lastCsResult;
+    }
+
+    private static bool IsCSharp(XferKeyedValue? kv)
+    {
+        var lang = kv?.Keys?.FirstOrDefault();
+        return string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase) || string.Equals(lang, "cs", StringComparison.OrdinalIgnoreCase);
     }
 
     public void Warmup(int limit = 25, bool enable = false, bool debug = false)
@@ -213,5 +328,75 @@ __script__{wsName}__{name}
             default:
                 return $"string? {varName} = args.Length > {index} ? System.Convert.ToString(args[{index}]) : null;";
         }
+    }
+
+    // --- Helpers for orchestrating C# init and script execution ---
+
+    private void ExecuteCSharpInitScripts()
+    {
+    var cs = _engineFactory.GetEngine("csharp");
+    var js = _engineFactory.GetEngine("javascript");
+        var baseConfig = _workspaceService.BaseConfig;
+
+        // Global init
+        if (baseConfig.InitScript is not null)
+        {
+            // Call both engines with keyed init; each will no-op if language doesn't match
+            try { js.ExecuteInitScript(baseConfig.InitScript); } catch { /* ignore */ }
+            try { cs.ExecuteInitScript(baseConfig.InitScript); } catch { /* ignore */ }
+        }
+
+        // Workspace init (per workspace, call child then base to match existing JS order)
+        foreach (var kvp in baseConfig.Workspaces)
+        {
+            var wsName = kvp.Key;
+            var ws = kvp.Value;
+            ExecuteWorkspaceCSharpInitRecursive(cs, wsName, ws);
+        }
+    }
+
+    private void ExecuteWorkspaceCSharpInitRecursive(IApi2CliScriptEngine cs, string wsName, WorkspaceDefinition ws)
+    {
+        // Execute this workspace's init if C#
+        if (ws.InitScript is not null)
+        {
+            try { cs.ExecuteInitScript(ws.InitScript); } catch { /* ignore */ }
+            try { var js = _engineFactory.GetEngine("javascript"); js.ExecuteInitScript(ws.InitScript); } catch { /* ignore */ }
+        }
+
+        // Resolve and execute base chain
+        if (!string.IsNullOrEmpty(ws.Extend) && _workspaceService.BaseConfig.Workspaces.TryGetValue(ws.Extend, out var baseWs))
+        {
+            ExecuteWorkspaceCSharpInitRecursive(cs, ws.Extend, baseWs);
+        }
+    }
+
+    private static void SafeExecuteCSharp(IApi2CliScriptEngine cs, string? body)
+    {
+    if (string.IsNullOrWhiteSpace(body)) { return; }
+    try { cs.ExecuteScript(body); } catch { /* bubble up later if needed */ }
+    }
+
+    private static object? SafeEvaluateCSharp(IApi2CliScriptEngine cs, string? body)
+    {
+    if (string.IsNullOrWhiteSpace(body)) { return null; }
+    try { return cs.EvaluateScript(body); } catch { return null; }
+    }
+
+    private bool TryGetRequestDefinition(string workspaceName, string requestName, out WorkspaceDefinition? ws, out RequestDefinition? req)
+    {
+        ws = null;
+        req = null;
+        var bc = _workspaceService.BaseConfig;
+        if (!bc.Workspaces.TryGetValue(workspaceName, out ws) || ws is null)
+        {
+            return false;
+        }
+        return ws.Requests.TryGetValue(requestName, out req);
+    }
+
+    private sealed class PayloadBox
+    {
+        public string? Value { get; set; }
     }
 }

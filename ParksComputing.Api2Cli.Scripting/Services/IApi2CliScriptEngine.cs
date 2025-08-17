@@ -75,4 +75,10 @@ public interface IApi2CliScriptEngine {
     /// </summary>
     /// <param name="script">Initialization script content</param>
     void ExecuteInitScript(string? script);
+
+    /// <summary>
+    /// Executes a keyed initialization script (language-aware)
+    /// </summary>
+    /// <param name="script">Initialization script keyed by language (e.g., javascript/csharp)</param>
+    void ExecuteInitScript(ParksComputing.Xfer.Lang.XferKeyedValue? script);
 }

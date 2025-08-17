@@ -73,8 +73,9 @@
     preRequest csharp <'
         // You can add headers or tracing here
         // e.g., request.headers["X-Trace"] = Date.now().toString();
-        var x = 5;
-        Console.WriteLine(x);
+        int x = 5;
+        Console.WriteLine("In global pre-request");
+        Console.WriteLine($"x = {x}");
     '>
 
     postResponse <'

@@ -7,4 +7,25 @@ public interface IWorkspaceScriptingOrchestrator
 
     // Optional warmup limited by count
     void Warmup(int limit = 25, bool enable = false, bool debug = false);
+
+    // Execute pre-request chain across languages/scopes; may mutate headers/parameters/payload
+    void InvokePreRequest(
+        string workspaceName,
+        string requestName,
+        IDictionary<string, string> headers,
+        IList<string> parameters,
+        ref string? payload,
+        IDictionary<string, string> cookies,
+        object?[] extraArgs
+    );
+
+    // Execute post-response chain across languages/scopes and return final result (if any)
+    object? InvokePostResponse(
+        string workspaceName,
+        string requestName,
+        int statusCode,
+        System.Net.Http.Headers.HttpResponseHeaders headers,
+        string responseContent,
+        object?[] extraArgs
+    );
 }

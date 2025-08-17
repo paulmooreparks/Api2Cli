@@ -17,6 +17,8 @@ using Microsoft.ClearScript;
 using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
 using ParksComputing.Api2Cli.Http.Services;
+using ParksComputing.Api2Cli.Orchestration.Services;
+using System.Net.Http;
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
 
@@ -26,6 +28,7 @@ public class SendCommand {
     private readonly IWorkspaceService _ws;
     private readonly IApi2CliScriptEngineFactory _scriptEngineFactory;
     private readonly IApi2CliScriptEngine _scriptEngine;
+    private readonly IWorkspaceScriptingOrchestrator _orchestrator;
     private readonly IPropertyResolver _propertyResolver;
     private readonly ISettingsService _settingsService;
 
@@ -36,6 +39,7 @@ public class SendCommand {
         A2CApi a2c,
         IWorkspaceService workspaceService,
         IApi2CliScriptEngineFactory scriptEngineFactory,
+    IWorkspaceScriptingOrchestrator orchestrator,
         IPropertyResolver? propertyResolver,
         ISettingsService? settingsService
         )
@@ -48,6 +52,7 @@ public class SendCommand {
         _ws = workspaceService;
         _scriptEngineFactory = scriptEngineFactory;
         _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
+    _orchestrator = orchestrator;
 
         if (propertyResolver is null) {
             throw new ArgumentNullException(nameof(propertyResolver), "Property resolver cannot be null.");
@@ -270,15 +275,14 @@ public class SendCommand {
         }
 
         try {
-            _scriptEngine.InvokePreRequest(
+            _orchestrator.InvokePreRequest(
                 workspaceName,
                 requestName,
                 configHeaders,
                 finalParameters,
-                payload,
+                ref payload,
                 configCookies,
-                extraArgs.ToArray()
-                );
+                extraArgs.ToArray());
         }
         catch (Exception ex) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Error executing preRequest script: {ex.Message}");
@@ -305,11 +309,11 @@ public class SendCommand {
                     result = getCommand.Execute(endpoint, baseUrl, finalParameters, finalHeaders, finalCookies, isQuiet: true);
 
                     try {
-                        CommandResult = _scriptEngine.InvokePostResponse(
+                        CommandResult = _orchestrator.InvokePostResponse(
                             workspaceName,
                             requestName,
                             getCommand.StatusCode,
-                            getCommand.Headers,
+                            getCommand.Headers ?? new HttpResponseMessage().Headers,
                             getCommand.ResponseContent,
                             extraArgs.ToArray()
                             );
@@ -334,11 +338,11 @@ public class SendCommand {
                     result = postCommand.Execute(finalPayload, endpoint, baseUrl, finalHeaders);
 
                     try {
-                        CommandResult = _scriptEngine.InvokePostResponse(
+                        CommandResult = _orchestrator.InvokePostResponse(
                             workspaceName,
                             requestName,
                             postCommand.StatusCode,
-                            postCommand.Headers,
+                            postCommand.Headers ?? new HttpResponseMessage().Headers,
                             postCommand.ResponseContent,
                             extraArgs.ToArray()
                             );

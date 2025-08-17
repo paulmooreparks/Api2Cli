@@ -345,6 +345,23 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
         public void SetValue(string name, object? value) {
             ((IDictionary<string, object?>) _scriptGlobals)[name] = value;
             _globals[name] = value;
+
+            // Keep typed globals synchronized for well-known names so scripts can access them as identifiers
+            switch (name)
+            {
+                case "a2c" when value is A2CApi a2c:
+                    _typedGlobals.a2c = a2c;
+                    break;
+                case "a2cjs":
+                    _typedGlobals.a2cjs = value!;
+                    break;
+                case "workspace":
+                    _typedGlobals.workspace = value;
+                    break;
+                case "request":
+                    _typedGlobals.request = value;
+                    break;
+            }
         }
 
         public string ExecuteScript(string? script) {
@@ -427,7 +444,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
         }
 
         // Overload for keyed value scenarios (initScript on workspace/baseConfig)
-        public void ExecuteInitScript(XferKeyedValue? script) {
+    public void ExecuteInitScript(XferKeyedValue? script) {
             var lang = script?.Keys?.FirstOrDefault();
             if (string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase) || string.Equals(lang, "cs", StringComparison.OrdinalIgnoreCase)) {
                 var body = script?.PayloadAsString;
