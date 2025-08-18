@@ -1,11 +1,15 @@
 {
     initScript javascript <"
-            // JavaScript initialization script for tests
-            console.log("JS init ran");
+        function testFunction(message) {
+            console.log("Test function called with message:", message);
+        }
 
-            // Helper available to JavaScript scripts
-            function addNumbers(a, b) { return a + b; }
-        ">
+        // JavaScript initialization script for tests
+        console.log("JS init ran");
+
+        // Helper available to JavaScript scripts
+        function addNumbers(a, b) { return a + b; }
+    ">
 
     scripts {
         echo2 {
@@ -85,7 +89,85 @@
 
     workspaces {
         demo {
-            description "Workspace used for JS and C# scripting tests."
+            description "Sample REST API: https://jsonplaceholder.typicode.com"
+            baseUrl "https://jsonplaceholder.typicode.com/"
+
+            scripts {
+                listposts {
+                    description "JS: list the number of posts (GET /posts)."
+                    script <'
+                        let body = workspace.requests.posts.execute();
+                        let arr = JSON.parse(body);
+                        console.log(`There are ${arr.length} posts.`);
+                        return arr.length;
+                    '>
+                }
+
+                getpost {
+                    description "JS: fetch a single post by id (GET /posts/{id})."
+                    arguments { id { type "number" description "Post id" default 1 } }
+                    script <'
+                        let body = workspace.requests.post.execute(id);
+                        console.log(formatJson(body));
+                        return body;
+                    '>
+                }
+
+                postsummary {
+                    description "C#: show a tiny summary of the first post using Newtonsoft.Json (requires package)."
+                    script csharp <"
+                        // testFunction("Hello from C#");
+                        // Ensure package installed: a2c package install newtonsoft.json
+                        var raw = (string)workspace.requests.posts.execute();
+                        var arr = Newtonsoft.Json.Linq.JArray.Parse(raw);
+                        var first = arr.FirstOrDefault();
+                        if (first == null) return "No posts";
+                        Console.WriteLine($"#{first.Value<int>("id")}: {first.Value<string>("title")}");
+                        return Newtonsoft.Json.JsonConvert.SerializeObject(first, Newtonsoft.Json.Formatting.Indented);
+                    ">
+                }
+
+                cstest {
+                    description "C#: test."
+                    script csharp <"
+                        // testFunction("Hello from C#");
+                    ">
+                }
+
+                jstest {
+                    description "JavaScript: test."
+                    script javascript <"
+                        testFunction("Hello from JavaScript");
+                    ">
+                }
+            }
+
+            requests {
+                posts {
+                    endpoint "/posts"
+                    method "GET"
+                    headers { Accept "application/json" }
+                }
+
+                post {
+                    endpoint "/posts/{{[arg]::id}}"
+                    method "GET"
+                    headers { Accept "application/json" }
+                    arguments { id { type "number" description "Post id" } }
+                }
+
+                createpost {
+                    endpoint "/posts"
+                    method "POST"
+                    headers { Content-Type "application/json" }
+                    arguments {
+                        title { type "string" description "Post title" default "hello" }
+                        body { type "string" description "Post body" default "lorem ipsum" }
+                        userId { type "number" description "User id" default 1 }
+                    }
+                    payload <'{ "title": "{{[arg]::title}}", "body": "{{[arg]::body}}", "userId": {{[arg]::userId}} }'>
+                }
+            }
         }
     }
 }
