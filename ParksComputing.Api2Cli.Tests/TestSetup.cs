@@ -4,6 +4,7 @@ using ParksComputing.Api2Cli.Api;
 using ParksComputing.Api2Cli.Http;
 using ParksComputing.Api2Cli.Scripting;
 using ParksComputing.Api2Cli.Diagnostics;
+using ParksComputing.Api2Cli.Orchestration;
 // using ParksComputing.Api2Cli.Cli.Services;
 // using ParksComputing.Api2Cli.Cli.Services.Impl;
 using ParksComputing.Api2Cli.DataStore;
@@ -19,6 +20,7 @@ public static class TestSetup
         services.AddApi2CliWorkspaceServices();
         services.AddApi2CliHttpServices();
         services.AddApi2CliScriptingServices();
+    services.AddApi2CliOrchestration();
         services.AddApi2CliDiagnosticsServices("Api2Cli");
         // services.AddSingleton<ICommandSplitter, CommandSplitter>();
         // services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();

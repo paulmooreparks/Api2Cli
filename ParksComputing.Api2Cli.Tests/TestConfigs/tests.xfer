@@ -1,4 +1,12 @@
 {
+    initScript javascript <"
+            // JavaScript initialization script for tests
+            console.log("JS init ran");
+
+            // Helper available to JavaScript scripts
+            function addNumbers(a, b) { return a + b; }
+        ">
+
     scripts {
         echo2 {
             description "Echo two params from C# and return sum."
@@ -45,6 +53,7 @@
                 a2c.process.run(process);
             ">
         }
+
         cslaunch {
             arguments {
                 process {
@@ -56,96 +65,27 @@
                 a2c.Process.Run(process);
             ">
         }
+
+        jsUsesInit {
+            description "Call addNumbers defined in JavaScript init."
+            script javascript <"
+                return addNumbers(5, 7);
+            ">
+        }
+
+        </
+        csUsesInit {
+            description "Call addNumbers defined in C# init."
+            script csharp <"
+                return addNumbers(5, 7);
+            ">
+        }
+        />
     }
 
     workspaces {
         demo {
             description "Workspace used for JS and C# scripting tests."
-            scripts {
-                jswslaunch {
-                    arguments {
-                        process {
-                            type "string"
-                            description "The process to launch."
-                        }
-                    }
-                    script <"
-                        a2c.process.run(process);
-                    ">
-                }
-                testjs {
-                    arguments {
-                        message {
-                            type "string"
-                            description "Message to echo."
-                            default "Hello from workspace JS"
-                        }
-                    }
-                    script <"
-                        console.log(`${message} from testjs`);
-                    ">
-                }
-                wsecho {
-                    description "Echo a message from a workspace JS script and return its length."
-                    arguments {
-                        message {
-                            type "string"
-                            description "Message to echo."
-                            default "Hello from workspace JS"
-                        }
-                    }
-                    script javascript <"
-                        workspace.testjs(message);
-                        // This line used to work to call another JavaScript script from this one. It should still work for
-                        // JavaScript and also work for C# scripts.
-                        workspace.wssum(2, 3, 4);
-
-                        // JS workspace script: has implicit 'workspace' arg via wrapper
-                        Console.WriteLine(`WSECHO [${workspace.name}] ${message}`);
-
-                        return message?.length ?? 0;
-                    ">
-                }
-
-                wssum {
-                    description "Sum two numbers in a workspace C# script; prints result 'times' times."
-                    arguments {
-                        a { type "number" description "First number." }
-                        b { type "number" description "Second number." }
-                        times {
-                            type "number"
-                            description "How many times to print."
-                            default 1
-                        }
-                    }
-                    script csharp <"
-                        // This works for calling into JavaScript from C#
-                        workspace.testjs("Hello");
-                        for (var i = 0; i < times; i++) {
-                            Console.WriteLine($"WSSUM [{workspace.name}] {a} + {b} = {a + b}");
-                        }
-                        return a + b;
-                    ">
-                }
-
-                wsjson {
-                    description "Serialize a payload using Newtonsoft.Json (NuGet validation)."
-                    arguments {
-                        message {
-                            type "string"
-                            description "Message to serialize."
-                            default "Hello from wsjson"
-                        }
-                    }
-                    script csharp <"
-                        // Validate that NuGet package assemblies are referenced for C# scripts
-                        var obj = new { message = message, when = DateTime.UtcNow };
-                        var json = Newtonsoft.Json.JsonConvert.SerializeObject(obj);
-                        Console.WriteLine($"WSJSON [{workspace.name}] => {json}");
-                        return json;
-                    ">
-                }
-            }
         }
     }
 }

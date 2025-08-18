@@ -15,6 +15,10 @@
 
     </ Global init: convenience helpers available to all scripts />
     initScript <'
+        function testFunction(message) {
+            console.log("Test function called with message:", message);
+        }
+
         function formatJson(rawJson) {
             try { let obj = (typeof rawJson === 'string') ? JSON.parse(rawJson) : rawJson; return JSON.stringify(obj, null, 2); }
             catch { return String(rawJson); }
@@ -183,6 +187,7 @@
                 postsummary {
                     description "C#: show a tiny summary of the first post using Newtonsoft.Json (requires package)."
                     script csharp <"
+                        testFunction("Hello from C#");
                         // Ensure package installed: a2c package install newtonsoft.json
                         var raw = (string)workspace.requests.posts.execute();
                         var arr = Newtonsoft.Json.Linq.JArray.Parse(raw);
@@ -190,6 +195,20 @@
                         if (first == null) return "No posts";
                         Console.WriteLine($"#{first.Value<int>("id")}: {first.Value<string>("title")}");
                         return Newtonsoft.Json.JsonConvert.SerializeObject(first, Newtonsoft.Json.Formatting.Indented);
+                    ">
+                }
+
+                cstest {
+                    description "C#: test."
+                    script csharp <"
+                        testFunction("Hello from C#");
+                    ">
+                }
+
+                jstest {
+                    description "JavaScript: test."
+                    script javascript <"
+                        testFunction("Hello from JavaScript");
                     ">
                 }
             }

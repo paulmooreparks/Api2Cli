@@ -12,9 +12,9 @@
             "program": "${workspaceFolder}/a2c/bin/Debug/net8.0/a2c.dll",
             "args": [
                 "--config",
-                "${workspaceFolder}/.a2c/workspaces.xfer",
-                "jsonplaceholder",
-                "postsummary"
+                "${workspaceFolder}/ParksComputing.Api2Cli.Tests/TestConfigs/tests.xfer",
+                "csmessage",
+                "Hi"
             ],
             "cwd": "${workspaceFolder}/a2c",
             "stopAtEntry": false,

@@ -12,59 +12,69 @@ using System.Net.Http.Headers;
 
 namespace ParksComputing.Api2Cli.Orchestration.Services.Impl;
 
-internal class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrchestrator
-{
+internal class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrchestrator {
     private readonly IApi2CliScriptEngineFactory _engineFactory;
     private readonly IWorkspaceService _workspaceService;
 
-    public WorkspaceScriptingOrchestrator(IApi2CliScriptEngineFactory engineFactory, IWorkspaceService workspaceService)
-    {
+    public WorkspaceScriptingOrchestrator(IApi2CliScriptEngineFactory engineFactory, IWorkspaceService workspaceService) {
         _engineFactory = engineFactory;
         _workspaceService = workspaceService;
     }
 
-    public void Initialize()
-    {
+    public void Initialize() {
         var js = _engineFactory.GetEngine("javascript");
         js.InitializeScriptEnvironment();
 
         var cs = _engineFactory.GetEngine("csharp");
         cs.InitializeScriptEnvironment();
 
-    // CLI-level JS function cache is process-local; nothing to clear here.
+        // CLI-level JS function cache is process-local; nothing to clear here.
 
-    // Bridge for invoking C# script wrappers from JS: expose a2cCsharpInvoke and a2c.csharpInvoke(name, argsArray)
-    js.AddHostObject("a2cCsharpInvoke", new Func<string, object?, object?>((fname, argsObj) => {
-        object?[] argsArray;
-        switch (argsObj)
-        {
-            case null:
-                argsArray = Array.Empty<object?>();
-                break;
-            case object?[] arr:
-                argsArray = arr;
-                break;
-            case System.Collections.IEnumerable enumerable when argsObj is not string:
-                var list = new List<object?>();
-                foreach (var item in enumerable)
-                {
-                    list.Add(item);
-                }
-                argsArray = list.ToArray();
-                break;
-            default:
-                argsArray = new object?[] { argsObj };
-                break;
+        // Bridge for invoking C# script wrappers from JS: expose a2cCsharpInvoke and a2c.csharpInvoke(name, argsArray)
+        js.AddHostObject("a2cCsharpInvoke", new Func<string, object?, object?>((fname, argsObj) => {
+            object?[] argsArray;
+            switch (argsObj) {
+                case null:
+                    argsArray = Array.Empty<object?>();
+                    break;
+                case object?[] arr:
+                    argsArray = arr;
+                    break;
+                case System.Collections.IEnumerable enumerable when argsObj is not string:
+                    var list = new List<object?>();
+                    foreach (var item in enumerable) {
+                        list.Add(item);
+                    }
+                    argsArray = list.ToArray();
+                    break;
+                default:
+                    argsArray = new object?[] { argsObj };
+                    break;
+            }
+            return cs.Invoke(fname, argsArray);
+        }));
+        js.EvaluateScript("a2c.csharpInvoke = function(name, args) { return a2cCsharpInvoke(name, args); };");
+
+        // Ensure C# init scripts run before compiling any C# wrappers so helpers defined in init are in scope
+        try {
+            ExecuteCSharpInitScripts();
         }
-        return cs.Invoke(fname, argsArray);
-    }));
-    js.EvaluateScript("a2c.csharpInvoke = function(name, args) { return a2cCsharpInvoke(name, args); };");
+        catch { /* non-fatal */ }
 
-    // Register root scripts into JS engine's a2c and C# engine globals
-    foreach (var script in _workspaceService.BaseConfig.Scripts) {
+        // Execute JavaScript init scripts at top-level so helpers persist
+        var baseConfig = _workspaceService.BaseConfig;
+
+        foreach (var wkvp in baseConfig.Workspaces) {
+            var wsName = wkvp.Key;
+            var ws = wkvp.Value;
+            try { js.ExecuteInitScript(ws.InitScript); } catch { /* ignore */ }
+        }
+
+        // Register root scripts into JS engine's a2c and C# engine globals
+        foreach (var script in _workspaceService.BaseConfig.Scripts) {
             var name = script.Key;
             var def = script.Value;
-        var (lang, body) = def.ResolveLanguageAndBody();
+            var (lang, body) = def.ResolveLanguageAndBody();
             var paramList = string.Join(", ", def.Arguments.Select(a => a.Value.Name ?? a.Key));
 
             if (string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) {
@@ -74,12 +84,13 @@ internal class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrchestrator
 
 a2c.{name} = __script__{name};";
                 js.EvaluateScript(source);
-            } else if (string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase)) {
+            }
+            else if (string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase)) {
                 // Build a C# delegate wrapper: store under __script__{name} in C# engine, and expose a2c.{name} in JS to call back into C#
                 // C#: compile a delegate that accepts object?[] and runs the script body; result assigned to globals["__script__{name}"]
-        var argDecl = def.Arguments.Any()
-            ? string.Join("\n    ", def.Arguments.Select((a, idx) => BuildCsArgDeclaration(a.Value.Type, a.Value.Name ?? a.Key, idx)))
-            : string.Empty;
+                var argDecl = def.Arguments.Any()
+                    ? string.Join("\n    ", def.Arguments.Select((a, idx) => BuildCsArgDeclaration(a.Value.Type, a.Value.Name ?? a.Key, idx)))
+                    : string.Empty;
                 // If the body looks like a simple expression (no semicolon and no 'return'), wrap it in a return statement
                 var scriptBody = body;
                 if (!(body.Contains(";") || body.Contains("return", StringComparison.OrdinalIgnoreCase))) {
@@ -103,7 +114,7 @@ __script__{name}
             }
         }
 
-    // Register workspace scripts wrappers for both JS and C#; assume a2c.workspaces exists
+        // Register workspace scripts wrappers for both JS and C#; assume a2c.workspaces exists
         foreach (var wkvp in _workspaceService.BaseConfig.Workspaces) {
             var wsName = wkvp.Key;
             var ws = wkvp.Value;
@@ -113,13 +124,15 @@ __script__{name}
                 var (lang, body) = def.ResolveLanguageAndBody();
                 var paramList = string.Join(", ", def.Arguments.Select(a => a.Value.Name ?? a.Key));
                 if (string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) {
-                    var source = $@"function __script__{wsName}__{name}(workspace, {paramList}) {{
+                    var source =
+                    $@"function __script__{wsName}__{name}(workspace, {paramList}) {{
 {body}
 }};
 
 a2c.workspaces['{wsName}']['{name}'] = (" + (string.IsNullOrEmpty(paramList) ? "" : paramList + ", ") + $"...rest) => __script__{wsName}__{name}(a2c.workspaces['{wsName}'], " + (string.IsNullOrEmpty(paramList) ? "" : paramList + ", ") + "...rest);";
                     js.EvaluateScript(source);
-                } else if (string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase)) {
+                }
+                else if (string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase)) {
                     // C#: wrapper takes object?[]; arg0 is workspace, next are declared params
                     var argDecl = def.Arguments.Any()
                         ? string.Join("\n    ", def.Arguments.Select((a, idx) => BuildCsArgDeclaration(a.Value.Type, a.Value.Name ?? a.Key, idx + 1)))
@@ -148,10 +161,7 @@ __script__{wsName}__{name}
             }
         }
 
-        // Execute C# init scripts if present (global and per-workspace, following existing JS order)
-        try {
-            ExecuteCSharpInitScripts();
-        } catch { /* non-fatal */ }
+        // C# init already executed above to satisfy wrapper dependencies
     }
 
     public void InvokePreRequest(
@@ -172,16 +182,16 @@ __script__{wsName}__{name}
         cs.SetValue("Headers", headers);
         cs.SetValue("Parameters", parameters);
         cs.SetValue("Cookies", cookies);
-    // Provide hidden globals matching JS side: workspace and request dynamics
-    dynamic wsDyn = new System.Dynamic.ExpandoObject();
-    wsDyn.name = workspaceName;
-    dynamic reqDyn = new System.Dynamic.ExpandoObject();
-    reqDyn.name = requestName;
-    reqDyn.headers = headers;
-    reqDyn.parameters = parameters;
-    reqDyn.payload = payload;
-    cs.SetValue("workspace", wsDyn);
-    cs.SetValue("request", reqDyn);
+        // Provide hidden globals matching JS side: workspace and request dynamics
+        dynamic wsDyn = new System.Dynamic.ExpandoObject();
+        wsDyn.name = workspaceName;
+        dynamic reqDyn = new System.Dynamic.ExpandoObject();
+        reqDyn.name = requestName;
+        reqDyn.headers = headers;
+        reqDyn.parameters = parameters;
+        reqDyn.payload = payload;
+        cs.SetValue("workspace", wsDyn);
+        cs.SetValue("request", reqDyn);
         cs.SetValue("WorkspaceName", workspaceName);
         cs.SetValue("RequestName", requestName);
         cs.SetValue("ExtraArgs", extraArgs);
@@ -226,17 +236,17 @@ __script__{wsName}__{name}
         cs.SetValue("ResponseContent", responseContent);
         cs.SetValue("ExtraArgs", extraArgs);
 
-    // Hidden workspace/request dynamics for postResponse
-    dynamic wsDyn = new System.Dynamic.ExpandoObject();
-    wsDyn.name = workspaceName;
-    dynamic reqDyn = new System.Dynamic.ExpandoObject();
-    reqDyn.name = requestName;
-    reqDyn.response = new System.Dynamic.ExpandoObject();
-    reqDyn.response.statusCode = statusCode;
-    reqDyn.response.headers = headers;
-    reqDyn.response.body = responseContent;
-    cs.SetValue("workspace", wsDyn);
-    cs.SetValue("request", reqDyn);
+        // Hidden workspace/request dynamics for postResponse
+        dynamic wsDyn = new System.Dynamic.ExpandoObject();
+        wsDyn.name = workspaceName;
+        dynamic reqDyn = new System.Dynamic.ExpandoObject();
+        reqDyn.name = requestName;
+        reqDyn.response = new System.Dynamic.ExpandoObject();
+        reqDyn.response.statusCode = statusCode;
+        reqDyn.response.headers = headers;
+        reqDyn.response.body = responseContent;
+        cs.SetValue("workspace", wsDyn);
+        cs.SetValue("request", reqDyn);
 
         // Execute C# postResponse in request -> workspace -> global order
         if (TryGetRequestDefinition(workspaceName, requestName, out var ws, out var req) && IsCSharp(req?.PostResponse)) {
@@ -255,14 +265,12 @@ __script__{wsName}__{name}
         return jsResult ?? lastCsResult;
     }
 
-    private static bool IsCSharp(XferKeyedValue? kv)
-    {
+    private static bool IsCSharp(XferKeyedValue? kv) {
         var lang = kv?.Keys?.FirstOrDefault();
         return string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase) || string.Equals(lang, "cs", StringComparison.OrdinalIgnoreCase);
     }
 
-    public void Warmup(int limit = 25, bool enable = false, bool debug = false)
-    {
+    public void Warmup(int limit = 25, bool enable = false, bool debug = false) {
         if (!enable) {
             return;
         }
@@ -311,8 +319,7 @@ __script__{wsName}__{name}
 
     }
     // Helper to build typed C# argument declarations inside the Roslyn script wrappers
-    private static string BuildCsArgDeclaration(string? argType, string varName, int argIndex)
-    {
+    private static string BuildCsArgDeclaration(string? argType, string varName, int argIndex) {
         var index = argIndex.ToString();
         switch ((argType ?? "string").ToLowerInvariant()) {
             case "number":
@@ -332,71 +339,54 @@ __script__{wsName}__{name}
 
     // --- Helpers for orchestrating C# init and script execution ---
 
-    private void ExecuteCSharpInitScripts()
-    {
-    var cs = _engineFactory.GetEngine("csharp");
-    var js = _engineFactory.GetEngine("javascript");
+    private void ExecuteCSharpInitScripts() {
+        var cs = _engineFactory.GetEngine("csharp");
         var baseConfig = _workspaceService.BaseConfig;
 
-        // Global init
-        if (baseConfig.InitScript is not null)
-        {
-            // Call both engines with keyed init; each will no-op if language doesn't match
-            try { js.ExecuteInitScript(baseConfig.InitScript); } catch { /* ignore */ }
-            try { cs.ExecuteInitScript(baseConfig.InitScript); } catch { /* ignore */ }
-        }
+        // Global init for C#
+        try { cs.ExecuteInitScript(baseConfig.InitScript); } catch { /* ignore */ }
 
         // Workspace init (per workspace, call child then base to match existing JS order)
-        foreach (var kvp in baseConfig.Workspaces)
-        {
+        foreach (var kvp in baseConfig.Workspaces) {
             var wsName = kvp.Key;
             var ws = kvp.Value;
             ExecuteWorkspaceCSharpInitRecursive(cs, wsName, ws);
         }
     }
 
-    private void ExecuteWorkspaceCSharpInitRecursive(IApi2CliScriptEngine cs, string wsName, WorkspaceDefinition ws)
-    {
+    private void ExecuteWorkspaceCSharpInitRecursive(IApi2CliScriptEngine cs, string wsName, WorkspaceDefinition ws) {
         // Execute this workspace's init if C#
-        if (ws.InitScript is not null)
-        {
-            try { cs.ExecuteInitScript(ws.InitScript); } catch { /* ignore */ }
-            try { var js = _engineFactory.GetEngine("javascript"); js.ExecuteInitScript(ws.InitScript); } catch { /* ignore */ }
-        }
+        try { cs.ExecuteInitScript(ws.InitScript); } catch { /* ignore */ }
 
         // Resolve and execute base chain
-        if (!string.IsNullOrEmpty(ws.Extend) && _workspaceService.BaseConfig.Workspaces.TryGetValue(ws.Extend, out var baseWs))
-        {
+        if (!string.IsNullOrEmpty(ws.Extend) && _workspaceService.BaseConfig.Workspaces.TryGetValue(ws.Extend, out var baseWs)) {
             ExecuteWorkspaceCSharpInitRecursive(cs, ws.Extend, baseWs);
         }
     }
 
-    private static void SafeExecuteCSharp(IApi2CliScriptEngine cs, string? body)
-    {
-    if (string.IsNullOrWhiteSpace(body)) { return; }
-    try { cs.ExecuteScript(body); } catch { /* bubble up later if needed */ }
+    private static void SafeExecuteCSharp(IApi2CliScriptEngine cs, string? body) {
+        if (string.IsNullOrWhiteSpace(body)) { return; }
+        try { cs.ExecuteScript(body); } catch { /* bubble up later if needed */ }
     }
 
-    private static object? SafeEvaluateCSharp(IApi2CliScriptEngine cs, string? body)
-    {
-    if (string.IsNullOrWhiteSpace(body)) { return null; }
-    try { return cs.EvaluateScript(body); } catch { return null; }
+    private static object? SafeEvaluateCSharp(IApi2CliScriptEngine cs, string? body) {
+        if (string.IsNullOrWhiteSpace(body)) { return null; }
+        try { return cs.EvaluateScript(body); } catch { return null; }
     }
 
-    private bool TryGetRequestDefinition(string workspaceName, string requestName, out WorkspaceDefinition? ws, out RequestDefinition? req)
-    {
+    private bool TryGetRequestDefinition(string workspaceName, string requestName, out WorkspaceDefinition? ws, out RequestDefinition? req) {
         ws = null;
         req = null;
         var bc = _workspaceService.BaseConfig;
-        if (!bc.Workspaces.TryGetValue(workspaceName, out ws) || ws is null)
-        {
+        if (!bc.Workspaces.TryGetValue(workspaceName, out ws) || ws is null) {
             return false;
         }
         return ws.Requests.TryGetValue(requestName, out req);
     }
 
-    private sealed class PayloadBox
-    {
+    private sealed class PayloadBox {
         public string? Value { get; set; }
     }
+
+
 }

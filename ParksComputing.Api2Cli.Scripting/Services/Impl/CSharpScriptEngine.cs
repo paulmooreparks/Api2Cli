@@ -445,13 +445,35 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
 
         // Overload for keyed value scenarios (initScript on workspace/baseConfig)
     public void ExecuteInitScript(XferKeyedValue? script) {
-            var lang = script?.Keys?.FirstOrDefault();
-            if (string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase) || string.Equals(lang, "cs", StringComparison.OrdinalIgnoreCase)) {
-                var body = script?.PayloadAsString;
-                if (!string.IsNullOrWhiteSpace(body)) {
-                    try { ExecuteScript(body); } catch (Exception ex) { _diags.Emit("InitScriptError", new { Message = ex.Message }); }
-                }
+            var body = GetInitBodyForLanguage(script, "csharp");
+            if (!string.IsNullOrWhiteSpace(body)) {
+                try { ExecuteScript(body); } catch (Exception ex) { _diags.Emit("InitScriptError", new { Message = ex.Message }); }
             }
         }
+
+        private static string GetInitBodyForLanguage(XferKeyedValue? kv, string language)
+        {
+            // Return the script body exactly as provided in the configuration.
+            // Honor keyed language (defaulting to javascript when missing) and support cs/csharp aliases.
+            if (kv is null) {
+                return string.Empty;
+            }
+
+            var body = kv.PayloadAsString ?? string.Empty;
+
+            if (string.IsNullOrEmpty(body)) {
+                return string.Empty;
+            }
+
+            var lang = kv.Keys?.FirstOrDefault();
+
+            bool matches =
+                string.Equals(lang, language, StringComparison.OrdinalIgnoreCase)
+                || (string.Equals(lang, "cs", StringComparison.OrdinalIgnoreCase) && language.Equals("csharp", StringComparison.OrdinalIgnoreCase))
+                || (string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase) && language.Equals("cs", StringComparison.OrdinalIgnoreCase));
+
+            return matches ? body : string.Empty;
+        }
+
     }
 }

@@ -29,55 +29,62 @@ internal class Program {
     static async Task<int> Main(string[] args) {
         DiagnosticListener.AllListeners.Subscribe(new MyObserver());
 
+        // Fast-path: handle --version/-v before building services (avoid heavy startup)
+        bool onlyVersion = args.Length == 1 && (string.Equals(args[0], "--version", StringComparison.OrdinalIgnoreCase) || string.Equals(args[0], "-v", StringComparison.OrdinalIgnoreCase));
+
+        if (onlyVersion) {
+            var asm = Assembly.GetExecutingAssembly();
+            var ver = asm.GetName().Version;
+            var verStr = ver != null ? $"{ver.Major}.{ver.Minor}.{ver.Build}" : "Unknown";
+            Console.WriteLine($"a2c v{verStr}");
+            return 0;
+        }
+
         // Early parse: capture --config/-c before services initialize so we can override the workspace file path.
-        try {
-            for (int i = 0; i < args.Length; i++) {
-                if (string.Equals(args[i], "--config", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-c", StringComparison.OrdinalIgnoreCase)) {
-                    var next = (i + 1) < args.Length ? args[i + 1] : null;
-                    if (!string.IsNullOrWhiteSpace(next)) {
-                        Environment.SetEnvironmentVariable("A2C_WORKSPACE_CONFIG", next);
-                    }
-                    break;
+        for (int i = 0; i < args.Length; i++) {
+            if (string.Equals(args[i], "--config", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-c", StringComparison.OrdinalIgnoreCase)) {
+                var next = (i + 1) < args.Length ? args[i + 1] : null;
+                if (!string.IsNullOrWhiteSpace(next)) {
+                    Environment.SetEnvironmentVariable("A2C_WORKSPACE_CONFIG", next);
                 }
+                break;
             }
-        } catch { /* ignore */ }
+        }
 
         // Early parse: capture --packages/-P before services initialize so we can override the packages directory.
-        try {
-            for (int i = 0; i < args.Length; i++) {
-                if (string.Equals(args[i], "--packages", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-P", StringComparison.OrdinalIgnoreCase)) {
-                    var next = (i + 1) < args.Length ? args[i + 1] : null;
-                    if (!string.IsNullOrWhiteSpace(next)) {
-                        Environment.SetEnvironmentVariable("A2C_PACKAGES_DIR", next);
-                    }
-                    break;
+        for (int i = 0; i < args.Length; i++) {
+            if (string.Equals(args[i], "--packages", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-P", StringComparison.OrdinalIgnoreCase)) {
+                var next = (i + 1) < args.Length ? args[i + 1] : null;
+                if (!string.IsNullOrWhiteSpace(next)) {
+                    Environment.SetEnvironmentVariable("A2C_PACKAGES_DIR", next);
                 }
+                break;
             }
-        } catch { /* ignore */ }
+        }
 
         var cli = new ClifferBuilder()
-            .ConfigureServices(services => {
-                services.AddApi2CliWorkspaceServices();
-                services.AddApi2CliHttpServices();
-                services.AddApi2CliScriptingServices();
-                services.AddApi2CliOrchestration();
-                services.AddApi2CliDiagnosticsServices("Api2Cli");
-                services.AddSingleton<ICommandSplitter, CommandSplitter>();
-                services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();
+                .ConfigureServices(services => {
+                    services.AddApi2CliWorkspaceServices();
+                    services.AddApi2CliHttpServices();
+                    services.AddApi2CliScriptingServices();
+                    services.AddApi2CliOrchestration();
+                    services.AddApi2CliDiagnosticsServices("Api2Cli");
+                    services.AddSingleton<ICommandSplitter, CommandSplitter>();
+                    services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();
 
-                string databasePath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    Constants.Api2CliDirectoryName,
-                    Constants.StoreFileName
-                );
+                    string databasePath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                        Constants.Api2CliDirectoryName,
+                        Constants.StoreFileName
+                    );
 
-                if (!Directory.Exists(Path.GetDirectoryName(databasePath))) {
-                    Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
-                }
+                    if (!Directory.Exists(Path.GetDirectoryName(databasePath))) {
+                        Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
+                    }
 
-                services.AddApi2CliDataStore(databasePath);
-            })
-            .Build();
+                    services.AddApi2CliDataStore(databasePath);
+                })
+                .Build();
 
         Cliffer.Macro.CustomMacroArgumentProcessor += CustomMacroArgumentProcessor;
         Utility.SetServiceProvider(cli.ServiceProvider);

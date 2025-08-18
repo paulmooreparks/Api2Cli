@@ -7,10 +7,12 @@ public class BaseConfig
 {
     [XferProperty("activeWorkspace")]
     public string? ActiveWorkspace { get; set; }
+    // Language-scoped init scripts as a simple map of language -> raw script body
+    // e.g. { javascript: <"...">, csharp: <"..."> }
+    // Language-scoped init scripts
+    // Use XferKeyedValue so XferLang can deserialize keyed bodies like { javascript <"..."> csharp <"..."> }
     [XferProperty("initScript")]
     public XferKeyedValue? InitScript { get; set; }
-    [XferCaptureTag("initScript")]
-    public List<string>? InitScriptTags { get; set; }
     [XferProperty("preRequest")]
     public XferKeyedValue? PreRequest { get; set; }
     [XferCaptureTag("preRequest")]

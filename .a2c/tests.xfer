@@ -1,0 +1,36 @@
+﻿{
+  activeWorkspace ?
+  initScript ?
+  preRequest ?
+  postResponse ?
+  properties {
+  }
+  workspaces {
+    default {
+      extend ?
+      isHidden ~false 
+      base ?
+      name "default"
+      description ?
+      baseUrl <"">
+      initScript ?
+      preRequest ?
+      postResponse ?
+      properties {
+      }
+      folders {
+      }
+      requests {
+      }
+      scripts {
+      }
+      macros {
+      }
+    }
+  }
+  macros {
+  }
+  scripts {
+  }
+  assemblies ?
+}

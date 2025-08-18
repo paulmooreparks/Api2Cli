@@ -129,7 +129,7 @@ internal class WorkspaceService : IWorkspaceService {
     private BaseConfig LoadWorkspace() {
         var baseConfig = new BaseConfig();
 
-        var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
+    var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
 
         var document = XferParser.Parse(xfer);
 
