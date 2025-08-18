@@ -97,10 +97,9 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
         // _engine = new Engine(options => options.AllowClr(assemblies.ToArray()));
         _engine.AddHostObject("host", new ExtendedHostFunctions());
 
-        // Expose selected host types. Defer binding default 'clr' to avoid conflicts with user-defined 'clr'.
+    // Expose selected host types. Provide a defaultClr host object and assign to 'clr' only if user didn't define one.
         var typeCollection = new HostTypeCollection("mscorlib", "System", "System.Core", "ParksComputing.Api2Cli.Workspace");
-        // Provide an internal handle should advanced scripts want it without forcing a global 'clr'
-        _engine.AddHostObject("clr", typeCollection);
+    _engine.AddHostObject("defaultClr", typeCollection);
 
         _engine.AddHostType("Console", typeof(Console));
         _engine.AddHostType("Task", typeof(Task));
@@ -309,38 +308,43 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
 
             }
 
-            // Run optional global init (JavaScript) once at top-level so functions persist globally.
-            var jsInit = GetJsScriptBody(_workspaceService.BaseConfig.InitScript);
-            if (!string.IsNullOrWhiteSpace(jsInit)) {
-                try {
-                    // Bind 'workspace' to active workspace if available
-                    try {
-                        var wsDict = _a2c.Workspaces as IDictionary<string, object?>;
-                        var activeName = _a2c.CurrentWorkspaceName;
-                        if (wsDict != null && !string.IsNullOrEmpty(activeName) && wsDict.ContainsKey(activeName)) {
-                            var active = wsDict[activeName];
-                            if (active != null) { _engine.Script.workspace = active; }
+            // Run optional legacy global init (JavaScript) once at top-level so functions persist globally.
+            // If new scriptInit is provided, the orchestrator already executed it; skip legacy global here to avoid duplicates.
+            if (_workspaceService?.BaseConfig is not null) {
+                var hasNewScriptInit = _workspaceService.BaseConfig.ScriptInit is not null;
+                if (!hasNewScriptInit) {
+                    var jsInit = GetJsScriptBody(_workspaceService.BaseConfig.InitScript);
+                    if (!string.IsNullOrWhiteSpace(jsInit)) {
+                        // Bind 'workspace' to active workspace if available (best-effort)
+                        try {
+                            var wsDict = _a2c.Workspaces as IDictionary<string, object?>;
+                            var activeName = _a2c.CurrentWorkspaceName;
+                            if (wsDict != null && !string.IsNullOrEmpty(activeName) && wsDict.ContainsKey(activeName)) {
+                                var active = wsDict[activeName];
+                                if (active != null) { _engine.Script.workspace = active; }
+                            }
                         }
-                    }
-                    catch { /* best-effort */ }
+                        catch { /* best-effort only for binding workspace */ }
 
-                    var code = GetScriptContent(jsInit);
-                    _engine.Execute(code);
+                        var code = GetScriptContent(jsInit);
+                        _engine.Execute(code);
+                    }
                 }
-                catch (ScriptEngineException ex) {
-                    Console.Error.WriteLine(ex.ErrorDetails);
-                }
-                catch (Exception ex) {
-                    Console.Error.WriteLine($"{Constants.ErrorChar} Error executing script: {ex.Message}");
+
+                // Execute per-workspace init scripts (base-first so derived can override)
+                foreach (var wsInit in _workspaceService.BaseConfig.Workspaces) {
+                    var wsName = wsInit.Key;
+                    var wsDef = wsInit.Value;
+                    var wsObj = _workspaceCache[wsName];
+                    CallInitScript(wsName, wsDef, wsObj);
                 }
             }
 
-            // Execute per-workspace init scripts (base-first so derived can override)
-            foreach (var wsInit in _workspaceService.BaseConfig.Workspaces) {
-                var wsName = wsInit.Key;
-                var wsDef = wsInit.Value;
-                var wsObj = _workspaceCache[wsName];
-                CallInitScript(wsName, wsDef, wsObj);
+            // Ensure default JS 'clr' bridge exists if user didn't provide one in init
+            try {
+                _engine.Execute("if (typeof clr === 'undefined') { clr = defaultClr; }");
+            } catch (ScriptEngineException ex) {
+                Console.Error.WriteLine(ex.ErrorDetails);
             }
 
             _isInitialized = true;
@@ -608,17 +612,11 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
     }
 
     public void ExecuteInitScript(string? script) {
-        if (!string.IsNullOrWhiteSpace(script)) {
-            try {
-                ExecuteScript(script);
-            }
-            catch (ScriptEngineException ex) {
-                Console.Error.WriteLine(ex.ErrorDetails);
-            }
-            catch (Exception ex) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} Error executing init script: {ex.Message}");
-            }
+        if (string.IsNullOrWhiteSpace(script)) {
+            return;
         }
+        // Run at top-level; let exceptions surface to caller per ground rules
+        ExecuteScript(script);
     }
 
     // Keyed init support (legacy): execute only when language is JavaScript; no parsing or transformation.

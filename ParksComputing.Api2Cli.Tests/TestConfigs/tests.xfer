@@ -1,15 +1,29 @@
 {
-    initScript javascript <"
-        function testFunction(message) {
-            console.log("Test function called with message:", message);
-        }
+    scriptInit {
+        javascript <"
+            function testFunction(message) {
+                console.log("Test function called with message:", message);
+            }
 
-        // JavaScript initialization script for tests
-        console.log("JS init ran");
+            // JavaScript initialization script for tests
+            console.log("JS init ran");
 
-        // Helper available to JavaScript scripts
-        function addNumbers(a, b) { return a + b; }
-    ">
+            // Helper available to JavaScript scripts
+            function addNumbers(a, b) { return a + b; }
+        ">
+
+        csharp <"
+            void TestFunction(string message) {
+                Console.WriteLine("Test function called with message: " + message);
+            }
+
+            // C# initialization script for tests
+            Console.WriteLine("C# init ran");
+
+            // Helper available to C# scripts
+            int AddNumbers(int a, int b) { return a + b; }
+        ">
+    }
 
     scripts {
         echo2 {

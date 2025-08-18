@@ -40,6 +40,9 @@ internal class Program {
             return 0;
         }
 
+    // REPL mode: if no command is provided, Cliffer will enter interactive mode.
+    // Keep fast --version path above and allow option-only invocations to still reach REPL.
+
         // Early parse: capture --config/-c before services initialize so we can override the workspace file path.
         for (int i = 0; i < args.Length; i++) {
             if (string.Equals(args[i], "--config", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-c", StringComparison.OrdinalIgnoreCase)) {

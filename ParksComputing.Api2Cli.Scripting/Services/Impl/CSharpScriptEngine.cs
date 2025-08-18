@@ -434,21 +434,15 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
         }
 
         public void ExecuteInitScript(string? script) {
-            if (!string.IsNullOrWhiteSpace(script)) {
-                try {
-                    ExecuteScript(script);
-                } catch (Exception ex) {
-                    _diags.Emit("InitScriptError", new { Message = ex.Message });
-                }
-            }
+            if (string.IsNullOrWhiteSpace(script)) { return; }
+            ExecuteScript(script);
         }
 
         // Overload for keyed value scenarios (initScript on workspace/baseConfig)
     public void ExecuteInitScript(XferKeyedValue? script) {
             var body = GetInitBodyForLanguage(script, "csharp");
-            if (!string.IsNullOrWhiteSpace(body)) {
-                try { ExecuteScript(body); } catch (Exception ex) { _diags.Emit("InitScriptError", new { Message = ex.Message }); }
-            }
+            if (string.IsNullOrWhiteSpace(body)) { return; }
+            ExecuteScript(body);
         }
 
         private static string GetInitBodyForLanguage(XferKeyedValue? kv, string language)

@@ -7,6 +7,11 @@ public class BaseConfig
 {
     [XferProperty("activeWorkspace")]
     public string? ActiveWorkspace { get; set; }
+    
+    // Global, language-scoped initialization scripts. Keys align with engine names (e.g., "javascript", "csharp").
+    // This supersedes legacy initScript when provided.
+    [XferProperty("scriptInit")]
+    public ScriptInitDefinition? ScriptInit { get; set; }
     // Language-scoped init scripts as a simple map of language -> raw script body
     // e.g. { javascript: <"...">, csharp: <"..."> }
     // Language-scoped init scripts

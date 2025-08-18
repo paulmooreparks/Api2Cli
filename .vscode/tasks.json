@@ -69,12 +69,53 @@
 			"type": "shell",
 			"args": [
 				"run",
-				"--project","a2c"
+				"--project",
+				"a2c"
 			],
 			"group": "test",
 			"problemMatcher": [
 				"$msCompile"
 			]
+		},
+		{
+			"label": "build",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"Api2Cli.sln"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"Api2Cli.sln"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"Api2Cli.sln"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"Api2Cli.sln"
+			],
+			"group": "build"
 		}
 	]
 }

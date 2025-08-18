@@ -55,19 +55,28 @@ internal class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrchestrator 
         }));
         js.EvaluateScript("a2c.csharpInvoke = function(name, args) { return a2cCsharpInvoke(name, args); };");
 
-        // Ensure C# init scripts run before compiling any C# wrappers so helpers defined in init are in scope
-        try {
+        // Execute new global scriptInit if present: C# first, then JavaScript
+        var baseConfig = _workspaceService.BaseConfig;
+        if (baseConfig.ScriptInit is not null) {
+            if (!string.IsNullOrWhiteSpace(baseConfig.ScriptInit.CSharp)) {
+                cs.ExecuteInitScript(baseConfig.ScriptInit.CSharp);
+            }
+            if (!string.IsNullOrWhiteSpace(baseConfig.ScriptInit.JavaScript)) {
+                js.ExecuteInitScript(baseConfig.ScriptInit.JavaScript);
+            }
+        }
+
+        // Ensure legacy C# init scripts run (global + workspace) only if new scriptInit not provided
+        if (baseConfig.ScriptInit is null) {
             ExecuteCSharpInitScripts();
         }
-        catch { /* non-fatal */ }
 
         // Execute JavaScript init scripts at top-level so helpers persist
-        var baseConfig = _workspaceService.BaseConfig;
-
         foreach (var wkvp in baseConfig.Workspaces) {
             var wsName = wkvp.Key;
             var ws = wkvp.Value;
-            try { js.ExecuteInitScript(ws.InitScript); } catch { /* ignore */ }
+            // For JS per-workspace legacy init; keep behavior for now
+            js.ExecuteInitScript(ws.InitScript);
         }
 
         // Register root scripts into JS engine's a2c and C# engine globals
@@ -174,8 +183,8 @@ __script__{wsName}__{name}
         object?[] extraArgs
     ) {
         var baseConfig = _workspaceService.BaseConfig;
-        var js = _engineFactory.GetEngine("javascript");
-        var cs = _engineFactory.GetEngine("csharp");
+    var js = _engineFactory.GetEngine("javascript");
+    var cs = _engineFactory.GetEngine("csharp");
 
         // Prepare C# globals for mutation from scripts
         var payloadBox = new PayloadBox { Value = payload };
@@ -199,13 +208,13 @@ __script__{wsName}__{name}
 
         // Execute C# preRequest handlers in request -> workspace -> global order (mirrors JS chain semantics)
         if (TryGetRequestDefinition(workspaceName, requestName, out var ws, out var req) && IsCSharp(req?.PreRequest)) {
-            SafeExecuteCSharp(cs, req!.PreRequest!.PayloadAsString);
+            cs.ExecuteScript(req!.PreRequest!.PayloadAsString);
         }
         if (ws is not null && IsCSharp(ws.PreRequest)) {
-            SafeExecuteCSharp(cs, ws.PreRequest!.PayloadAsString);
+            cs.ExecuteScript(ws.PreRequest!.PayloadAsString);
         }
         if (IsCSharp(baseConfig.PreRequest)) {
-            SafeExecuteCSharp(cs, baseConfig.PreRequest!.PayloadAsString);
+            cs.ExecuteScript(baseConfig.PreRequest!.PayloadAsString);
         }
 
         // Apply any payload change made by C# scripts
@@ -250,14 +259,14 @@ __script__{wsName}__{name}
 
         // Execute C# postResponse in request -> workspace -> global order
         if (TryGetRequestDefinition(workspaceName, requestName, out var ws, out var req) && IsCSharp(req?.PostResponse)) {
-            lastCsResult = SafeEvaluateCSharp(cs, req!.PostResponse!.PayloadAsString);
+            lastCsResult = cs.EvaluateScript(req!.PostResponse!.PayloadAsString);
         }
         if (ws is not null && IsCSharp(ws.PostResponse)) {
-            lastCsResult = SafeEvaluateCSharp(cs, ws.PostResponse!.PayloadAsString);
+            lastCsResult = cs.EvaluateScript(ws.PostResponse!.PayloadAsString);
         }
-        var baseConfig = _workspaceService.BaseConfig;
-        if (IsCSharp(baseConfig.PostResponse)) {
-            lastCsResult = SafeEvaluateCSharp(cs, baseConfig.PostResponse!.PayloadAsString);
+        var baseConfig2 = _workspaceService.BaseConfig;
+        if (IsCSharp(baseConfig2.PostResponse)) {
+            lastCsResult = cs.EvaluateScript(baseConfig2.PostResponse!.PayloadAsString);
         }
 
         // Then defer to JS chain; prefer JS result if provided, else return last non-null C# result
@@ -344,7 +353,7 @@ __script__{wsName}__{name}
         var baseConfig = _workspaceService.BaseConfig;
 
         // Global init for C#
-        try { cs.ExecuteInitScript(baseConfig.InitScript); } catch { /* ignore */ }
+        cs.ExecuteInitScript(baseConfig.InitScript);
 
         // Workspace init (per workspace, call child then base to match existing JS order)
         foreach (var kvp in baseConfig.Workspaces) {
@@ -356,7 +365,7 @@ __script__{wsName}__{name}
 
     private void ExecuteWorkspaceCSharpInitRecursive(IApi2CliScriptEngine cs, string wsName, WorkspaceDefinition ws) {
         // Execute this workspace's init if C#
-        try { cs.ExecuteInitScript(ws.InitScript); } catch { /* ignore */ }
+    cs.ExecuteInitScript(ws.InitScript);
 
         // Resolve and execute base chain
         if (!string.IsNullOrEmpty(ws.Extend) && _workspaceService.BaseConfig.Workspaces.TryGetValue(ws.Extend, out var baseWs)) {
@@ -364,15 +373,7 @@ __script__{wsName}__{name}
         }
     }
 
-    private static void SafeExecuteCSharp(IApi2CliScriptEngine cs, string? body) {
-        if (string.IsNullOrWhiteSpace(body)) { return; }
-        try { cs.ExecuteScript(body); } catch { /* bubble up later if needed */ }
-    }
-
-    private static object? SafeEvaluateCSharp(IApi2CliScriptEngine cs, string? body) {
-        if (string.IsNullOrWhiteSpace(body)) { return null; }
-        try { return cs.EvaluateScript(body); } catch { return null; }
-    }
+    // Remove silent catch helpers per ground rules; let engine throw
 
     private bool TryGetRequestDefinition(string workspaceName, string requestName, out WorkspaceDefinition? ws, out RequestDefinition? req) {
         ws = null;
