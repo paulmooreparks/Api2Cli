@@ -15,6 +15,7 @@ using ParksComputing.Api2Cli.Cli.Repl;
 using ParksComputing.Api2Cli.Http.Services;
 using ParksComputing.Api2Cli.Workspace;
 using ParksComputing.Api2Cli.Orchestration.Services;
+using static ParksComputing.Api2Cli.Orchestration.Services.ScriptArgTypeHelper;
 
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
@@ -74,13 +75,13 @@ internal class A2CRootCommand {
         orchestrator.Warmup(limit, doWarm, debug);
 
         if (_workspaceService.BaseConfig is not null) {
-            foreach (var macro in _workspaceService.BaseConfig.Macros) {
+            foreach (var macro in _workspaceService.BaseConfig.Macros.OrderBy(m => m.Key, StringComparer.OrdinalIgnoreCase)) {
                 var macroCommand = new Macro($"{macro.Key}", $"[macro] {macro.Value.Description}", macro.Value.Command);
 
                 _rootCommand.AddCommand(macroCommand);
             }
 
-            foreach (var script in _workspaceService.BaseConfig.Scripts) {
+            foreach (var script in _workspaceService.BaseConfig.Scripts.OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase)) {
                 var scriptName = script.Key;
                 var (scriptLanguage, scriptBody) = script.Value.ResolveLanguageAndBody();
                 var description = script.Value.Description ?? string.Empty;
@@ -99,21 +100,21 @@ internal class A2CRootCommand {
                     var argDescription = argument.Description;
                     System.CommandLine.ArgumentArity argArity = argument.IsRequired ? System.CommandLine.ArgumentArity.ExactlyOne : System.CommandLine.ArgumentArity.ZeroOrOne;
 
-                    switch (argType) {
-                        case "string":
+                    switch (GetArgKind(argType)) {
+                        case ScriptArgKind.String:
                             scriptCommand.AddArgument(new Argument<string>(argName, argDescription) { Arity = argArity });
                             break;
-                        case "number":
+                        case ScriptArgKind.Number:
                             scriptCommand.AddArgument(new Argument<double>(argName, argDescription) { Arity = argArity });
                             break;
-                        case "boolean":
+                        case ScriptArgKind.Boolean:
                             scriptCommand.AddArgument(new Argument<bool>(argName, argDescription) { Arity = argArity });
                             break;
-                        case "object":
+                        case ScriptArgKind.Object:
                             scriptCommand.AddArgument(new Argument<object>(argName, argDescription) { Arity = argArity });
                             break;
-                        default:
-                            Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Script {scriptName}: Invalid or unsupported argument type {argType} for argument {argName}");
+                        case ScriptArgKind.Custom:
+                            scriptCommand.AddArgument(new Argument<string>(argName, argDescription) { Arity = argArity });
                             break;
                     }
 
@@ -126,40 +127,14 @@ internal class A2CRootCommand {
                 });
 
                 _rootCommand.AddCommand(scriptCommand);
-                var paramString = string.Join(", ", paramList);
-
-                // Build a typed parameter list and Func<> signature for C# scripts
-                var typedParams = new List<string>();
-                var typeArgsOnly = new List<string>();
-                foreach (var name in paramList) {
-                    if (arguments.TryGetValue(name, out var argDef)) {
-                        var csType = argDef.Type switch {
-                            "string" => "string",
-                            "number" => "double",
-                            "boolean" => "bool",
-                            "object" => "object?",
-                            _ => "object?"
-                        };
-                        typedParams.Add($"{csType} {name}");
-                        typeArgsOnly.Add(csType);
-                    }
-                    else {
-                        typedParams.Add($"object? {name}");
-                        typeArgsOnly.Add("object?");
-                    }
-                }
-                var typedParamString = string.Join(", ", typedParams);
-                var funcGenericArgs = typeArgsOnly.Count > 0
-                    ? string.Join(", ", typeArgsOnly.Concat(new[] { "object?" }))
-                    : "object?";
-
-                // Script registration moved to WorkspaceScriptingService
+                // Script registration handled by the orchestrator
             }
         }
 
         var workspaceColl = _a2c.Workspaces as IDictionary<string, object>;
 
-        foreach (var workspaceKvp in _workspaceService.BaseConfig?.Workspaces ?? new Dictionary<string, Workspace.Models.WorkspaceDefinition>()) {
+    foreach (var workspaceKvp in (_workspaceService.BaseConfig?.Workspaces ?? new Dictionary<string, Workspace.Models.WorkspaceDefinition>())
+             .OrderBy(w => w.Key, StringComparer.OrdinalIgnoreCase)) {
             var workspaceName = workspaceKvp.Key;
             var workspaceConfig = workspaceKvp.Value;
             var workspace = workspaceColl![workspaceName] as dynamic;
@@ -190,7 +165,7 @@ internal class A2CRootCommand {
 
             _rootCommand.AddCommand(workspaceCommand);
 
-            foreach (var script in workspaceConfig.Scripts) {
+            foreach (var script in workspaceConfig.Scripts.OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase)) {
                 var scriptName = script.Key;
                 var (scriptLanguage, scriptBody) = script.Value.ResolveLanguageAndBody();
                 var description = script.Value.Description ?? string.Empty;
@@ -210,20 +185,21 @@ internal class A2CRootCommand {
                     var argDescription = argument.Description;
                     System.CommandLine.ArgumentArity argArity = argument.IsRequired ? System.CommandLine.ArgumentArity.ExactlyOne : System.CommandLine.ArgumentArity.ZeroOrOne;
 
-                    switch (argType) {
-                        case "string":
+                    switch (GetArgKind(argType)) {
+                        case ScriptArgKind.String:
                             scriptCommand.AddArgument(new Argument<string>(argName, argDescription) { Arity = argArity });
                             break;
-                        case "number":
+                        case ScriptArgKind.Number:
                             scriptCommand.AddArgument(new Argument<double>(argName, argDescription) { Arity = argArity });
                             break;
-                        case "boolean":
+                        case ScriptArgKind.Boolean:
                             scriptCommand.AddArgument(new Argument<bool>(argName, argDescription) { Arity = argArity });
                             break;
-                        case "object":
+                        case ScriptArgKind.Object:
+                            scriptCommand.AddArgument(new Argument<object>(argName, argDescription) { Arity = argArity });
                             break;
-                        default:
-                            Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Script {scriptName}: Invalid or unsupported argument type {argType} for argument {argName}");
+                        case ScriptArgKind.Custom:
+                            scriptCommand.AddArgument(new Argument<string>(argName, argDescription) { Arity = argArity });
                             break;
                     }
 
@@ -237,29 +213,25 @@ internal class A2CRootCommand {
                 workspaceCommand.AddCommand(scriptCommand);
 
                 paramList.Add("params");
-
-                var paramString = string.Join(", ", paramList);
-
-                // Workspace script/wrapper registration moved to WorkspaceScriptingService
+                // Workspace script/wrapper registration handled by the orchestrator
             }
 
             var requests = workspace.requests as IDictionary<string, object>;
 
-            foreach (var requestKvp in workspaceConfig.Requests) {
+            foreach (var requestKvp in workspaceConfig.Requests.OrderBy(r => r.Key, StringComparer.OrdinalIgnoreCase)) {
                 var request = requestKvp.Value;
                 var requestName = requestKvp.Key;
                 request.Name = requestName;
                 var description = request.Description ?? $"{request.Method} {request.Endpoint}";
-                var scriptCall = $"send {workspaceName} {requestName} --baseurl {workspaceKvp.Value.BaseUrl}";
+                // CLI help text constructed by System.CommandLine; orchestrator handles execution wiring
 
 
                 var requestCommand = new Command(requestName, $"[request] {description}");
                 requestCommand.IsHidden = workspaceConfig.IsHidden;
                 var requestHandler = new SendCommand(Utility.GetService<IHttpService>()!, _a2c, _workspaceService, Utility.GetService<IApi2CliScriptEngineFactory>()!, Utility.GetService<ParksComputing.Api2Cli.Orchestration.Services.IWorkspaceScriptingOrchestrator>()!, Utility.GetService<IPropertyResolver>(), Utility.GetService<ISettingsService>());
-                var requestObj = requests![requestName] as IDictionary<string, object>;
                 var requestCaller = new RequestCaller(_rootCommand, requestHandler, workspaceName, requestName, workspaceKvp.Value.BaseUrl);
-                // Wrap in an adapter that offers Invoke overloads for 0..N args, so dynamic C# and JS can both call it.
-                requestObj!["execute"] = new a2c.Services.Impl.RequestExecuteAdapter(requestCaller.RunRequest);
+                // Register a request executor with orchestrator; engines will wire workspace.requests.<name>.execute
+                orchestrator.RegisterRequestExecutor((ws, req, args) => requestCaller.RunRequest(args ?? Array.Empty<object?>()));
 
                 var reqBaseurlOption = new Option<string>(["--baseurl", "-b"], "The base URL of the API to send HTTP requests to.");
                 reqBaseurlOption.IsRequired = false;
@@ -287,21 +259,21 @@ internal class A2CRootCommand {
                     var argDescription = argument.Description;
                     System.CommandLine.ArgumentArity argArity = argument.IsRequired ? System.CommandLine.ArgumentArity.ExactlyOne : System.CommandLine.ArgumentArity.ZeroOrOne;
 
-                    switch (argType) {
-                        case "string":
+                    switch (GetArgKind(argType)) {
+                        case ScriptArgKind.String:
                             requestCommand.AddArgument(new Argument<string>(argName, argDescription) { Arity = argArity });
                             break;
-                        case "number":
+                        case ScriptArgKind.Number:
                             requestCommand.AddArgument(new Argument<double>(argName, argDescription) { Arity = argArity });
                             break;
-                        case "boolean":
+                        case ScriptArgKind.Boolean:
                             requestCommand.AddArgument(new Argument<bool>(argName, argDescription) { Arity = argArity });
                             break;
-                        case "object":
+                        case ScriptArgKind.Object:
                             requestCommand.AddArgument(new Argument<object>(argName, argDescription) { Arity = argArity });
                             break;
-                        default:
-                            Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Request {requestName}: Invalid or unsupported argument type {argType} for argument {argName}");
+                        case ScriptArgKind.Custom:
+                            requestCommand.AddArgument(new Argument<string>(argName, argDescription) { Arity = argArity });
                             break;
                     }
                 }
@@ -325,7 +297,7 @@ internal class A2CRootCommand {
                 workspaceCommand.AddCommand(requestCommand);
             }
 
-            foreach (var macro in workspaceConfig.Macros) {
+            foreach (var macro in workspaceConfig.Macros.OrderBy(m => m.Key, StringComparer.OrdinalIgnoreCase)) {
                 var macroCommand = new Macro($"{workspaceName}.{macro.Key}", $"[macro] {macro.Value.Description}", macro.Value.Command);
                 macroCommand.IsHidden = workspaceConfig.IsHidden;
 

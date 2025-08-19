@@ -1,6 +1,6 @@
 {
     scriptInit {
-        javascript <"
+        javascript <'
             function testFunction(message) {
                 console.log("Test function called with message:", message);
             }
@@ -10,9 +10,9 @@
 
             // Helper available to JavaScript scripts
             function addNumbers(a, b) { return a + b; }
-        ">
+        '>
 
-        csharp <"
+        csharp <'
             void TestFunction(string message) {
                 Console.WriteLine("Test function called with message: " + message);
             }
@@ -22,7 +22,7 @@
 
             // Helper available to C# scripts
             int AddNumbers(int a, int b) { return a + b; }
-        ">
+        '>
     }
 
     scripts {
@@ -32,10 +32,10 @@
                 a { type "number" description "First number." }
                 b { type "number" description "Second number." }
             }
-            script csharp <"
+            script csharp <'
                 Console.WriteLine($"a={a}, b={b}");
                 return a + b;
-            ">
+            '>
         }
 
         csmessage {
@@ -52,13 +52,13 @@
                     default 1
                 }
             }
-            script csharp <"
+            script csharp <'
                 for (var i = 0; i < count; i++) {
                     Console.WriteLine(message);
                 }
 
                 return $"Printed the message {count} times";
-            ">
+            '>
         }
         jslaunch {
             arguments {
@@ -67,9 +67,9 @@
                     description "The process to launch."
                 }
             }
-            script javascript <"
+            script javascript <'
                 a2c.process.run(process);
-            ">
+            '>
         }
 
         cslaunch {
@@ -79,45 +79,195 @@
                     description "The process to launch."
                 }
             }
-            script csharp <"
+            script csharp <'
                 a2c.Process.Run(process);
-            ">
+            '>
         }
 
         jsUsesInit {
             description "Call addNumbers defined in JavaScript init."
-            script javascript <"
+            script javascript <'
                 return addNumbers(5, 7);
-            ">
+            '>
         }
 
         csUsesInit {
             description "Call addNumbers defined in C# init."
-            script csharp <"
+            script csharp <'
                 return AddNumbers(5, 7);
-            ">
+            '>
+        }
+
+        </ C# typed-argument sample scripts for tests />
+        cs_sum_ints {
+            description "Sum two Int32s to validate typed arg conversion."
+            arguments {
+                a { type "Int32" description "First int." }
+                b { type "Int32" description "Second int." }
+            }
+            script csharp <'
+                return a + b;
+            '>
+        }
+
+        cs_guid_str {
+            description "Echo Guid argument as string (typed to System.Guid)."
+            arguments { id { type "System.Guid" description "A GUID value." } }
+            script csharp <'
+                return id.ToString();
+            '>
+        }
+
+        cs_day_enum {
+            description "Return numeric value of System.DayOfWeek enum to validate enum parsing."
+            arguments { day { type "System.DayOfWeek" description "Enum value as string or number." } }
+            script csharp <'
+                return (int)day;
+            '>
+        }
+
+        cs_dt_roundtrip {
+            description "Round-trip DateTime in ISO 8601 (O) format to validate parsing."
+            arguments { when { type "DateTime" description "A date/time string (ISO)." } }
+            script csharp <'
+                return when.ToString("O");
+            '>
+        }
+
+        cs_array_sum {
+            description "Sum an Int32[] provided as JSON string."
+            arguments { nums { type "Int32[]" description "Array of ints (JSON)." } }
+            script csharp <'
+                return nums.Sum();
+            '>
+        }
+
+        cs_uri_host {
+            description "Extract Host from a Uri argument."
+            arguments { url { type "System.Uri" description "A URI string." } }
+            script csharp <'
+                return url.Host;
+            '>
+        }
+
+        cs_json_dict_name {
+            description "Deserialize JSON into Dictionary<string,object> and return 'name'."
+            arguments { data { type "System.Collections.Generic.Dictionary<string, object>" description "JSON object." } }
+            script csharp <'
+                return data.ContainsKey("name") ? data["name"]?.ToString() : null;
+            '>
         }
     }
 
     workspaces {
+        </ JavaScript handler chaining test workspaces />
+        jsbase {
+            description "Base workspace for JS handler chain"
+            baseUrl "https://example.invalid/"
+            preRequest javascript <'
+                // Set a header in base JS preRequest
+                request.headers["X-Base-JS"] = "1";
+            '>
+            postResponse javascript <'
+                // Append marker in base JS postResponse
+                return request.response.body + "|baseJs";
+            '>
+
+            requests {
+                echo {
+                    endpoint "/echo"
+                    method "GET"
+                }
+            }
+        }
+
+        jschild {
+            description "Child workspace extending jsbase for JS chaining"
+            extend "jsbase"
+            baseUrl "https://example.invalid/"
+            preRequest javascript <'
+                // Call base then add our own header
+                base.preRequest();
+                request.headers["X-Child-JS"] = "1";
+            '>
+            postResponse javascript <'
+                // Call base, then append our own marker
+                let s = base.postResponse();
+                return s + "|childJs";
+            '>
+
+            requests {
+                echo {
+                    endpoint "/echo"
+                    method "GET"
+                }
+            }
+        }
+
+        </ C# handler chaining test workspaces />
+        csbase {
+            description "Base workspace for C# handler chain"
+            baseUrl "https://example.invalid/"
+            preRequest csharp <'
+                // Set a header and mutate payload in base C# preRequest
+                Headers["X-Base-CS"] = "1";
+                PayloadBox.Value = (PayloadBox.Value?.ToString() ?? string.Empty) + "|baseCs";
+            '>
+            postResponse csharp <'
+                // Append marker in base C# postResponse
+                return ResponseContent + "|baseCs";
+            '>
+
+            requests {
+                echo {
+                    endpoint "/echo"
+                    method "GET"
+                }
+            }
+        }
+
+        cschild {
+            description "Child workspace extending csbase for C# chaining"
+            extend "csbase"
+            baseUrl "https://example.invalid/"
+            preRequest csharp <"
+                // Call base then add our own header and payload change
+                base.PreRequest(workspace, request, Headers, Parameters, PayloadBox, Cookies, ExtraArgs);
+                Headers["X-Child-CS"] = "1";
+                PayloadBox.Value = (PayloadBox.Value?.ToString() ?? string.Empty) + "|childCs";
+            ">
+            postResponse csharp <'
+                // Call base then append our own marker
+                var s = base.PostResponse(workspace, request, StatusCode, ResponseHeaders, ResponseContent, ExtraArgs) as string ?? ResponseContent;
+                return s + "|childCs";
+            '>
+
+            requests {
+                echo {
+                    endpoint "/echo"
+                    method "GET"
+                }
+            }
+        }
+
         demo {
             description "Sample REST API: https://jsonplaceholder.typicode.com"
             baseUrl "https://jsonplaceholder.typicode.com/"
 
             scriptInit {
-                javascript <"
-                    // Workspace-specific JavaScript initialization for 'demo'
+                javascript <'
+                    // Workspace-specific JavaScript initialization for "demo"
                     console.log("WS JS init ran: demo");
 
                     // Helper available to JavaScript scripts in this workspace
                     function wsAdd(a, b) { return a + b; }
-                ">
+                '>
             }
 
             scripts {
                 listposts {
                     description "JS: list the number of posts (GET /posts)."
-                    script <'
+                    script javascript <'
                         let body = workspace.requests.posts.execute();
                         let arr = JSON.parse(body);
                         console.log(`There are ${arr.length} posts.`);
@@ -128,46 +278,34 @@
                 getpost {
                     description "JS: fetch a single post by id (GET /posts/{id})."
                     arguments { id { type "number" description "Post id" default 1 } }
-                    script <'
+                    script javascript <'
                         let body = workspace.requests.post.execute(id);
                         console.log(formatJson(body));
                         return body;
                     '>
                 }
 
-                postsummary {
-                    description "C#: show a tiny summary of the first post using Newtonsoft.Json (requires package)."
-                    script csharp <"
-                        // testFunction("Hello from C#");
-                        // Ensure package installed: a2c package install newtonsoft.json
-                        var raw = (string)workspace.requests.posts.execute();
-                        var arr = Newtonsoft.Json.Linq.JArray.Parse(raw);
-                        var first = arr.FirstOrDefault();
-                        if (first == null) return "No posts";
-                        Console.WriteLine($"#{first.Value<int>("id")}: {first.Value<string>("title")}");
-                        return Newtonsoft.Json.JsonConvert.SerializeObject(first, Newtonsoft.Json.Formatting.Indented);
-                    ">
-                }
+                </ postsummary removed for tests; requires external package and was causing parser ambiguity />
 
                 cstest {
                     description "C#: test."
-                    script csharp <"
-                        // testFunction("Hello from C#");
-                    ">
+                    script csharp <'
+                        // C# test stub
+                    '>
                 }
 
                 jstest {
                     description "JavaScript: test."
-                    script javascript <"
+                    script javascript <'
                         testFunction("Hello from JavaScript");
-                    ">
+                    '>
                 }
 
                 wsusesinit {
                     description "JavaScript: call wsAdd defined in workspace scriptInit."
-                    script javascript <"
+                    script javascript <'
                         return wsAdd(3, 4);
-                    ">
+                    '>
                 }
             }
 
@@ -188,7 +326,9 @@
                 createpost {
                     endpoint "/posts"
                     method "POST"
-                    headers { Content-Type "application/json" }
+                    preRequest javascript <'
+                        request.headers["Content-Type"] = "application/json";
+                    '>
                     arguments {
                         title { type "string" description "Post title" default "hello" }
                         body { type "string" description "Post body" default "lorem ipsum" }

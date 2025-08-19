@@ -28,4 +28,8 @@ public interface IWorkspaceScriptingOrchestrator
         string responseContent,
         object?[] extraArgs
     );
+
+    // Allow clients (CLI, GUI, etc.) to register a request executor used by script engines
+    // when exposing workspace.requests.<name>.execute. The runner returns an object? result.
+    void RegisterRequestExecutor(Func<string, string, object?[]?, object?> executor);
 }

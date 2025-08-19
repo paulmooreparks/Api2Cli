@@ -83,8 +83,11 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                 typeof(Task).Assembly,                        // System.Threading.Tasks
                 typeof(System.Dynamic.ExpandoObject).Assembly,// System.Dynamic.Runtime
                 typeof(Microsoft.CSharp.RuntimeBinder.Binder).Assembly, // Microsoft.CSharp (dynamic binder)
+                typeof(Uri).Assembly,                         // System.Private.Uri (Uri)
+                typeof(System.Net.Http.HttpClient).Assembly,  // System.Net.Http (HttpResponseHeaders, HttpClient)
                 typeof(A2CApi).Assembly,                      // Api root type assembly
-                typeof(ScriptGlobals).Assembly                 // Globals container assembly
+                typeof(ScriptGlobals).Assembly,                // Globals container assembly
+                typeof(System.Text.Json.JsonSerializer).Assembly // System.Text.Json for JSON conversions
             };
 
             // Try to create references from assemblies
@@ -139,7 +142,8 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                     "System.Linq",
                     "System.Collections.Generic",
                     "System.Threading.Tasks",
-                    "System.Dynamic"
+                    "System.Dynamic",
+                    "System.Text.Json"
                 );
         }
 

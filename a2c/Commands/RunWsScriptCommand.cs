@@ -14,6 +14,7 @@ using ParksComputing.Api2Cli.Scripting.Services;
 using Microsoft.ClearScript;
 using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
+using ParksComputing.Api2Cli.Orchestration.Services;
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
 
@@ -140,43 +141,52 @@ internal class RunWsScriptCommand {
 
         int i = 0;
 
-        if (tokenArguments is not null && tokenArguments.Any()) {
+        static object? CoerceArg(object? value, string? typeToken)
+        {
+            if (value is null)
+            {
+                return null;
+            }
+            var kind = ScriptArgTypeHelper.GetArgKind(typeToken);
+            // Preserve already-typed values
+            if (value is not string s)
+            {
+                return value;
+            }
+            return kind switch
+            {
+                ScriptArgKind.Number => Convert.ToDouble(s),
+                ScriptArgKind.Boolean => Convert.ToBoolean(s),
+                // String/object/custom -> pass string through
+                _ => s
+            };
+        }
+
+        static object? CoerceDefault(object? defVal, string? typeToken)
+        {
+            var kind = ScriptArgTypeHelper.GetArgKind(typeToken);
+            return kind switch
+            {
+                ScriptArgKind.String => defVal?.ToString(),
+                ScriptArgKind.Number => defVal is null ? null : Convert.ToDouble(defVal),
+                ScriptArgKind.Boolean => defVal is null ? null : Convert.ToBoolean(defVal),
+                // Object/custom -> keep as-is
+                _ => defVal
+            };
+        }
+
+    if (tokenArguments is not null && tokenArguments.Any()) {
             using var enumerator = tokenArguments.GetEnumerator();
 
             foreach (var token in tokenArguments) {
                 var arg = token.Value;
 
                 if (i >= argumentDefinitions.Count()) {
-                    scriptParams.Add(arg);
+            scriptParams.Add(arg);
                 }
                 else {
                     var argType = argumentDefinitions[i].Type;
-
-                    switch (argType) {
-                        case "string":
-                            scriptParams.Add(arg);
-                            break;
-
-                        case "stringArray":
-                            scriptParams.Add(arg);
-                            break;
-
-                        case "number":
-                            scriptParams.Add(Convert.ToDouble(arg));
-                            break;
-
-                        case "boolean":
-                            scriptParams.Add(Convert.ToBoolean(arg));
-                            break;
-
-                        case "object":
-                            scriptParams.Add(arg);
-                            break;
-
-                        default:
-                            Console.Error.WriteLine($"{Constants.ErrorChar} Unsupported argument type '{argType}' in script '{scriptName}'.");
-                            return Result.Error;
-                    }
+            scriptParams.Add(CoerceArg(arg, argType));
                 }
 
                 i++;
@@ -185,36 +195,11 @@ internal class RunWsScriptCommand {
         else if (args is not null) {
             foreach (var arg in args) {
                 if (i >= argumentDefinitions.Count()) {
-                    scriptParams.Add(arg);
+            scriptParams.Add(arg);
                 }
                 else {
                     var argType = argumentDefinitions[i].Type;
-
-                    switch (argType) {
-                        case "string":
-                            scriptParams.Add(arg);
-                            break;
-
-                        case "stringArray":
-                            scriptParams.Add(arg);
-                            break;
-
-                        case "number":
-                            scriptParams.Add(Convert.ToDouble(arg));
-                            break;
-
-                        case "boolean":
-                            scriptParams.Add(Convert.ToBoolean(arg));
-                            break;
-
-                        case "object":
-                            scriptParams.Add(arg);
-                            break;
-
-                        default:
-                            Console.Error.WriteLine($"{Constants.ErrorChar} Unsupported argument type '{argType}' in script '{scriptName}'.");
-                            return Result.Error;
-                    }
+            scriptParams.Add(CoerceArg(arg, argType));
                 }
 
                 i++;
@@ -224,53 +209,18 @@ internal class RunWsScriptCommand {
     if (Console.IsInputRedirected && i < argumentDefinitions.Count) {
             var argString = Console.In.ReadToEnd().Trim();
             var argType = argumentDefinitions[i].Type;
-
-            if (argType == "string") {
-                scriptParams.Add(argString);
-            }
-            else if (argType == "stringArray") {
-                scriptParams.Add(argString);
-            }
-            else if (argType == "number") {
-                scriptParams.Add(Convert.ToDouble(argString));
-            }
-            else if (argType == "boolean") {
-                scriptParams.Add(Convert.ToBoolean(argString));
-            }
-            else if (argType == "object") {
-                scriptParams.Add(argString);
-            }
-            else {
-                scriptParams.Add(argString);
-            }
+        scriptParams.Add(CoerceArg(argString, argType));
 
             ++i;
         }
 
         // Apply default values for any remaining arguments not provided
-        while (i < argumentDefinitions.Count) {
+    while (i < argumentDefinitions.Count) {
             var argDef = argumentDefinitions[i];
             if (argDef.Default is not null) {
-                var argType = argDef.Type;
-                var defVal = argDef.Default;
-                switch (argType) {
-                    case "string":
-                        scriptParams.Add(defVal?.ToString());
-                        break;
-                    case "number":
-                        scriptParams.Add(Convert.ToDouble(defVal));
-                        break;
-                    case "boolean":
-                        scriptParams.Add(Convert.ToBoolean(defVal));
-                        break;
-                    case "object":
-                    case "stringArray":
-                        scriptParams.Add(defVal);
-                        break;
-                    default:
-                        scriptParams.Add(defVal);
-                        break;
-                }
+        var argType = argDef.Type;
+        var defVal = argDef.Default;
+        scriptParams.Add(CoerceDefault(defVal, argType));
             } else {
                 // No default; pad with null to keep indexes consistent for wrappers
                 scriptParams.Add(null);

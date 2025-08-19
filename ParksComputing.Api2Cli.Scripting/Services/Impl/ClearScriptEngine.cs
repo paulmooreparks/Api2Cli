@@ -145,8 +145,10 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
                 }
             } catch { /* ignore */ }
         }
-        var typeCollection = new HostTypeCollection(hostAssemblyNames.ToArray());
-        _engine.AddHostObject("clr", typeCollection);
+    var typeCollection = new HostTypeCollection(hostAssemblyNames.ToArray());
+    _engine.AddHostObject("clr", typeCollection);
+    // Keep a backup so we can restore 'clr' if user deletes/overwrites it
+    _engine.AddHostObject("defaultClr", typeCollection);
 
         _engine.AddHostType("Console", typeof(Console));
         _engine.AddHostType("Task", typeof(Task));
@@ -249,6 +251,7 @@ function __preRequest__{workspaceName}(workspace, request) {{
     try {{ this.workspace = workspace; this.request = request; }} catch (e) {{}}
     let nextHandler = function() {{ __preRequest(workspace, request); }};
     let baseHandler = function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? "" : $"__preRequest__{workspace.Extend}(workspace, request);")} }};
+    let base = {{ preRequest: function() {{ baseHandler(); }}, postResponse: function() {{ return {(string.IsNullOrEmpty(workspace.Extend) ? "null" : $"__postResponse__{workspace.Extend}(workspace, request)")}; }} }};
     {((workspace.PreRequest == null || !IsJavaScript(workspace.PreRequest)) ? $"__preRequest(workspace, request)" : GetScriptContent(workspace.PreRequest!.PayloadAsString))}
 }};
 
@@ -257,6 +260,7 @@ function __postResponse__{workspaceName}(workspace, request) {{
     try {{ this.workspace = workspace; this.request = request; }} catch (e) {{}}
     let nextHandler = function() {{ return __postResponse(workspace, request); }};
     let baseHandler = function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? "return null;" : $"return __postResponse__{workspace.Extend}(workspace, request);")} }};
+    let base = {{ preRequest: function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? ";" : $"__preRequest__{workspace.Extend}(workspace, request);")} }}, postResponse: function() {{ return baseHandler(); }} }};
     {((workspace.PostResponse == null || !IsJavaScript(workspace.PostResponse)) ? $"return __postResponse(workspace, request)" : GetScriptContent(workspace.PostResponse!.PayloadAsString))}
 }};
 
@@ -286,6 +290,7 @@ function __preRequest__{workspaceName}__{requestName} (workspace, request{extraA
     try {{ this.workspace = workspace; this.request = request; }} catch (e) {{}}
     let nextHandler = function() {{ __preRequest__{workspaceName}(workspace, request); }};
     let baseHandler = function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? ";" : $"__preRequest__{workspace.Extend}__{requestName}(workspace, request{extraArgs});")} }};
+    let base = {{ preRequest: function() {{ baseHandler(); }}, postResponse: function() {{ return {(string.IsNullOrEmpty(workspace.Extend) ? "null" : $"__postResponse__{workspace.Extend}__{requestName}(workspace, request{extraArgs})")}; }} }};
     {((requestDef.PreRequest == null || !IsJavaScript(requestDef.PreRequest)) ? $"__preRequest__{workspaceName}(workspace, request)" : GetScriptContent(requestDef.PreRequest!.PayloadAsString))}
 }}
 
@@ -293,6 +298,7 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
     try {{ this.workspace = workspace; this.request = request; }} catch (e) {{}}
     let nextHandler = function() {{ return __postResponse__{workspaceName}(workspace, request); }};
     let baseHandler = function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? "return null;" : $"return __postResponse__{workspace.Extend}__{requestName}(workspace, request{extraArgs});")} }};
+    let base = {{ preRequest: function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? ";" : $"__preRequest__{workspace.Extend}__{requestName}(workspace, request{extraArgs});")} }}, postResponse: function() {{ return baseHandler(); }} }};
     {((requestDef.PostResponse == null || !IsJavaScript(requestDef.PostResponse)) ? $"return __postResponse__{workspaceName}(workspace, request)" : GetScriptContent(requestDef.PostResponse!.PayloadAsString))}
 }}
 
