@@ -31,7 +31,7 @@ internal class ScriptCommand {
         )
     {
         _scriptEngineFactory = scriptEngineFactory;
-        _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
+    _scriptEngine = _scriptEngineFactory.GetEngine(ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds.JavaScript);
         _replContext = new ScriptReplContext(command, _scriptEngineFactory, splitter, workspaceService);
     }
 

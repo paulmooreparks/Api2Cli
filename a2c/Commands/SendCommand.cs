@@ -8,6 +8,7 @@ using Cliffer;
 
 using ParksComputing.Api2Cli.Workspace.Models;
 using ParksComputing.Api2Cli.Workspace.Services;
+using static ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds;
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.Scripting.Extensions;
 
@@ -51,7 +52,7 @@ public class SendCommand {
         _a2c = a2c;
         _ws = workspaceService;
         _scriptEngineFactory = scriptEngineFactory;
-        _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
+    _scriptEngine = _scriptEngineFactory.GetEngine(JavaScript);
     _orchestrator = orchestrator;
 
         if (propertyResolver is null) {

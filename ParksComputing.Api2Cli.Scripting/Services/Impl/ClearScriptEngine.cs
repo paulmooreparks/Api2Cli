@@ -686,8 +686,7 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
     private static bool IsJavaScript(XferKeyedValue? kv) {
         var lang = kv?.Keys?.FirstOrDefault();
         return string.IsNullOrEmpty(lang)
-            || string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(lang, "js", StringComparison.OrdinalIgnoreCase);
+            || ScriptEngineKinds.JavaScriptAliases.Contains(lang, StringComparer.OrdinalIgnoreCase);
     }
 
     private static string GetJsScriptBody(XferKeyedValue? kv) {

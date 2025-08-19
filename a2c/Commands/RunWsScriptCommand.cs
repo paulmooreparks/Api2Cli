@@ -122,9 +122,9 @@ internal class RunWsScriptCommand {
         var argumentDefinitions = scriptDefinition.Arguments.Values.ToList();
 
         // Determine the resolved language from tags (default to javascript)
-        string resolvedLanguage = "javascript";
+        string resolvedLanguage = ScriptEngineKinds.JavaScript;
         try {
-            resolvedLanguage = scriptDefinition.ScriptTags?.FirstOrDefault() ?? "javascript";
+            resolvedLanguage = scriptDefinition.ScriptTags?.FirstOrDefault() ?? ScriptEngineKinds.JavaScript;
         }
         catch { /* ignore */ }
 
@@ -283,7 +283,7 @@ internal class RunWsScriptCommand {
         // Workspace script: a2c.workspaces.{workspace}.{scriptName}(...args)
         bool invokedViaReference = false;
         try {
-            var jsEngineForRef = _scriptEngineFactory.GetEngine("javascript");
+            var jsEngineForRef = _scriptEngineFactory.GetEngine(ScriptEngineKinds.JavaScript);
             dynamic scriptRoot = jsEngineForRef.Script;
             dynamic a2c = scriptRoot.a2c;
 
@@ -447,8 +447,8 @@ internal class RunWsScriptCommand {
     // location: one of "root:a2c", "workspace:a2c", "root:__script__", "workspace:__script__", or "none".
     public bool TryResolveScriptFunction(string scriptName, string? workspaceName, out string location, out string language)
     {
-        location = "none";
-        language = "javascript";
+    location = "none";
+    language = ScriptEngineKinds.JavaScript;
 
         if (string.IsNullOrEmpty(scriptName)) {
             return false;
@@ -463,7 +463,7 @@ internal class RunWsScriptCommand {
         }
 
         if (scriptDefinition is not null) {
-            try { language = scriptDefinition.ScriptTags?.FirstOrDefault() ?? "javascript"; } catch { /* ignore */ }
+            try { language = scriptDefinition.ScriptTags?.FirstOrDefault() ?? ScriptEngineKinds.JavaScript; } catch { /* ignore */ }
         }
 
         // JS path: attempt direct a2c.* resolution

@@ -29,7 +29,7 @@ internal class ScriptReplContext : DefaultReplContext
         ) : base( currentCommand )
     {
         _scriptEngineFactory = scriptEngineFactory;
-        _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
+    _scriptEngine = _scriptEngineFactory.GetEngine(ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds.JavaScript);
         _commandSplitter = commandSplitter;
         _workspaceService = workspaceService;
     }

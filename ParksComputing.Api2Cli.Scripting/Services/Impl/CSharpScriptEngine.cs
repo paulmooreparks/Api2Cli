@@ -454,12 +454,12 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
 
         // Overload for keyed value scenarios (initScript on workspace/baseConfig)
     public void ExecuteInitScript(XferKeyedValue? script) {
-            var body = GetInitBodyForLanguage(script, "csharp");
+            var body = GetInitBodyForLanguage(script, ScriptEngineKinds.CSharp);
             if (string.IsNullOrWhiteSpace(body)) { return; }
             ExecuteScript(body);
         }
 
-        private static string GetInitBodyForLanguage(XferKeyedValue? kv, string language)
+    private static string GetInitBodyForLanguage(XferKeyedValue? kv, string language)
         {
             // Return the script body exactly as provided in the configuration.
             // Honor keyed language (defaulting to javascript when missing) and support cs/csharp aliases.
@@ -477,8 +477,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
 
             bool matches =
                 string.Equals(lang, language, StringComparison.OrdinalIgnoreCase)
-                || (string.Equals(lang, "cs", StringComparison.OrdinalIgnoreCase) && language.Equals("csharp", StringComparison.OrdinalIgnoreCase))
-                || (string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase) && language.Equals("cs", StringComparison.OrdinalIgnoreCase));
+                || (lang != null && ScriptEngineKinds.CSharpAliases.Contains(lang, StringComparer.OrdinalIgnoreCase));
 
             return matches ? body : string.Empty;
         }

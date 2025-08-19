@@ -5,6 +5,7 @@ using ParksComputing.Api2Cli.Runtime.Services;
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Api2Cli.Cli.Commands; // for RunWsScriptCommand cache clear
+using static ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds;
 
 namespace ParksComputing.Api2Cli.Runtime.Services.Impl;
 
@@ -12,10 +13,10 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
 {
     public void Initialize(A2CApi a2c, IWorkspaceService workspaceService, IApi2CliScriptEngineFactory engineFactory)
     {
-        var jsScriptEngine = engineFactory.GetEngine("javascript");
+    var jsScriptEngine = engineFactory.GetEngine(JavaScript);
         jsScriptEngine.InitializeScriptEnvironment();
 
-        var csScriptEngine = engineFactory.GetEngine("csharp");
+    var csScriptEngine = engineFactory.GetEngine(CSharp);
         csScriptEngine.InitializeScriptEnvironment();
 
         // Clear cached JS function refs
@@ -38,8 +39,8 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
                 if (warmed >= limit) { break; }
                 var name = kvp.Key;
                 var def = kvp.Value;
-                var lang = def.ScriptTags?.FirstOrDefault() ?? "javascript";
-                if (!string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) { continue; }
+                var lang = def.ScriptTags?.FirstOrDefault() ?? JavaScript;
+                if (!string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) { continue; }
                 resolver.TryResolveScriptFunction(name, null, out _, out _);
                 warmed++;
             }
@@ -53,8 +54,8 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
                         if (warmed >= limit) { break; }
                         var name = skvp.Key;
                         var def = skvp.Value;
-                        var lang = def.ScriptTags?.FirstOrDefault() ?? "javascript";
-                        if (!string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) { continue; }
+                        var lang = def.ScriptTags?.FirstOrDefault() ?? JavaScript;
+                        if (!string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) { continue; }
                         resolver.TryResolveScriptFunction(name, wsName, out _, out _);
                         warmed++;
                     }

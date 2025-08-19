@@ -8,6 +8,7 @@ using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Xfer.Lang;
 using ParksComputing.Api2Cli.Workspace.Models;
 using System.Net.Http.Headers;
+using static ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds;
 // Note: Do not depend on CLI layer here.
 
 namespace ParksComputing.Api2Cli.Orchestration.Services.Impl;
@@ -22,10 +23,10 @@ internal class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrchestrator 
     }
 
     public void Initialize() {
-        var js = _engineFactory.GetEngine("javascript");
+    var js = _engineFactory.GetEngine(JavaScript);
         js.InitializeScriptEnvironment();
 
-        var cs = _engineFactory.GetEngine("csharp");
+    var cs = _engineFactory.GetEngine(CSharp);
         cs.InitializeScriptEnvironment();
 
         // CLI-level JS function cache is process-local; nothing to clear here.
@@ -85,7 +86,7 @@ internal class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrchestrator 
             var (lang, body) = def.ResolveLanguageAndBody();
             var paramList = string.Join(", ", def.Arguments.Select(a => a.Value.Name ?? a.Key));
 
-            if (string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) {
+            if (string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) {
                 var source = $@"function __script__{name}({paramList}) {{
 {body}
 }};
@@ -93,7 +94,7 @@ internal class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrchestrator 
 a2c.{name} = __script__{name};";
                 js.EvaluateScript(source);
             }
-            else if (string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase)) {
+            else if (string.Equals(lang, CSharp, StringComparison.OrdinalIgnoreCase)) {
                 // Build a C# delegate wrapper: store under __script__{name} in C# engine, and expose a2c.{name} in JS to call back into C#
                 // C#: compile a delegate that accepts object?[] and runs the script body; result assigned to globals["__script__{name}"]
                 var argDecl = def.Arguments.Any()
@@ -131,7 +132,7 @@ __script__{name}
                 var def = script.Value;
                 var (lang, body) = def.ResolveLanguageAndBody();
                 var paramList = string.Join(", ", def.Arguments.Select(a => a.Value.Name ?? a.Key));
-                if (string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) {
+                if (string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) {
                     var source =
                     $@"function __script__{wsName}__{name}(workspace, {paramList}) {{
 {body}
@@ -140,7 +141,7 @@ __script__{name}
 a2c.workspaces['{wsName}']['{name}'] = (" + (string.IsNullOrEmpty(paramList) ? "" : paramList + ", ") + $"...rest) => __script__{wsName}__{name}(a2c.workspaces['{wsName}'], " + (string.IsNullOrEmpty(paramList) ? "" : paramList + ", ") + "...rest);";
                     js.EvaluateScript(source);
                 }
-                else if (string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase)) {
+                else if (string.Equals(lang, CSharp, StringComparison.OrdinalIgnoreCase)) {
                     // C#: wrapper takes object?[]; arg0 is workspace, next are declared params
                     var argDecl = def.Arguments.Any()
                         ? string.Join("\n    ", def.Arguments.Select((a, idx) => BuildCsArgDeclaration(a.Value.Type, a.Value.Name ?? a.Key, idx + 1)))
@@ -182,8 +183,8 @@ __script__{wsName}__{name}
         object?[] extraArgs
     ) {
         var baseConfig = _workspaceService.BaseConfig;
-    var js = _engineFactory.GetEngine("javascript");
-    var cs = _engineFactory.GetEngine("csharp");
+    var js = _engineFactory.GetEngine(JavaScript);
+    var cs = _engineFactory.GetEngine(CSharp);
 
         // Prepare C# globals for mutation from scripts
         var payloadBox = new PayloadBox { Value = payload };
@@ -231,8 +232,8 @@ __script__{wsName}__{name}
         string responseContent,
         object?[] extraArgs
     ) {
-        var js = _engineFactory.GetEngine("javascript");
-        var cs = _engineFactory.GetEngine("csharp");
+    var js = _engineFactory.GetEngine(JavaScript);
+    var cs = _engineFactory.GetEngine(CSharp);
 
         object? lastCsResult = null;
 
@@ -275,7 +276,7 @@ __script__{wsName}__{name}
 
     private static bool IsCSharp(XferKeyedValue? kv) {
         var lang = kv?.Keys?.FirstOrDefault();
-        return string.Equals(lang, "csharp", StringComparison.OrdinalIgnoreCase) || string.Equals(lang, "cs", StringComparison.OrdinalIgnoreCase);
+        return ScriptEngineKinds.CSharpAliases.Contains(lang ?? string.Empty, StringComparer.OrdinalIgnoreCase);
     }
 
     public void Warmup(int limit = 25, bool enable = false, bool debug = false) {
@@ -283,7 +284,7 @@ __script__{wsName}__{name}
             return;
         }
         int warmed = 0;
-        var js = _engineFactory.GetEngine("javascript");
+    var js = _engineFactory.GetEngine(JavaScript);
 
         // Touch a limited number of JS script references to ensure they are defined
         foreach (var kvp in _workspaceService.BaseConfig.Scripts) {
@@ -291,9 +292,9 @@ __script__{wsName}__{name}
                 break;
             }
             var def = kvp.Value;
-            var lang = def.ScriptTags?.FirstOrDefault() ?? "javascript";
+            var lang = def.ScriptTags?.FirstOrDefault() ?? JavaScript;
 
-            if (!string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) {
+            if (!ScriptEngineKinds.JavaScriptAliases.Contains(lang, StringComparer.OrdinalIgnoreCase)) {
                 continue;
             }
 
@@ -312,8 +313,8 @@ __script__{wsName}__{name}
                         break;
                     }
                     var def = skvp.Value;
-                    var lang = def.ScriptTags?.FirstOrDefault() ?? "javascript";
-                    if (!string.Equals(lang, "javascript", StringComparison.OrdinalIgnoreCase)) {
+                    var lang = def.ScriptTags?.FirstOrDefault() ?? JavaScript;
+                    if (!ScriptEngineKinds.JavaScriptAliases.Contains(lang, StringComparer.OrdinalIgnoreCase)) {
                         continue;
                     }
                     try {
@@ -348,7 +349,7 @@ __script__{wsName}__{name}
     // --- Helpers for orchestrating C# init and script execution ---
 
     private void ExecuteCSharpInitScripts() {
-        var cs = _engineFactory.GetEngine("csharp");
+    var cs = _engineFactory.GetEngine(CSharp);
         var baseConfig = _workspaceService.BaseConfig;
 
         // Global init for C#
@@ -379,7 +380,7 @@ __script__{wsName}__{name}
             ExecuteWorkspaceCSharpScriptInitRecursive(ws.Extend, baseWs);
         }
         if (ws.ScriptInit is not null && !string.IsNullOrWhiteSpace(ws.ScriptInit.CSharp)) {
-            var cs = _engineFactory.GetEngine("csharp");
+            var cs = _engineFactory.GetEngine(CSharp);
             cs.ExecuteInitScript(ws.ScriptInit.CSharp);
         }
     }

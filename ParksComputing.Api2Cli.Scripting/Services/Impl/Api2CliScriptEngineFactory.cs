@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.Scripting.Services.Impl;
+using static ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds;
 
 namespace ParksComputing.Api2Cli.Scripting.Services.Impl;
 
@@ -12,10 +13,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl;
 internal class Api2CliScriptEngineFactory : IApi2CliScriptEngineFactory
 {
     private readonly IServiceProvider _serviceProvider;
-    private static readonly IReadOnlyCollection<string> _supportedKinds = new[]
-    {
-        "javascript", "js", "csharp", "cs"
-    };
+    private static readonly IReadOnlyCollection<string> _supportedKinds = new List<string>(JavaScriptAliases.Concat(CSharpAliases));
 
     public Api2CliScriptEngineFactory(IServiceProvider serviceProvider)
     {
@@ -34,10 +32,11 @@ internal class Api2CliScriptEngineFactory : IApi2CliScriptEngineFactory
     /// <returns>Script engine instance</returns>
     public IApi2CliScriptEngine GetEngine(string engineType)
     {
-        return engineType?.ToLowerInvariant() switch
+        var key = engineType?.ToLowerInvariant();
+        return key switch
         {
-            "javascript" or "js" => _serviceProvider.GetRequiredService<ClearScriptEngine>(),
-            "csharp" or "cs" => _serviceProvider.GetRequiredService<CSharpScriptEngine>(),
+            var k when k != null && JavaScriptAliases.Contains(k) => _serviceProvider.GetRequiredService<ClearScriptEngine>(),
+            var k when k != null && CSharpAliases.Contains(k) => _serviceProvider.GetRequiredService<CSharpScriptEngine>(),
             _ => _serviceProvider.GetRequiredService<ClearScriptEngine>() // Default to JavaScript
         };
     }

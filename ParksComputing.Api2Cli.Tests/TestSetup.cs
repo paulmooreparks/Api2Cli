@@ -17,6 +17,12 @@ public static class TestSetup
     {
         var services = new ServiceCollection();
 
+    // Ensure tests use the bundled Xfer config so init scripts execute as expected
+    // Resolve ..\\..\\..\\TestConfigs\\tests.xfer relative to the test assembly output dir
+    var baseDir = AppContext.BaseDirectory;
+    var testConfigPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "TestConfigs", "tests.xfer"));
+    Environment.SetEnvironmentVariable("A2C_WORKSPACE_CONFIG", testConfigPath);
+
         services.AddApi2CliWorkspaceServices();
         services.AddApi2CliHttpServices();
         services.AddApi2CliScriptingServices();
