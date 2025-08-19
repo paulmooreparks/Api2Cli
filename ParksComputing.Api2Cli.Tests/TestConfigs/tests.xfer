@@ -91,20 +91,28 @@
             ">
         }
 
-        </
         csUsesInit {
             description "Call addNumbers defined in C# init."
             script csharp <"
-                return addNumbers(5, 7);
+                return AddNumbers(5, 7);
             ">
         }
-        />
     }
 
     workspaces {
         demo {
             description "Sample REST API: https://jsonplaceholder.typicode.com"
             baseUrl "https://jsonplaceholder.typicode.com/"
+
+            scriptInit {
+                javascript <"
+                    // Workspace-specific JavaScript initialization for 'demo'
+                    console.log("WS JS init ran: demo");
+
+                    // Helper available to JavaScript scripts in this workspace
+                    function wsAdd(a, b) { return a + b; }
+                ">
+            }
 
             scripts {
                 listposts {
@@ -152,6 +160,13 @@
                     description "JavaScript: test."
                     script javascript <"
                         testFunction("Hello from JavaScript");
+                    ">
+                }
+
+                wsusesinit {
+                    description "JavaScript: call wsAdd defined in workspace scriptInit."
+                    script javascript <"
+                        return wsAdd(3, 4);
                     ">
                 }
             }

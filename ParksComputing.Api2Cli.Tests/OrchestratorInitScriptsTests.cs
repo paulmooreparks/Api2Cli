@@ -30,7 +30,7 @@ public class OrchestratorInitScriptsTests
         Assert.AreEqual(12d, System.Convert.ToDouble(jsSum));
 
         // CS helper from CS init should exist in C# engine
-        var csSum = cs.EvaluateScript("addNumbers(5,7)");
+        var csSum = cs.EvaluateScript("AddNumbers(5,7)");
         Assert.AreEqual(12d, System.Convert.ToDouble(csSum));
 
         // Default JS 'clr' should be present even if user doesn't define it

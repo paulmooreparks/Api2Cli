@@ -66,18 +66,17 @@ internal class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrchestrator 
             }
         }
 
-        // Ensure legacy C# init scripts run (global + workspace) only if new scriptInit not provided
+        // Execute per-workspace C# scriptInit when provided (base-first), else run legacy C# init chain
         if (baseConfig.ScriptInit is null) {
             ExecuteCSharpInitScripts();
+        } else {
+            foreach (var kvp in baseConfig.Workspaces) {
+                ExecuteWorkspaceCSharpScriptInitRecursive(kvp.Key, kvp.Value);
+            }
         }
 
-        // Execute JavaScript init scripts at top-level so helpers persist
-        foreach (var wkvp in baseConfig.Workspaces) {
-            var wsName = wkvp.Key;
-            var ws = wkvp.Value;
-            // For JS per-workspace legacy init; keep behavior for now
-            js.ExecuteInitScript(ws.InitScript);
-        }
+    // Note: Per-workspace JavaScript init is executed inside the JS engine initialization
+    // (ClearScriptEngine.InitializeScriptEnvironment) to ensure base-first ordering and workspace binding.
 
         // Register root scripts into JS engine's a2c and C# engine globals
         foreach (var script in _workspaceService.BaseConfig.Scripts) {
@@ -365,11 +364,23 @@ __script__{wsName}__{name}
 
     private void ExecuteWorkspaceCSharpInitRecursive(IApi2CliScriptEngine cs, string wsName, WorkspaceDefinition ws) {
         // Execute this workspace's init if C#
-    cs.ExecuteInitScript(ws.InitScript);
+        cs.ExecuteInitScript(ws.InitScript);
 
         // Resolve and execute base chain
         if (!string.IsNullOrEmpty(ws.Extend) && _workspaceService.BaseConfig.Workspaces.TryGetValue(ws.Extend, out var baseWs)) {
             ExecuteWorkspaceCSharpInitRecursive(cs, ws.Extend, baseWs);
+        }
+    }
+
+    // New: workspace-level C# scriptInit execution (base-first)
+    private void ExecuteWorkspaceCSharpScriptInitRecursive(string wsName, WorkspaceDefinition ws) {
+        // Execute base first if present
+        if (!string.IsNullOrEmpty(ws.Extend) && _workspaceService.BaseConfig.Workspaces.TryGetValue(ws.Extend, out var baseWs)) {
+            ExecuteWorkspaceCSharpScriptInitRecursive(ws.Extend, baseWs);
+        }
+        if (ws.ScriptInit is not null && !string.IsNullOrWhiteSpace(ws.ScriptInit.CSharp)) {
+            var cs = _engineFactory.GetEngine("csharp");
+            cs.ExecuteInitScript(ws.ScriptInit.CSharp);
         }
     }
 

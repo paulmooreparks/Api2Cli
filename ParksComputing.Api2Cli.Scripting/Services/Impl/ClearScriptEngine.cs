@@ -46,8 +46,7 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
         IAppDiagnostics<ClearScriptEngine> appDiagnostics,
         IPropertyResolver propertyResolver,
         A2CApi apiRoot
-        )
-    {
+        ) {
         _workspaceService = workspaceService;
         _packageService = packageService;
         _packageService.PackagesUpdated += PackagesUpdated;
@@ -85,6 +84,41 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
         return assemblies;
     }
 
+    private IEnumerable<Assembly> LoadConfiguredAssemblies() {
+        var assemblies = new List<Assembly>();
+        try {
+            var names = _workspaceService?.BaseConfig?.Assemblies;
+            if (names is null || names.Length == 0) {
+                return assemblies;
+            }
+
+            string? pluginDir = null;
+            try { pluginDir = _settingsService?.PluginDirectory; } catch { /* ignore */ }
+
+            foreach (var name in names) {
+                try {
+                    var path = name;
+                    if (!Path.IsPathRooted(path) && !string.IsNullOrEmpty(pluginDir)) {
+                        path = Path.Combine(pluginDir!, name);
+                    }
+                    if (!File.Exists(path)) {
+                        _diags.Emit(nameof(ClearScriptEngine), new { Message = $"Workspace assembly not found: {path}" });
+                        continue;
+                    }
+                    var asm = Assembly.LoadFrom(path);
+                    assemblies.Add(asm);
+                }
+                catch (Exception ex) {
+                    _diags.Emit(nameof(ClearScriptEngine), new { Message = $"Failed to load workspace assembly '{name}': {ex.Message}" });
+                }
+            }
+        }
+        catch (Exception ex) {
+            _diags.Emit(nameof(ClearScriptEngine), new { Message = $"Error loading configured assemblies: {ex.Message}" });
+        }
+        return assemblies;
+    }
+
     private readonly Dictionary<string, dynamic> _workspaceCache = new();
     private readonly Dictionary<string, dynamic> _requestCache = new();
 
@@ -92,14 +126,27 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
         if (_isInitialized) {
             return;
         }
-        var assemblies = LoadPackageAssemblies();
+    var assemblies = LoadPackageAssemblies().ToList();
+    assemblies.AddRange(LoadConfiguredAssemblies());
 
         // _engine = new Engine(options => options.AllowClr(assemblies.ToArray()));
         _engine.AddHostObject("host", new ExtendedHostFunctions());
 
-    // Expose selected host types. Provide a defaultClr host object and assign to 'clr' only if user didn't define one.
-        var typeCollection = new HostTypeCollection("mscorlib", "System", "System.Core", "ParksComputing.Api2Cli.Workspace");
-    _engine.AddHostObject("defaultClr", typeCollection);
+        // Expose selected host types. Provide default 'clr' host type collection for scripts.
+        // Include simple names of any loaded package/plugin assemblies so scripts can access types via clr.
+        var hostAssemblyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+            "mscorlib", "System", "System.Core", "ParksComputing.Api2Cli.Workspace"
+        };
+        foreach (var asm in assemblies) {
+            try {
+                var simple = asm.GetName().Name;
+                if (!string.IsNullOrEmpty(simple)) {
+                    hostAssemblyNames.Add(simple);
+                }
+            } catch { /* ignore */ }
+        }
+        var typeCollection = new HostTypeCollection(hostAssemblyNames.ToArray());
+        _engine.AddHostObject("clr", typeCollection);
 
         _engine.AddHostType("Console", typeof(Console));
         _engine.AddHostType("Task", typeof(Task));
@@ -343,7 +390,8 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
             // Ensure default JS 'clr' bridge exists if user didn't provide one in init
             try {
                 _engine.Execute("if (typeof clr === 'undefined') { clr = defaultClr; }");
-            } catch (ScriptEngineException ex) {
+            }
+            catch (ScriptEngineException ex) {
                 Console.Error.WriteLine(ex.ErrorDetails);
             }
 
@@ -363,7 +411,14 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
     }
 
     protected void DefineInitScript(string workspaceKey, WorkspaceDefinition workspace, dynamic workspaceObj) {
-        var jsInit = GetJsScriptBody(workspace.InitScript);
+        // Prefer new per-workspace scriptInit.javascript; fall back to legacy keyed initScript when absent
+        string? jsInit = null;
+        if (workspace.ScriptInit is not null && !string.IsNullOrWhiteSpace(workspace.ScriptInit.JavaScript)) {
+            jsInit = workspace.ScriptInit.JavaScript;
+        }
+        else {
+            jsInit = GetJsScriptBody(workspace.InitScript);
+        }
         if (!string.IsNullOrWhiteSpace(jsInit)) {
             var scriptCode = GetScriptContent(jsInit);
             if (!string.IsNullOrWhiteSpace(scriptCode)) {

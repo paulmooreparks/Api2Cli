@@ -10,6 +10,9 @@ public class FolderDefinition {
     public string? Description { get; set; }
     [XferProperty("baseUrl")]
     public string? BaseUrl { get; set; }
+    // New: language-scoped per-folder/workspace initialization scripts
+    [XferProperty("scriptInit")]
+    public ScriptInitDefinition? ScriptInit { get; set; }
     [XferProperty("initScript")]
     public XferKeyedValue? InitScript { get; set; }
     [XferProperty("preRequest")]

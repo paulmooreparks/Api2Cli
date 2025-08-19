@@ -369,8 +369,15 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                 return string.Empty;
             }
 
-            // Execute the script synchronously; pass typed globals so identifiers like 'a2c' bind
-            _state = CSharpScript.RunAsync(script, _options, _typedGlobals, typeof(ScriptGlobals)).GetAwaiter().GetResult();
+            // Execute the script synchronously; chain onto existing state so top-level defs persist
+            if (_state is null)
+            {
+                _state = CSharpScript.RunAsync(script, _options, _typedGlobals, typeof(ScriptGlobals)).GetAwaiter().GetResult();
+            }
+            else
+            {
+                _state = _state.ContinueWithAsync(script, _options).GetAwaiter().GetResult();
+            }
             return _state?.ReturnValue?.ToString() ?? string.Empty;
         }
 
@@ -379,9 +386,16 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                 return null;
             }
 
-            // Evaluate the script synchronously; pass typed globals
-            var result = CSharpScript.EvaluateAsync<object?>(script, _options, _typedGlobals, typeof(ScriptGlobals)).GetAwaiter().GetResult();
-            return result;
+            // Evaluate the script synchronously; chain onto existing state so earlier defs are visible
+            if (_state is null)
+            {
+                _state = CSharpScript.RunAsync(script, _options, _typedGlobals, typeof(ScriptGlobals)).GetAwaiter().GetResult();
+            }
+            else
+            {
+                _state = _state.ContinueWithAsync(script, _options).GetAwaiter().GetResult();
+            }
+            return _state?.ReturnValue;
         }
 
         public string ExecuteCommand(string? script) {
