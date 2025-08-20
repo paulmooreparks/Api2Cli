@@ -74,6 +74,25 @@ internal class A2CRootCommand {
         var debug = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
         orchestrator.Warmup(limit, doWarm, debug);
 
+        // Register a single request executor bridge once; avoid per-request registration which causes O(N^2) wiring
+        orchestrator.RegisterRequestExecutor((wsName, reqName, args) => {
+            var http = Utility.GetService<IHttpService>()!;
+            var a2c = _a2c;
+            var wsService = _workspaceService;
+            var factory = Utility.GetService<IApi2CliScriptEngineFactory>()!;
+            var orch = Utility.GetService<ParksComputing.Api2Cli.Orchestration.Services.IWorkspaceScriptingOrchestrator>()!;
+            var prop = Utility.GetService<IPropertyResolver>()!;
+            var settings = Utility.GetService<ISettingsService>()!;
+
+            if (!wsService.BaseConfig.Workspaces.TryGetValue(wsName, out var wsDef)) {
+                return null;
+            }
+            var baseUrl = wsDef.BaseUrl;
+            var send = new SendCommand(http, a2c, wsService, factory, orch, prop, settings);
+            var caller = new RequestCaller(_rootCommand, send, wsName, reqName, baseUrl);
+            return caller.RunRequest(args ?? Array.Empty<object?>());
+        });
+
         if (_workspaceService.BaseConfig is not null) {
             foreach (var macro in _workspaceService.BaseConfig.Macros.OrderBy(m => m.Key, StringComparer.OrdinalIgnoreCase)) {
                 var macroCommand = new Macro($"{macro.Key}", $"[macro] {macro.Value.Description}", macro.Value.Command);
@@ -230,8 +249,6 @@ internal class A2CRootCommand {
                 requestCommand.IsHidden = workspaceConfig.IsHidden;
                 var requestHandler = new SendCommand(Utility.GetService<IHttpService>()!, _a2c, _workspaceService, Utility.GetService<IApi2CliScriptEngineFactory>()!, Utility.GetService<ParksComputing.Api2Cli.Orchestration.Services.IWorkspaceScriptingOrchestrator>()!, Utility.GetService<IPropertyResolver>(), Utility.GetService<ISettingsService>());
                 var requestCaller = new RequestCaller(_rootCommand, requestHandler, workspaceName, requestName, workspaceKvp.Value.BaseUrl);
-                // Register a request executor with orchestrator; engines will wire workspace.requests.<name>.execute
-                orchestrator.RegisterRequestExecutor((ws, req, args) => requestCaller.RunRequest(args ?? Array.Empty<object?>()));
 
                 var reqBaseurlOption = new Option<string>(["--baseurl", "-b"], "The base URL of the API to send HTTP requests to.");
                 reqBaseurlOption.IsRequired = false;

@@ -81,4 +81,7 @@ public interface IApi2CliScriptEngine {
     /// </summary>
     /// <param name="script">Initialization script keyed by language (e.g., javascript/csharp)</param>
     void ExecuteInitScript(ParksComputing.Xfer.Lang.XferKeyedValue? script);
+
+    // For JS engine: execute per-workspace initialization scripts (base-first). No-op for other engines.
+    void ExecuteAllWorkspaceInitScripts();
 }

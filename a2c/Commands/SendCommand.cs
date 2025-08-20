@@ -275,7 +275,7 @@ public class SendCommand {
             }
         }
 
-        try {
+    try {
             _orchestrator.InvokePreRequest(
                 workspaceName,
                 requestName,

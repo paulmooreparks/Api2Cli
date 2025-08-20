@@ -486,5 +486,8 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             return matches ? body : string.Empty;
         }
 
+    // No-op for C# engine; workspace init ordering is managed by the orchestrator and JS engine
+    public void ExecuteAllWorkspaceInitScripts() { }
+
     }
 }

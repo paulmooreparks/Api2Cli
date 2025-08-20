@@ -18,7 +18,9 @@ namespace ParksComputing.Api2Cli.Orchestration.Services
         // to a coarse-grained kind for UI/CLI. Custom means a specific CLR type handled by host conversion.
         public static ScriptArgKind GetArgKind(string? typeToken)
         {
-            if (string.IsNullOrWhiteSpace(typeToken)) return ScriptArgKind.String;
+            if (string.IsNullOrWhiteSpace(typeToken)) {
+                return ScriptArgKind.String;
+            }
             var t = typeToken.Trim();
             var lower = t.ToLowerInvariant();
             return lower switch

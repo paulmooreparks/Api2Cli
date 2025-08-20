@@ -15,9 +15,13 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
     {
     var jsScriptEngine = engineFactory.GetEngine(JavaScript);
         jsScriptEngine.InitializeScriptEnvironment();
-
-    var csScriptEngine = engineFactory.GetEngine(CSharp);
-        csScriptEngine.InitializeScriptEnvironment();
+        // Initialize C# only when needed, to avoid Roslyn startup cost on JS-only scenarios
+        bool forceCs = string.Equals(Environment.GetEnvironmentVariable("A2C_FORCE_CS"), "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Environment.GetEnvironmentVariable("A2C_FORCE_CS"), "1", StringComparison.OrdinalIgnoreCase);
+        if (forceCs || HasAnyCSharp(workspaceService)) {
+            var csScriptEngine = engineFactory.GetEngine(CSharp);
+            csScriptEngine.InitializeScriptEnvironment();
+        }
 
         // Clear cached JS function refs
         RunWsScriptCommand.ClearJsFunctionCache();
@@ -67,5 +71,22 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
 
             }
         }
+    }
+
+    private static bool HasAnyCSharp(IWorkspaceService workspaceService) {
+        var bc = workspaceService.BaseConfig;
+        bool anyCsScripts = bc.Scripts.Any(s => string.Equals(s.Value.ScriptTags?.FirstOrDefault() ?? JavaScript, CSharp, StringComparison.OrdinalIgnoreCase))
+            || bc.Workspaces.Any(ws => ws.Value.Scripts.Any(s => string.Equals(s.Value.ScriptTags?.FirstOrDefault() ?? JavaScript, CSharp, StringComparison.OrdinalIgnoreCase)));
+        bool anyCsInit = (bc.ScriptInit?.CSharp is string csInit && !string.IsNullOrWhiteSpace(csInit))
+            || (bc.InitScript?.Keys?.FirstOrDefault() is string gk && string.Equals(gk, CSharp, StringComparison.OrdinalIgnoreCase))
+            || bc.Workspaces.Any(ws => (ws.Value.ScriptInit?.CSharp is string wcs && !string.IsNullOrWhiteSpace(wcs))
+                || (ws.Value.InitScript?.Keys?.FirstOrDefault() is string wk && string.Equals(wk, CSharp, StringComparison.OrdinalIgnoreCase)));
+        bool anyCsHandlers = (bc.PreRequest?.Keys?.FirstOrDefault() is string pr && string.Equals(pr, CSharp, StringComparison.OrdinalIgnoreCase))
+            || (bc.PostResponse?.Keys?.FirstOrDefault() is string po && string.Equals(po, CSharp, StringComparison.OrdinalIgnoreCase))
+            || bc.Workspaces.Any(w => (w.Value.PreRequest?.Keys?.FirstOrDefault() is string wpr && string.Equals(wpr, CSharp, StringComparison.OrdinalIgnoreCase))
+                || (w.Value.PostResponse?.Keys?.FirstOrDefault() is string wpo && string.Equals(wpo, CSharp, StringComparison.OrdinalIgnoreCase))
+                || w.Value.Requests.Any(r => (r.Value.PreRequest?.Keys?.FirstOrDefault() is string rpr && string.Equals(rpr, CSharp, StringComparison.OrdinalIgnoreCase))
+                    || (r.Value.PostResponse?.Keys?.FirstOrDefault() is string rpo && string.Equals(rpo, CSharp, StringComparison.OrdinalIgnoreCase))));
+        return anyCsScripts || anyCsInit || anyCsHandlers;
     }
 }

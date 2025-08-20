@@ -26,6 +26,20 @@
     }
 
     scripts {
+        jsTest {
+            description "Run a JavaScript test."
+            script javascript<"
+                console.log("jsTest executed");
+            ">
+        }
+
+        csTest {
+            description "Run a C# test."
+            script csharp <"
+                Console.WriteLine("csTest executed");
+            ">
+        }
+
         echo2 {
             description "Echo two params from C# and return sum."
             arguments {
@@ -291,6 +305,7 @@
                     description "C#: test."
                     script csharp <'
                         // C# test stub
+                        Console.WriteLine("csTest executed");
                     '>
                 }
 

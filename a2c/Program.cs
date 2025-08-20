@@ -29,10 +29,9 @@ internal class Program {
     static async Task<int> Main(string[] args) {
         DiagnosticListener.AllListeners.Subscribe(new MyObserver());
 
-        // Fast-path: handle --version/-v before building services (avoid heavy startup)
-        bool onlyVersion = args.Length == 1 && (string.Equals(args[0], "--version", StringComparison.OrdinalIgnoreCase) || string.Equals(args[0], "-v", StringComparison.OrdinalIgnoreCase));
-
-        if (onlyVersion) {
+    // Fast-path: handle --version/-v before building services (avoid heavy startup)
+    // Trigger this regardless of other options (e.g., --config) to prevent full DI initialization on version queries.
+    if (args.Any(a => string.Equals(a, "--version", StringComparison.OrdinalIgnoreCase) || string.Equals(a, "-v", StringComparison.OrdinalIgnoreCase))) {
             var asm = Assembly.GetExecutingAssembly();
             var ver = asm.GetName().Version;
             var verStr = ver != null ? $"{ver.Major}.{ver.Minor}.{ver.Build}" : "Unknown";

@@ -165,6 +165,16 @@
 				"$msCompile"
 			],
 			"group": "build"
+		},
+		{
+			"label": "build",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"Api2Cli.sln"
+			],
+			"group": "build"
 		}
 	]
 }
