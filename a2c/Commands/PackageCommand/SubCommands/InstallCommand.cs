@@ -13,22 +13,18 @@ internal class InstallCommand(
 {
     public async Task<int> Execute(
         [ArgumentParam("packageName")] string packageName
-        )
-    {
+        ) {
         var packageInstallResult = await Api2CliApi.Package.InstallAsync(packageName);
 
-        if (packageInstallResult == null)
-        {
+        if (packageInstallResult == null) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Unexpected error installing package '{packageName}'.");
             return Result.Error;
         }
 
-        if (packageInstallResult.Success)
-        {
+        if (packageInstallResult.Success) {
             Console.WriteLine($"{Constants.SuccessChar} Installed {packageInstallResult.PackageName} {packageInstallResult.Version} to {packageInstallResult.Path}");
         }
-        else
-        {
+        else {
             Console.Error.WriteLine($"{Constants.ErrorChar} Failed to install package '{packageName}': {packageInstallResult.Message}");
             return Result.Error;
         }

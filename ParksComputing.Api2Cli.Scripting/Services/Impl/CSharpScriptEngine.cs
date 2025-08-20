@@ -489,8 +489,10 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
     // No-op for C# engine; workspace init ordering is managed by the orchestrator and JS engine
     public void ExecuteAllWorkspaceInitScripts() { }
 
-    // Lazy activation hooks are not applicable to the C# engine
+    // No-op for C# engine; projection is a JS concept only
     public void EnsureWorkspaceProjected(string workspaceName) { }
+
+    // No-op for C# engine; the orchestrator runs C# init directly
     public void ExecuteWorkspaceInitFor(string workspaceName) { }
 
     }

@@ -28,9 +28,8 @@ internal class RunWsScriptCommand {
     private static readonly ConcurrentDictionary<string, Microsoft.ClearScript.ScriptObject> _jsFuncCache = new();
 
     // Allow other components to invalidate cache (e.g., when workspaces reload)
-    public static void ClearJsFunctionCache()
-    {
-    _jsFuncCache.Clear();
+    public static void ClearJsFunctionCache() {
+        _jsFuncCache.Clear();
     }
 
     private static bool IsScriptDebugEnabled()
@@ -43,8 +42,7 @@ internal class RunWsScriptCommand {
         IWorkspaceService workspaceService,
         IApi2CliScriptEngineFactory scriptEngineFactory,
         IApi2CliScriptEngine scriptEngine
-        )
-    {
+        ) {
         _workspaceService = workspaceService;
         _scriptEngineFactory = scriptEngineFactory;
         _scriptEngine = scriptEngine;
@@ -54,8 +52,7 @@ internal class RunWsScriptCommand {
         InvocationContext invocationContext,
         string scriptName,
         string? workspaceName
-        )
-    {
+        ) {
         var parseResult = invocationContext.ParseResult;
         return Execute(invocationContext, scriptName, workspaceName, [], parseResult.CommandResult.Tokens);
     }
@@ -66,8 +63,7 @@ internal class RunWsScriptCommand {
         string? workspaceName,
         IEnumerable<object>? args,
         IReadOnlyList<System.CommandLine.Parsing.Token>? tokenArguments
-        )
-    {
+        ) {
         var result = DoCommand(invocationContext, scriptName, workspaceName, args, tokenArguments);
 
         if (CommandResult is not null && !CommandResult.Equals(Undefined.Value)) {
@@ -83,8 +79,7 @@ internal class RunWsScriptCommand {
         string? workspaceName,
         IEnumerable<object>? args,
         IReadOnlyList<System.CommandLine.Parsing.Token>? tokenArguments
-        )
-    {
+        ) {
         if (scriptName is null) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Script name is required.");
             return Result.Error;
@@ -132,10 +127,7 @@ internal class RunWsScriptCommand {
 
         // Determine the resolved language from tags (default to javascript)
         string resolvedLanguage = ScriptEngineKinds.JavaScript;
-        try {
-            resolvedLanguage = scriptDefinition.ScriptTags?.FirstOrDefault() ?? ScriptEngineKinds.JavaScript;
-        }
-        catch { /* ignore */ }
+        resolvedLanguage = scriptDefinition.ScriptTags?.FirstOrDefault() ?? ScriptEngineKinds.JavaScript;
 
         // Resolve workspace object (used for fallback invocation),
         // but do NOT inject it into scriptParams for a2c.* wrappers.
@@ -149,20 +141,16 @@ internal class RunWsScriptCommand {
 
         int i = 0;
 
-        static object? CoerceArg(object? value, string? typeToken)
-        {
-            if (value is null)
-            {
+        static object? CoerceArg(object? value, string? typeToken) {
+            if (value is null) {
                 return null;
             }
             var kind = ScriptArgTypeHelper.GetArgKind(typeToken);
             // Preserve already-typed values
-            if (value is not string s)
-            {
+            if (value is not string s) {
                 return value;
             }
-            return kind switch
-            {
+            return kind switch {
                 ScriptArgKind.Number => Convert.ToDouble(s),
                 ScriptArgKind.Boolean => Convert.ToBoolean(s),
                 // String/object/custom -> pass string through
@@ -170,11 +158,9 @@ internal class RunWsScriptCommand {
             };
         }
 
-        static object? CoerceDefault(object? defVal, string? typeToken)
-        {
+        static object? CoerceDefault(object? defVal, string? typeToken) {
             var kind = ScriptArgTypeHelper.GetArgKind(typeToken);
-            return kind switch
-            {
+            return kind switch {
                 ScriptArgKind.String => defVal?.ToString(),
                 ScriptArgKind.Number => defVal is null ? null : Convert.ToDouble(defVal),
                 ScriptArgKind.Boolean => defVal is null ? null : Convert.ToBoolean(defVal),
@@ -183,18 +169,18 @@ internal class RunWsScriptCommand {
             };
         }
 
-    if (tokenArguments is not null && tokenArguments.Any()) {
+        if (tokenArguments is not null && tokenArguments.Any()) {
             using var enumerator = tokenArguments.GetEnumerator();
 
             foreach (var token in tokenArguments) {
                 var arg = token.Value;
 
                 if (i >= argumentDefinitions.Count()) {
-            scriptParams.Add(arg);
+                    scriptParams.Add(arg);
                 }
                 else {
                     var argType = argumentDefinitions[i].Type;
-            scriptParams.Add(CoerceArg(arg, argType));
+                    scriptParams.Add(CoerceArg(arg, argType));
                 }
 
                 i++;
@@ -203,33 +189,34 @@ internal class RunWsScriptCommand {
         else if (args is not null) {
             foreach (var arg in args) {
                 if (i >= argumentDefinitions.Count()) {
-            scriptParams.Add(arg);
+                    scriptParams.Add(arg);
                 }
                 else {
                     var argType = argumentDefinitions[i].Type;
-            scriptParams.Add(CoerceArg(arg, argType));
+                    scriptParams.Add(CoerceArg(arg, argType));
                 }
 
                 i++;
             }
         }
 
-    if (Console.IsInputRedirected && i < argumentDefinitions.Count) {
+        if (Console.IsInputRedirected && i < argumentDefinitions.Count) {
             var argString = Console.In.ReadToEnd().Trim();
             var argType = argumentDefinitions[i].Type;
-        scriptParams.Add(CoerceArg(argString, argType));
+            scriptParams.Add(CoerceArg(argString, argType));
 
             ++i;
         }
 
         // Apply default values for any remaining arguments not provided
-    while (i < argumentDefinitions.Count) {
+        while (i < argumentDefinitions.Count) {
             var argDef = argumentDefinitions[i];
             if (argDef.Default is not null) {
-        var argType = argDef.Type;
-        var defVal = argDef.Default;
-        scriptParams.Add(CoerceDefault(defVal, argType));
-            } else {
+                var argType = argDef.Type;
+                var defVal = argDef.Default;
+                scriptParams.Add(CoerceDefault(defVal, argType));
+            }
+            else {
                 // No default; pad with null to keep indexes consistent for wrappers
                 scriptParams.Add(null);
             }
@@ -246,22 +233,6 @@ internal class RunWsScriptCommand {
             dynamic a2c = scriptRoot.a2c;
             static string JsEscape(string s) => (s ?? string.Empty).Replace("\\", "\\\\").Replace("'", "\\'");
 
-            // If debugging, probe the common alias path used by adminLogin scripts to help diagnose TypeError
-            if (IsScriptDebugEnabled() && !string.IsNullOrEmpty(workspaceName) && string.Equals(scriptName, "adminLogin", StringComparison.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    var wsEsc = JsEscape(workspaceName!);
-                    var probe1 = jsEngineForRef.EvaluateScript($"typeof a2c.workspaces['{wsEsc}']");
-                    var probe2 = jsEngineForRef.EvaluateScript($"typeof a2c.workspaces['{wsEsc}'].requests");
-                    var probe3 = jsEngineForRef.EvaluateScript($"typeof a2c.workspaces['{wsEsc}']['post_AdminLogin']");
-                    var probe4 = jsEngineForRef.EvaluateScript($"typeof a2c.workspaces['{wsEsc}'].requests['post_AdminLogin']");
-                    var probe5 = jsEngineForRef.EvaluateScript($"(a2c.workspaces['{wsEsc}']['post_AdminLogin'] && typeof a2c.workspaces['{wsEsc}']['post_AdminLogin'].execute) || 'missing'");
-                    var probe6 = jsEngineForRef.EvaluateScript($"(a2c.workspaces['{wsEsc}'].requests['post_AdminLogin'] && typeof a2c.workspaces['{wsEsc}'].requests['post_AdminLogin'].execute) || 'missing'");
-                    try { Console.Error.WriteLine($"[JS:probe] ws={probe1}, requests={probe2}, alias={probe3}, map={probe4}, alias.exec={probe5}, map.exec={probe6}"); } catch { }
-                }
-                catch { /* best-effort probes */ }
-            }
 
             if (string.IsNullOrEmpty(workspaceName)) {
                 var cacheKey = $"js:root:{scriptName}";
@@ -269,15 +240,16 @@ internal class RunWsScriptCommand {
 
                     CommandResult = cachedFunc.Invoke(false, scriptParams.ToArray());
                     invokedViaReference = true;
-                } else {
-                // Lookup function at a2c['{scriptName}'] via JS evaluation to respect DynamicObject semantics
-                object? func = jsEngineForRef.EvaluateScript($"a2c['{JsEscape(scriptName)}']");
-                if (func is Microsoft.ClearScript.ScriptObject so) {
-                    CommandResult = so.Invoke(false, scriptParams.ToArray());
-                    _jsFuncCache.TryAdd(cacheKey, so);
-
-                    invokedViaReference = true;
                 }
+                else {
+                    // Lookup function at a2c['{scriptName}'] via JS evaluation to respect DynamicObject semantics
+                    object? func = jsEngineForRef.EvaluateScript($"a2c['{JsEscape(scriptName)}']");
+                    if (func is Microsoft.ClearScript.ScriptObject so) {
+                        CommandResult = so.Invoke(false, scriptParams.ToArray());
+                        _jsFuncCache.TryAdd(cacheKey, so);
+
+                        invokedViaReference = true;
+                    }
                 }
             }
             else {
@@ -286,29 +258,28 @@ internal class RunWsScriptCommand {
 
                     CommandResult = cachedFunc.Invoke(false, scriptParams.ToArray());
                     invokedViaReference = true;
-                } else {
-                // Lookup function via JS evaluation to handle ExpandoObject + DynamicObject cases
-                object? func = jsEngineForRef.EvaluateScript($"(a2c.workspaces && a2c.workspaces['{JsEscape(workspaceName)}']) ? a2c.workspaces['{JsEscape(workspaceName)}']['{JsEscape(scriptName)}'] : undefined");
-                if (func is Microsoft.ClearScript.ScriptObject so) {
-                    try {
-                        // Workspace wrapper already injects the workspace, so pass user args only
-                        CommandResult = so.Invoke(false, scriptParams.ToArray());
-                        _jsFuncCache.TryAdd(cacheKey, so);
-                        invokedViaReference = true;
-                    }
-                    catch (Microsoft.ClearScript.ScriptEngineException ex) {
-                        try { System.Console.Error.WriteLine($"[JS:err-probe] a2c.workspaces['{JsEscape(workspaceName)}']['{JsEscape(scriptName)}'] threw: {ex.ErrorDetails}"); } catch { }
+                }
+                else {
+                    // Lookup function via JS evaluation to handle ExpandoObject + DynamicObject cases
+                    object? func = jsEngineForRef.EvaluateScript($"(a2c.workspaces && a2c.workspaces['{JsEscape(workspaceName)}']) ? a2c.workspaces['{JsEscape(workspaceName)}']['{JsEscape(scriptName)}'] : undefined");
+                    if (func is Microsoft.ClearScript.ScriptObject so) {
+                        try {
+                            // Workspace wrapper already injects the workspace, so pass user args only
+                            CommandResult = so.Invoke(false, scriptParams.ToArray());
+                            _jsFuncCache.TryAdd(cacheKey, so);
+                            invokedViaReference = true;
+                        }
+                        catch (Microsoft.ClearScript.ScriptEngineException ex) {
+                            System.Console.Error.WriteLine($"[JS:err-probe] a2c.workspaces['{JsEscape(workspaceName)}']['{JsEscape(scriptName)}'] threw: {ex.ErrorDetails}");
+                        }
                         // fall back to __script__ path below
                     }
-                }
                 }
             }
         }
         catch (Microsoft.ClearScript.ScriptEngineException ex) {
-            try { System.Console.Error.WriteLine($"[JS:err-probe] Direct a2c reference invocation threw: {ex.ErrorDetails}"); } catch { }
-            // Swallow and fall back to name-based invocation below
+            System.Console.Error.WriteLine($"[JS:err-probe] Direct a2c reference invocation threw: {ex.ErrorDetails}");
         }
-        catch { /* Swallow and fall back to name-based invocation below */ }
 
         if (!invokedViaReference) {
             // Fallback to existing name-based invocation (__script__...)
@@ -376,34 +347,30 @@ internal class RunWsScriptCommand {
     }
 
     // After a successful fallback invocation, try to resolve the canonical a2c.* reference and cache it.
-    private void PromoteReferenceToCache(string scriptName, string? workspaceName)
-    {
-        try {
-            dynamic scriptRoot = _scriptEngine.Script;
-            dynamic a2c = scriptRoot.a2c;
-            static string JsEscape(string s) => (s ?? string.Empty).Replace("\\", "\\\\").Replace("'", "\\'");
+    private void PromoteReferenceToCache(string scriptName, string? workspaceName) {
+        dynamic scriptRoot = _scriptEngine.Script;
+        dynamic a2c = scriptRoot.a2c;
+        static string JsEscape(string s) => (s ?? string.Empty).Replace("\\", "\\\\").Replace("'", "\\'");
 
-            if (string.IsNullOrEmpty(workspaceName)) {
-                var cacheKey = $"js:root:{scriptName}";
-                if (_jsFuncCache.ContainsKey(cacheKey)) { return; }
-                object? func = _scriptEngine.EvaluateScript($"a2c['{JsEscape(scriptName)}']");
-                if (func is Microsoft.ClearScript.ScriptObject so) { _jsFuncCache.TryAdd(cacheKey, so); }
-            } else {
-                var cacheKey = $"js:ws:{workspaceName}:{scriptName}";
-                if (_jsFuncCache.ContainsKey(cacheKey)) { return; }
-                object? func = _scriptEngine.EvaluateScript($"(a2c.workspaces && a2c.workspaces['{JsEscape(workspaceName)}']) ? a2c.workspaces['{JsEscape(workspaceName)}']['{JsEscape(scriptName)}'] : undefined");
-                if (func is Microsoft.ClearScript.ScriptObject so) { _jsFuncCache.TryAdd(cacheKey, so); }
-            }
+        if (string.IsNullOrEmpty(workspaceName)) {
+            var cacheKey = $"js:root:{scriptName}";
+            if (_jsFuncCache.ContainsKey(cacheKey)) { return; }
+            object? func = _scriptEngine.EvaluateScript($"a2c['{JsEscape(scriptName)}']");
+            if (func is Microsoft.ClearScript.ScriptObject so) { _jsFuncCache.TryAdd(cacheKey, so); }
         }
-        catch { /* ignore promotion errors */ }
+        else {
+            var cacheKey = $"js:ws:{workspaceName}:{scriptName}";
+            if (_jsFuncCache.ContainsKey(cacheKey)) { return; }
+            object? func = _scriptEngine.EvaluateScript($"(a2c.workspaces && a2c.workspaces['{JsEscape(workspaceName)}']) ? a2c.workspaces['{JsEscape(workspaceName)}']['{JsEscape(scriptName)}'] : undefined");
+            if (func is Microsoft.ClearScript.ScriptObject so) { _jsFuncCache.TryAdd(cacheKey, so); }
+        }
     }
 
     // Probe whether a script is registered and where. Returns true if resolvable at runtime.
     // location: one of "root:a2c", "workspace:a2c", "root:__script__", "workspace:__script__", or "none".
-    public bool TryResolveScriptFunction(string scriptName, string? workspaceName, out string location, out string language)
-    {
-    location = "none";
-    language = ScriptEngineKinds.JavaScript;
+    public bool TryResolveScriptFunction(string scriptName, string? workspaceName, out string location, out string language) {
+        location = "none";
+        language = ScriptEngineKinds.JavaScript;
 
         if (string.IsNullOrEmpty(scriptName)) {
             return false;
@@ -413,59 +380,63 @@ internal class RunWsScriptCommand {
         ScriptDefinition? scriptDefinition = null;
         if (string.IsNullOrEmpty(workspaceName)) {
             _workspaceService.BaseConfig.Scripts.TryGetValue(scriptName, out scriptDefinition);
-        } else if (_workspaceService.BaseConfig.Workspaces.TryGetValue(workspaceName, out var ws)) {
+        }
+        else if (_workspaceService.BaseConfig.Workspaces.TryGetValue(workspaceName, out var ws)) {
             ws.Scripts.TryGetValue(scriptName, out scriptDefinition);
         }
 
         if (scriptDefinition is not null) {
-            try { language = scriptDefinition.ScriptTags?.FirstOrDefault() ?? ScriptEngineKinds.JavaScript; } catch { /* ignore */ }
+            language = scriptDefinition.ScriptTags?.FirstOrDefault() ?? ScriptEngineKinds.JavaScript;
         }
 
         // JS path: attempt direct a2c.* resolution (evaluate in engine to respect dynamic/indexer semantics)
-        try {
-            dynamic scriptRoot = _scriptEngine.Script;
-            dynamic a2c = scriptRoot.a2c;
+        {
             static string JsEscape(string s) => (s ?? string.Empty).Replace("\\", "\\\\").Replace("'", "\\'");
 
-            if (string.IsNullOrEmpty(workspaceName)) {
-                var cacheKey = $"js:root:{scriptName}";
-                if (_jsFuncCache.TryGetValue(cacheKey, out var cachedFunc)) {
-                    location = "root:a2c";
-                    return true;
+            // Only probe when a2c is present
+            var a2cAvailableObj = _scriptEngine.EvaluateScript("typeof a2c !== 'undefined' && a2c != null");
+            var a2cAvailable = a2cAvailableObj is bool b && b;
+            if (a2cAvailable) {
+                if (string.IsNullOrEmpty(workspaceName)) {
+                    var cacheKey = $"js:root:{scriptName}";
+                    if (_jsFuncCache.TryGetValue(cacheKey, out var cachedFunc)) {
+                        location = "root:a2c";
+                        return true;
+                    }
+                    object? func = _scriptEngine.EvaluateScript($"a2c['{JsEscape(scriptName)}']");
+                    if (func is Microsoft.ClearScript.ScriptObject so) {
+                        _jsFuncCache.TryAdd(cacheKey, so);
+                        location = "root:a2c";
+                        return true;
+                    }
                 }
-                object? func = _scriptEngine.EvaluateScript($"a2c['{JsEscape(scriptName)}']");
-                if (func is Microsoft.ClearScript.ScriptObject so) {
-                    _jsFuncCache.TryAdd(cacheKey, so);
-                    location = "root:a2c";
-                    return true;
-                }
-            } else {
-                var cacheKey = $"js:ws:{workspaceName}:{scriptName}";
-                if (_jsFuncCache.TryGetValue(cacheKey, out var cachedFunc)) {
-                    location = "workspace:a2c";
-                    return true;
-                }
-                object? func = _scriptEngine.EvaluateScript($"(a2c.workspaces && a2c.workspaces['{JsEscape(workspaceName)}']) ? a2c.workspaces['{JsEscape(workspaceName)}']['{JsEscape(scriptName)}'] : undefined");
-                if (func is Microsoft.ClearScript.ScriptObject so) {
-                    _jsFuncCache.TryAdd(cacheKey, so);
-                    location = "workspace:a2c";
-                    return true;
+                else {
+                    var cacheKey = $"js:ws:{workspaceName}:{scriptName}";
+                    if (_jsFuncCache.TryGetValue(cacheKey, out var cachedFunc)) {
+                        location = "workspace:a2c";
+                        return true;
+                    }
+                    object? func = _scriptEngine.EvaluateScript($"(a2c.workspaces && a2c.workspaces['{JsEscape(workspaceName)}']) ? a2c.workspaces['{JsEscape(workspaceName)}']['{JsEscape(scriptName)}'] : undefined");
+                    if (func is Microsoft.ClearScript.ScriptObject so) {
+                        _jsFuncCache.TryAdd(cacheKey, so);
+                        location = "workspace:a2c";
+                        return true;
+                    }
                 }
             }
         }
-        catch { /* ignore and try fallback */ }
 
         // Fallback: check for __script__ function existence using a light eval (JS only)
-        try {
-            if (string.IsNullOrEmpty(workspaceName)) {
-                var test = _scriptEngine.EvaluateScript($"typeof __script__{scriptName} === 'function'");
-                if (Convert.ToBoolean(test)) { location = "root:__script__"; return true; }
-            } else {
-                var test = _scriptEngine.EvaluateScript($"typeof __script__{workspaceName}__{scriptName} === 'function'");
-                if (Convert.ToBoolean(test)) { location = "workspace:__script__"; return true; }
-            }
+        if (string.IsNullOrEmpty(workspaceName)) {
+            var test = _scriptEngine.EvaluateScript($"typeof __script__{scriptName} === 'function'");
+            var isFunc = test is bool tb && tb;
+            if (isFunc) { location = "root:__script__"; return true; }
         }
-        catch { /* ignore */ }
+        else {
+            var test = _scriptEngine.EvaluateScript($"typeof __script__{workspaceName}__{scriptName} === 'function'");
+            var isFunc = test is bool tb && tb;
+            if (isFunc) { location = "workspace:__script__"; return true; }
+        }
 
         return false;
     }

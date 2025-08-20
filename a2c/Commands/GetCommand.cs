@@ -14,8 +14,7 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 [Option(typeof(bool), "--quiet", "If true, suppress echo of the response to the console.", new[] { "-q" }, Arity = ArgumentArity.ZeroOrOne, IsRequired = false)]
 internal class GetCommand(
     A2CApi a2c
-    )
-{
+    ) {
     public string ResponseContent { get; protected set; } = string.Empty;
     public int StatusCode { get; protected set; } = 0;
     public System.Net.Http.Headers.HttpResponseHeaders? Headers { get; protected set; } = default;
@@ -65,7 +64,7 @@ internal class GetCommand(
                 result = Result.Error;
             }
             else if (!response.IsSuccessStatusCode) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} {(int)response.StatusCode} {response.ReasonPhrase} at {baseUrl}");
+                Console.Error.WriteLine($"{Constants.ErrorChar} {(int) response.StatusCode} {response.ReasonPhrase} at {baseUrl}");
                 result = Result.Error;
             }
 

@@ -50,7 +50,8 @@ internal class A2CRootCommand {
         IScriptCliBridge scriptCliBridge,
         ISettingsService settingsService,
         [OptionParam("--recursive")] Option recursionOption
-        ) {
+        )
+    {
         _serviceProvider = serviceProvider;
         _workspaceService = workspaceService;
         _rootCommand = rootCommand;
@@ -85,8 +86,10 @@ internal class A2CRootCommand {
             var line = $"A2C_TIMINGS: scriptingInit={ms:F1} ms";
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
-            try { Console.WriteLine(line); } catch { }
-            if (mirror) { try { Console.Error.WriteLine(line); } catch { } }
+            Console.WriteLine(line);
+            if (mirror) {
+                Console.Error.WriteLine(line);
+            }
         }
         var doWarm = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "1", StringComparison.OrdinalIgnoreCase);
         int limit = 25;
@@ -100,17 +103,17 @@ internal class A2CRootCommand {
             var line = $"A2C_TIMINGS: scriptingWarmup={ms:F1} ms";
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
-            try { Console.WriteLine(line); } catch { }
-            if (mirror) { try { Console.Error.WriteLine(line); } catch { } }
+            Console.WriteLine(line);
+            if (mirror) { Console.Error.WriteLine(line); }
         }
 
-    if (timingsEnabled && swScripting is not null) {
+        if (timingsEnabled && swScripting is not null) {
             var ms = swScripting.Elapsed.TotalMilliseconds;
             var line = $"A2C_TIMINGS: scriptingSetup={ms:F1} ms";
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
-            try { Console.WriteLine(line); } catch { }
-            if (mirror) { try { Console.Error.WriteLine(line); } catch { } }
+            Console.WriteLine(line);
+            if (mirror) { Console.Error.WriteLine(line); }
         }
 
         // Register a single request executor bridge once; avoid per-request registration which causes O(N^2) wiring
@@ -189,8 +192,8 @@ internal class A2CRootCommand {
             }
         }
 
-    foreach (var workspaceKvp in (_workspaceService.BaseConfig?.Workspaces ?? new Dictionary<string, Workspace.Models.WorkspaceDefinition>())
-             .OrderBy(w => w.Key, StringComparer.OrdinalIgnoreCase)) {
+        foreach (var workspaceKvp in (_workspaceService.BaseConfig?.Workspaces ?? new Dictionary<string, Workspace.Models.WorkspaceDefinition>())
+                 .OrderBy(w => w.Key, StringComparer.OrdinalIgnoreCase)) {
             var workspaceName = workspaceKvp.Key;
             var workspaceConfig = workspaceKvp.Value;
 
@@ -364,10 +367,10 @@ internal class A2CRootCommand {
         Command command,
         InvocationContext context
         ) {
-    // Note: The --config override is applied early in Program.Main via env var
-    // A2C_WORKSPACE_CONFIG so services (SettingsService/WorkspaceService) pick it up
-    // before initialization. Keeping it here ensures help/usage shows the option.
-    // Similarly, --packages is early-parsed and stored in A2C_PACKAGES_DIR.
+        // Note: The --config override is applied early in Program.Main via env var
+        // A2C_WORKSPACE_CONFIG so services (SettingsService/WorkspaceService) pick it up
+        // before initialization. Keeping it here ensures help/usage shows the option.
+        // Similarly, --packages is early-parsed and stored in A2C_PACKAGES_DIR.
         if (showVersion) {
             Assembly assembly = Assembly.GetExecutingAssembly();
             Version? version = assembly.GetName().Version;

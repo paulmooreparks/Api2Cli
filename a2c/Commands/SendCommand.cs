@@ -43,8 +43,7 @@ public class SendCommand {
     IWorkspaceScriptingOrchestrator orchestrator,
         IPropertyResolver? propertyResolver,
         ISettingsService? settingsService
-        )
-    {
+        ) {
         if (httpService is null) {
             throw new ArgumentNullException(nameof(httpService), "HTTP service cannot be null.");
         }
@@ -52,8 +51,8 @@ public class SendCommand {
         _a2c = a2c;
         _ws = workspaceService;
         _scriptEngineFactory = scriptEngineFactory;
-    _scriptEngine = _scriptEngineFactory.GetEngine(JavaScript);
-    _orchestrator = orchestrator;
+        _scriptEngine = _scriptEngineFactory.GetEngine(JavaScript);
+        _orchestrator = orchestrator;
 
         if (propertyResolver is null) {
             throw new ArgumentNullException(nameof(propertyResolver), "Property resolver cannot be null.");
@@ -79,8 +78,7 @@ public class SendCommand {
         IEnumerable<string>? cookies,
         List<System.CommandLine.Parsing.Token>? tokenArguments,
         object?[]? objArguments
-        )
-    {
+        ) {
         var parseResult = invocationContext.ParseResult;
         return Execute(workspaceName, requestName, baseUrl, null, null, null, null, parseResult.CommandResult.Tokens, null);
     }
@@ -95,8 +93,7 @@ public class SendCommand {
         IEnumerable<string>? cookies,
         IReadOnlyList<System.CommandLine.Parsing.Token>? tokenArguments,
         object?[]? objArguments
-        )
-    {
+        ) {
         var result = DoCommand(workspaceName, requestName, baseUrl, parameters, payload, headers, cookies, tokenArguments, objArguments);
 
         if (CommandResult is not null && !CommandResult.Equals(Undefined.Value)) {
@@ -116,8 +113,7 @@ public class SendCommand {
         IEnumerable<string>? cookies,
         IReadOnlyList<System.CommandLine.Parsing.Token>? tokenArguments,
         object?[]? objArguments
-        )
-    {
+        ) {
         var reqSplit = requestName.Split('.');
 
         if (_ws == null || _ws.BaseConfig == null || _ws.BaseConfig.Workspaces == null) {
@@ -275,7 +271,7 @@ public class SendCommand {
             }
         }
 
-    try {
+        try {
             _orchestrator.InvokePreRequest(
                 workspaceName,
                 requestName,

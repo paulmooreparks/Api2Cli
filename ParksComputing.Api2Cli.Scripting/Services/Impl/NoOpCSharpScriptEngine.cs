@@ -30,17 +30,19 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
 
         public object? Invoke(string script, params object?[] args) => null;
 
-            public void AddHostObject(string itemName, object? target) {
-                if (target is null) { return; }
-                SetValue(itemName, target);
-            }
+        public void AddHostObject(string itemName, object? target) {
+            if (target is null) return;
+            SetValue(itemName, target);
+        }
 
         public void ExecuteInitScript(string? script) { /* no-op */ }
 
         public void ExecuteInitScript(ParksComputing.Xfer.Lang.XferKeyedValue? script) { /* no-op */ }
 
         public void ExecuteAllWorkspaceInitScripts() { /* no-op */ }
-            public void EnsureWorkspaceProjected(string workspaceName) { /* no-op */ }
-            public void ExecuteWorkspaceInitFor(string workspaceName) { /* no-op */ }
+
+    public void EnsureWorkspaceProjected(string workspaceName) { /* no-op */ }
+
+    public void ExecuteWorkspaceInitFor(string workspaceName) { /* no-op */ }
     }
 }

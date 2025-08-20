@@ -10,8 +10,7 @@ internal class ListCommand(
     A2CApi Api2CliApi
     )
 {
-    public int Execute()
-    {
+    public int Execute() {
         var plugins = Api2CliApi.Package.List;
 
         if (plugins.Count() > 0) {

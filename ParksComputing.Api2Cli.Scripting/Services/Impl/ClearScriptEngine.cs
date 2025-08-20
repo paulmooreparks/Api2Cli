@@ -243,17 +243,10 @@ function __postResponse(workspace, request) {{
             // Optionally project only the active workspace and its base chain to reduce startup cost
             var projectActiveOnly = string.Equals(Environment.GetEnvironmentVariable("A2C_PROJECT_ACTIVE_ONLY"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_PROJECT_ACTIVE_ONLY"), "1", StringComparison.OrdinalIgnoreCase);
-            // New: lazy projection mode projects no workspaces until explicitly requested
-            // Default to lazy projection enabled; user can disable with A2C_LAZY_WORKSPACES=0/false
-            var lazyEnv = Environment.GetEnvironmentVariable("A2C_LAZY_WORKSPACES");
-            var lazyProject = string.IsNullOrWhiteSpace(lazyEnv)
-                || string.Equals(lazyEnv, "true", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(lazyEnv, "1", StringComparison.OrdinalIgnoreCase);
             var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (!lazyProject && projectActiveOnly && _workspaceService?.BaseConfig is not null) {
+            if (projectActiveOnly && _workspaceService?.BaseConfig is not null) {
                 var baseConfig = _workspaceService.BaseConfig;
-                var active = Environment.GetEnvironmentVariable("A2C_ACTIVE_WORKSPACE");
-                if (string.IsNullOrWhiteSpace(active)) { active = baseConfig.ActiveWorkspace; }
+                var active = baseConfig.ActiveWorkspace;
                 if (!string.IsNullOrWhiteSpace(active) && baseConfig.Workspaces.TryGetValue(active!, out var activeWs)) {
                     // include active and walk base chain via Extend
                     string cur = active!;
@@ -275,7 +268,6 @@ function __postResponse(workspace, request) {{
             if (_workspaceService?.BaseConfig is null) { return; }
             var bc = _workspaceService.BaseConfig;
             foreach (var workspaceKvp in bc.Workspaces) {
-                if (lazyProject) { break; }
                 if (projectActiveOnly && allowed.Count > 0 && !allowed.Contains(workspaceKvp.Key)) {
                     continue;
                 }
@@ -399,7 +391,6 @@ function __postResponse(workspace, request) {{
                     }
                     // For legacy global init (no grouped scriptInit), execute per-workspace inits now (base-first, cycle-safe)
                     foreach (var wsInit in _workspaceService.BaseConfig.Workspaces) {
-                        if (lazyProject) { break; }
                         var wsName = wsInit.Key;
                         var wsDef = wsInit.Value;
                         if (_workspaceCache.TryGetValue(wsName, out var wsObj)) {
@@ -424,69 +415,6 @@ function __postResponse(workspace, request) {{
         }
     }
 
-    public void EnsureWorkspaceProjected(string workspaceName)
-    {
-        if (_workspaceService?.BaseConfig is null) { return; }
-        if (_workspaceCache.ContainsKey(workspaceName)) { return; }
-        var bc = _workspaceService.BaseConfig;
-        if (!bc.Workspaces.TryGetValue(workspaceName, out var wsDef)) { return; }
-
-        // Walk base chain to ensure all ancestors exist first
-        if (!string.IsNullOrWhiteSpace(wsDef.Extend) && bc.Workspaces.TryGetValue(wsDef.Extend, out var baseWs)) {
-            EnsureWorkspaceProjected(wsDef.Extend);
-            wsDef.Base = baseWs;
-        }
-
-        // Project this workspace object and its request shims
-        var workspaceObj = new ExpandoObject() as dynamic;
-        workspaceObj.name = wsDef.Name ?? workspaceName;
-        workspaceObj.extend = wsDef.Extend;
-        workspaceObj.baseWorkspace = wsDef.Base;
-        workspaceObj.baseUrl = wsDef.BaseUrl;
-        workspaceObj.requests = new ExpandoObject() as dynamic;
-        // Copy properties
-        var dict = (IDictionary<string, object>)workspaceObj;
-        foreach (var kvp in wsDef.Properties) {
-            if (!dict.ContainsKey(kvp.Key)) { dict.Add(kvp.Key, kvp.Value); }
-        }
-        _workspaceCache[workspaceName] = workspaceObj;
-    var wsDict = (_a2c.Workspaces as IDictionary<string, object?>)!;
-    if (!wsDict.ContainsKey(workspaceName)) { wsDict.Add(workspaceName, workspaceObj); }
-        _a2c[workspaceName] = workspaceObj;
-
-        // Build batched shims for this workspace's requests
-        var wsEscaped = JsEscape(workspaceName);
-    var shimBuilder = new StringBuilder();
-    shimBuilder.Append($"(function(){{ var ws = a2c.workspaces && a2c.workspaces['{wsEscaped}']; if (!ws) return; ");
-        foreach (var req in wsDef.Requests) {
-            var reqEsc = JsEscape(req.Key);
-            shimBuilder.Append($@"(function(){{
-    if (!ws.requests) ws.requests = {{}};
-    var req = ws.requests['{reqEsc}'];
-    if (!req) {{ req = {{}}; ws.requests['{reqEsc}'] = req; if (!ws['{reqEsc}']) ws['{reqEsc}'] = req; }}
-    if (typeof req.execute !== 'function') {{ req.execute = function() {{ var args = Array.prototype.slice.call(arguments); if (typeof a2cRequestInvoke === 'function') return a2cRequestInvoke('{wsEscaped}', '{reqEsc}', args); throw new Error('a2cRequestInvoke not available'); }}; }}
-    if (typeof req.exec !== 'function') {{ req.exec = req.execute; }}
-}})();");
-        }
-    // Ensure this workspace is wrapped with our proxy so missing functions dispatch via __callScript
-    shimBuilder.Append("; if (typeof a2c.__wrapWorkspaceProxy === 'function') { try { a2c.__wrapWorkspaceProxy('" + wsEscaped + "'); } catch(e) {} } ");
-    shimBuilder.Append("})();");
-        try { Engine.Execute(shimBuilder.ToString()); } catch (ScriptEngineException ex) { Console.Error.WriteLine(ex.ErrorDetails); }
-    }
-
-    public void ExecuteWorkspaceInitFor(string workspaceName)
-    {
-        if (_workspaceService?.BaseConfig is null) { return; }
-        var bc = _workspaceService.BaseConfig;
-        if (!bc.Workspaces.TryGetValue(workspaceName, out var wsDef)) { return; }
-        // Ensure projected first (including base chain)
-        EnsureWorkspaceProjected(workspaceName);
-        // Execute base-first init chain for this workspace only
-        if (_workspaceCache.TryGetValue(workspaceName, out var wsObj)) {
-            ExecuteWorkspaceInitChain(workspaceName, wsDef, wsObj);
-        }
-    }
-
     // Invoked by orchestrator when grouped scriptInit is present to ensure workspace JS init runs
     public void ExecuteAllWorkspaceInitScripts()
     {
@@ -504,8 +432,7 @@ function __postResponse(workspace, request) {{
     var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     if (projectActiveOnly && _workspaceService?.BaseConfig is not null) {
         var baseConfig = _workspaceService.BaseConfig;
-        var active = Environment.GetEnvironmentVariable("A2C_ACTIVE_WORKSPACE");
-        if (string.IsNullOrWhiteSpace(active)) { active = baseConfig.ActiveWorkspace; }
+        var active = baseConfig.ActiveWorkspace;
         if (!string.IsNullOrWhiteSpace(active) && baseConfig.Workspaces.TryGetValue(active!, out var activeWs)) {
             string cur = active!;
             WorkspaceDefinition? curDef = activeWs;
@@ -1000,6 +927,83 @@ function __postResponse__{workspaceName}(workspace, request) {{
             || scriptCode.IndexOf("request", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
+    // Project a single workspace object and its request shims into the JS engine on demand.
+    public void EnsureWorkspaceProjected(string workspaceName)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceName)) { return; }
+        if (_workspaceCache.ContainsKey(workspaceName)) { return; }
+        var bc = _workspaceService?.BaseConfig;
+        if (bc?.Workspaces is null) { return; }
+        if (!bc.Workspaces.TryGetValue(workspaceName, out var workspace) || workspace is null) { return; }
+
+        // Link base definition if available
+        if (!string.IsNullOrEmpty(workspace.Extend) && bc.Workspaces.TryGetValue(workspace.Extend, out var baseWorkspace)) {
+            workspace.Base = baseWorkspace;
+        }
+
+        // Create dynamic workspace object mirroring InitializeScriptEnvironment
+        var workspaceObj = new ExpandoObject() as dynamic;
+        workspaceObj.name = workspace.Name ?? workspaceName;
+        workspaceObj.extend = workspace.Extend;
+        workspaceObj.baseWorkspace = workspace.Base;
+        workspaceObj.baseUrl = workspace.BaseUrl; // already placeholder-expanded by callers on use
+        workspaceObj.requests = new ExpandoObject() as dynamic;
+
+        // Copy arbitrary workspace properties
+        var workspaceDict = (IDictionary<string, object>)workspaceObj;
+        foreach (var kvp in workspace.Properties) {
+            if (!workspaceDict.ContainsKey(kvp.Key)) {
+                workspaceDict.Add(kvp.Key, kvp.Value);
+            } else {
+                _diags.Emit(nameof(ClearScriptEngine), new { Message = $"Failed to set property {kvp.Key} to {kvp.Value} in workspace {workspaceName}" });
+            }
+        }
+
+        _workspaceCache[workspaceName] = workspaceObj;
+        (_a2c.Workspaces as IDictionary<string, object?>)!.Add(workspaceName, workspaceObj);
+        _a2c[workspaceName] = workspaceObj;
+
+        // Define lightweight execute/exec shims for requests under this workspace
+        if (workspace.Requests is not null && workspace.Requests.Count > 0) {
+            var wsEscaped = JsEscape(workspaceName);
+            var shimBuilder = new StringBuilder();
+            shimBuilder.Append($"(function(){{ var ws = a2c.workspaces && a2c.workspaces['{wsEscaped}']; if (!ws) return; ");
+            foreach (var req in workspace.Requests) {
+                var reqEsc = JsEscape(req.Key);
+                shimBuilder.Append($@"(function(){{
+    if (!ws.requests) ws.requests = {{}};
+    var r = ws.requests['{reqEsc}'];
+    if (!r) {{ r = {{}}; ws.requests['{reqEsc}'] = r; if (!ws['{reqEsc}']) ws['{reqEsc}'] = r; }}
+    if (typeof r.execute !== 'function') {{
+        r.execute = function() {{
+            var args = Array.prototype.slice.call(arguments);
+            if (typeof a2cRequestInvoke === 'function') return a2cRequestInvoke('{wsEscaped}', '{reqEsc}', args);
+            throw new Error('a2cRequestInvoke not available');
+        }};
+    }}
+    if (typeof r.exec !== 'function') {{ r.exec = r.execute; }}
+}})();");
+            }
+            shimBuilder.Append("})();");
+            try { Engine.Execute(shimBuilder.ToString()); }
+            catch (ScriptEngineException ex) { Console.Error.WriteLine(ex.ErrorDetails); }
+        }
+    }
+
+    // Execute init scripts for a single workspace (base-first), compiling as needed.
+    public void ExecuteWorkspaceInitFor(string workspaceName)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceName)) { return; }
+        var bc = _workspaceService?.BaseConfig;
+        if (bc?.Workspaces is null) { return; }
+        if (!bc.Workspaces.TryGetValue(workspaceName, out var wsDef) || wsDef is null) { return; }
+        if (!_workspaceCache.TryGetValue(workspaceName, out var wsObj)) {
+            // Project on demand if not present yet
+            EnsureWorkspaceProjected(workspaceName);
+            if (!_workspaceCache.TryGetValue(workspaceName, out wsObj)) { return; }
+        }
+        ExecuteWorkspaceInitChain(workspaceName, wsDef, wsObj);
+    }
 }
 
 public static class DynamicObjectExtensions {
