@@ -36,6 +36,13 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
     public WorkspaceScriptingOrchestrator(IApi2CliScriptEngineFactory engineFactory, IWorkspaceService workspaceService) {
         _engineFactory = engineFactory;
         _workspaceService = workspaceService;
+    // Subscribe to workspace activation to lazily project/init scripts on first switch
+    _workspaceService.ActiveWorkspaceChanged += OnActiveWorkspaceChanged;
+    }
+
+    private void OnActiveWorkspaceChanged(string workspaceName) {
+    // Avoid recursion or redundant work; ActivateWorkspace is idempotent
+    ActivateWorkspace(workspaceName);
     }
 
     // Debug gate: use A2C_SCRIPT_DEBUG env var ("true" or "1") to enable extra logs
@@ -75,9 +82,9 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         Action<string>? emitTiming = null;
         if (timingsEnabled) {
             emitTiming = (line) => {
-                try { Console.WriteLine(line); } catch { }
+                Console.WriteLine(line);
                 if (mirrorTimings) {
-                    try { Console.Error.WriteLine(line); } catch { }
+                    Console.Error.WriteLine(line);
                 }
             };
         }
@@ -252,14 +259,12 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
             catch { /* ignore duplicate add */ }
         }
 
-        // Optionally limit script registration to active workspace and its base chain to reduce startup overhead
-        var projectActiveOnly = string.Equals(Environment.GetEnvironmentVariable("A2C_PROJECT_ACTIVE_ONLY"), "true", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(Environment.GetEnvironmentVariable("A2C_PROJECT_ACTIVE_ONLY"), "1", StringComparison.OrdinalIgnoreCase);
+        // Always lazy: limit script registration to active workspace + base chain when known
+        var projectActiveOnly = true;
         var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (projectActiveOnly) {
             var bc = _workspaceService.BaseConfig;
-            var active = Environment.GetEnvironmentVariable("A2C_ACTIVE_WORKSPACE");
-            if (string.IsNullOrWhiteSpace(active)) { active = bc.ActiveWorkspace; }
+            var active = bc.ActiveWorkspace;
             if (!string.IsNullOrWhiteSpace(active) && bc.Workspaces.TryGetValue(active!, out var activeWs)) {
                 string cur = active!;
                 WorkspaceDefinition? curDef = activeWs;
@@ -412,6 +417,23 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         js.EnsureWorkspaceProjected(workspaceName);
         // If grouped ScriptInit is present, ExecuteWorkspaceInitFor handles base-first order; else legacy was already run at init
         js.ExecuteWorkspaceInitFor(workspaceName);
+
+        // After activation, expose convenient global stubs for this workspace's scripts so they can be invoked by name
+        try {
+            if (_workspaceService.BaseConfig.Workspaces.TryGetValue(workspaceName, out var wsDef)) {
+                var sb = new System.Text.StringBuilder();
+                // Also bind the global 'workspace' variable to the active workspace object
+                sb.Append($"(function(){{ try {{ globalThis.workspace = a2c.workspaces['{JsEscape(workspaceName)}']; }} catch (e) {{ }} ");
+                foreach (var skvp in wsDef.Scripts) {
+                    var sName = skvp.Key;
+                    // Define/overwrite a global function that routes to this workspace's script
+                    sb.Append($"globalThis['{JsEscape(sName)}'] = function(){{ return a2c.__callScript('{JsEscape(workspaceName)}', '{JsEscape(sName)}', Array.prototype.slice.call(arguments)); }}; ");
+                }
+                sb.Append("})();");
+                js.EvaluateScript(sb.ToString());
+            }
+        }
+        catch { /* best-effort exposure; don't block activation */ }
 
         // Build C# handlers on demand for this workspace if needed
         EnsureCSharpHandlersFor(workspaceName);

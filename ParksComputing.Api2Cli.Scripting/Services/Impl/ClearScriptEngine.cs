@@ -142,20 +142,42 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
     }
 
     public void InitializeScriptEnvironment() {
-    if (_isInitialized) {
+        if (_isInitialized) {
             return;
         }
-    // Create the V8 engine lazily with flags per environment
-    _engine ??= CreateV8Engine();
+        // Timing gates
+        var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
+        var timingsDetail = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_DETAIL"), "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_DETAIL"), "1", StringComparison.OrdinalIgnoreCase);
+        var mirrorTimings = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
+        void EmitTiming(string label, double ms) {
+            if (!timingsEnabled || !timingsDetail) { return; }
+            var line = $"A2C_TIMINGS: {label}={ms:F1} ms";
+            try { Console.WriteLine(line); } catch { }
+            if (mirrorTimings) { try { Console.Error.WriteLine(line); } catch { } }
+        }
 
-    var assemblies = LoadPackageAssemblies().ToList();
-    assemblies.AddRange(LoadConfiguredAssemblies());
-    if (ScriptDebug) {
-        try { Console.Error.WriteLine("[JS:init] Begin InitializeScriptEnvironment"); } catch { }
-    }
+        // Create the V8 engine lazily with flags per environment
+        System.Diagnostics.Stopwatch? swCreate = timingsEnabled && timingsDetail ? System.Diagnostics.Stopwatch.StartNew() : null;
+        _engine ??= CreateV8Engine();
+        if (swCreate is not null) { swCreate.Stop(); EmitTiming("jsEngine.create", swCreate.Elapsed.TotalMilliseconds); }
+
+        // Load assemblies from packages and configured plugin paths
+        var swLoadPkgs = timingsEnabled && timingsDetail ? System.Diagnostics.Stopwatch.StartNew() : null;
+        var assemblies = LoadPackageAssemblies().ToList();
+        if (swLoadPkgs is not null) { swLoadPkgs.Stop(); EmitTiming("jsEngine.loadPackages", swLoadPkgs.Elapsed.TotalMilliseconds); }
+        var swLoadCfg = timingsEnabled && timingsDetail ? System.Diagnostics.Stopwatch.StartNew() : null;
+        assemblies.AddRange(LoadConfiguredAssemblies());
+        if (swLoadCfg is not null) { swLoadCfg.Stop(); EmitTiming("jsEngine.loadConfigured", swLoadCfg.Elapsed.TotalMilliseconds); }
+        if (ScriptDebug) {
+            try { Console.Error.WriteLine("[JS:init] Begin InitializeScriptEnvironment"); } catch { }
+        }
 
         // _engine = new Engine(options => options.AllowClr(assemblies.ToArray()));
-    Engine.AddHostObject("host", new ExtendedHostFunctions());
+        var swHostObjs = timingsEnabled && timingsDetail ? System.Diagnostics.Stopwatch.StartNew() : null;
+        Engine.AddHostObject("host", new ExtendedHostFunctions());
 
         // Expose selected host types. Provide default 'clr' host type collection for scripts.
         // Include simple names of any loaded package/plugin assemblies so scripts can access types via clr.
@@ -168,22 +190,26 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
                 if (!string.IsNullOrEmpty(simple)) {
                     hostAssemblyNames.Add(simple);
                 }
-            } catch { /* ignore */ }
+            }
+            catch { /* ignore */ }
         }
-    var typeCollection = new HostTypeCollection(hostAssemblyNames.ToArray());
-    // Do not predeclare a global named 'clr' to avoid collisions with user scripts (e.g., `let clr = ...`).
-    // Instead, expose only a fallback collection as 'defaultClr' and assign 'clr' later if missing.
-    Engine.AddHostObject("defaultClr", typeCollection);
+        var swHostTypes = timingsEnabled && timingsDetail ? System.Diagnostics.Stopwatch.StartNew() : null;
+        var typeCollection = new HostTypeCollection(hostAssemblyNames.ToArray());
+        // Do not predeclare a global named 'clr' to avoid collisions with user scripts (e.g., `let clr = ...`).
+        // Instead, expose only a fallback collection as 'defaultClr' and assign 'clr' later if missing.
+        Engine.AddHostObject("defaultClr", typeCollection);
+        if (swHostTypes is not null) { swHostTypes.Stop(); EmitTiming("jsEngine.hostTypes", swHostTypes.Elapsed.TotalMilliseconds); }
 
-    Engine.AddHostType("Console", typeof(Console));
-    Engine.AddHostType("Task", typeof(Task));
-    Engine.AddHostType("console", typeof(ConsoleScriptObject));
-    Engine.AddHostType("Environment", typeof(Environment));
+        Engine.AddHostType("Console", typeof(Console));
+        Engine.AddHostType("Task", typeof(Task));
+        Engine.AddHostType("console", typeof(ConsoleScriptObject));
+        Engine.AddHostType("Environment", typeof(Environment));
         // _engine.AddHostObject("workspaceService", _workspaceService);
-    Engine.AddHostObject("btoa", new Func<string, string>(s => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s))));
-    Engine.AddHostObject("atob", new Func<string, string>(s => System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(s))));
+        Engine.AddHostObject("btoa", new Func<string, string>(s => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s))));
+        Engine.AddHostObject("atob", new Func<string, string>(s => System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(s))));
 
-    Engine.AddHostObject("a2c", _a2c);
+        Engine.AddHostObject("a2c", _a2c);
+        if (swHostObjs is not null) { swHostObjs.Stop(); EmitTiming("jsEngine.addHostObjects", swHostObjs.Elapsed.TotalMilliseconds); }
         dynamic da2c = _a2c;
 
         if (_workspaceService is not null && _workspaceService.BaseConfig is not null && _workspaceService?.BaseConfig.Workspaces is not null) {
@@ -199,6 +225,7 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
             }
 
             // Define base handlers; defer global init execution until after projecting workspaces/requests
+            var swDefineGlobals = timingsEnabled && timingsDetail ? System.Diagnostics.Stopwatch.StartNew() : null;
             try {
                 var globalPreRequestJs = GetJsScriptBody(_workspaceService.BaseConfig.PreRequest);
                 Engine.Execute(
@@ -229,22 +256,17 @@ function __postResponse(workspace, request) {{
             catch (ScriptEngineException ex) {
                 Console.Error.WriteLine(ex.ErrorDetails);
             }
+            if (swDefineGlobals is not null) { swDefineGlobals.Stop(); EmitTiming("jsEngine.defineGlobals", swDefineGlobals.Elapsed.TotalMilliseconds); }
 
             // Optional timing for JS projection phase
-            var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
-            // Only emit engine-internal timing lines when detailed timings are requested to avoid duplicates
-            var timingsDetail = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_DETAIL"), "true", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_DETAIL"), "1", StringComparison.OrdinalIgnoreCase);
             Stopwatch? swProject = null;
             if (timingsEnabled) {
                 swProject = Stopwatch.StartNew();
             }
-            // Optionally project only the active workspace and its base chain to reduce startup cost
-            var projectActiveOnly = string.Equals(Environment.GetEnvironmentVariable("A2C_PROJECT_ACTIVE_ONLY"), "true", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(Environment.GetEnvironmentVariable("A2C_PROJECT_ACTIVE_ONLY"), "1", StringComparison.OrdinalIgnoreCase);
+            // Always lazy: defer workspace projection until activation; only allow active + base chain when known.
+
             var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (projectActiveOnly && _workspaceService?.BaseConfig is not null) {
+            if (_workspaceService?.BaseConfig is not null) {
                 var baseConfig = _workspaceService.BaseConfig;
                 var active = baseConfig.ActiveWorkspace;
                 if (!string.IsNullOrWhiteSpace(active) && baseConfig.Workspaces.TryGetValue(active!, out var activeWs)) {
@@ -256,7 +278,8 @@ function __postResponse(workspace, request) {{
                         if (!string.IsNullOrWhiteSpace(curDef.Extend) && baseConfig.Workspaces.TryGetValue(curDef.Extend, out var baseWs)) {
                             cur = curDef.Extend;
                             curDef = baseWs;
-                        } else {
+                        }
+                        else {
                             break;
                         }
                     }
@@ -268,9 +291,9 @@ function __postResponse(workspace, request) {{
             if (_workspaceService?.BaseConfig is null) { return; }
             var bc = _workspaceService.BaseConfig;
             foreach (var workspaceKvp in bc.Workspaces) {
-                if (projectActiveOnly && allowed.Count > 0 && !allowed.Contains(workspaceKvp.Key)) {
-                    continue;
-                }
+                // When lazy, skip all projections until an active workspace is known; then allow only the active + base chain
+                if (allowed.Count == 0) { continue; }
+                if (!allowed.Contains(workspaceKvp.Key)) { continue; }
                 var workspaceName = workspaceKvp.Key;
                 var workspace = workspaceKvp.Value;
 
@@ -308,6 +331,8 @@ function __postResponse(workspace, request) {{
                 _workspaceCache.Add(workspaceName, workspaceObj);
                 (_a2c.Workspaces as IDictionary<string, object?>)!.Add(workspaceName, workspaceObj);
                 _a2c[workspaceName] = workspaceObj;
+                // If orchestrator has installed the proxy wrapper helper, wrap this workspace on demand
+                try { Engine.Execute($"if (typeof a2c.__wrapWorkspaceProxy === 'function') a2c.__wrapWorkspaceProxy('{JsEscape(workspaceName)}');"); } catch { }
 
                 // Defer defining workspace-level wrappers until first use to reduce startup cost.
 
@@ -329,7 +354,6 @@ function __postResponse(workspace, request) {{
     if (!req) {{
         req = {{}};
         ws.requests['{reqEsc}'] = req;
-        if (!ws['{reqEsc}']) ws['{reqEsc}'] = req;
     }}
     if (typeof req.execute !== 'function') {{
         req.execute = function() {{
@@ -339,6 +363,8 @@ function __postResponse(workspace, request) {{
         }};
     }}
     if (typeof req.exec !== 'function') {{ req.exec = req.execute; }}
+    // Expose the request object on the workspace for script access: workspace.requestName.execute()
+    if (typeof ws['{reqEsc}'] === 'undefined') {{ ws['{reqEsc}'] = req; }}
 }})();");
                 }
 
@@ -355,11 +381,7 @@ function __postResponse(workspace, request) {{
             }
 
             if (timingsEnabled && timingsDetail && swProject is not null) {
-                var line = $"A2C_TIMINGS: jsProject={swProject.Elapsed.TotalMilliseconds:F1} ms";
-                var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
-                try { Console.WriteLine(line); } catch { }
-                if (mirror) { try { Console.Error.WriteLine(line); } catch { } }
+                EmitTiming("jsEngine.projectWorkspaces", swProject.Elapsed.TotalMilliseconds);
             }
 
             // Run optional legacy global init (JavaScript) once at top-level so functions persist globally.
@@ -368,6 +390,7 @@ function __postResponse(workspace, request) {{
                 var hasNewScriptInit = _workspaceService.BaseConfig.ScriptInit is not null;
                 if (!hasNewScriptInit) {
                     if (ScriptDebug) { try { Console.Error.WriteLine("[JS:init] Legacy global init path"); } catch { } }
+                    var swLegacyGlobal = timingsEnabled && timingsDetail ? Stopwatch.StartNew() : null;
                     var jsInit = GetJsScriptBody(_workspaceService.BaseConfig.InitScript);
                     if (!string.IsNullOrWhiteSpace(jsInit)) {
                         // Bind 'workspace' to active workspace if available (best-effort)
@@ -389,15 +412,26 @@ function __postResponse(workspace, request) {{
                             Engine.Execute(code);
                         }
                     }
+                    if (swLegacyGlobal is not null) { swLegacyGlobal.Stop(); EmitTiming("jsEngine.legacyGlobalInit", swLegacyGlobal.Elapsed.TotalMilliseconds); }
                     // For legacy global init (no grouped scriptInit), execute per-workspace inits now (base-first, cycle-safe)
+                    var swLegacyWsInit = timingsEnabled && timingsDetail ? Stopwatch.StartNew() : null;
                     foreach (var wsInit in _workspaceService.BaseConfig.Workspaces) {
                         var wsName = wsInit.Key;
                         var wsDef = wsInit.Value;
+                        // Respect lazy behavior: if no active workspace is known yet, defer all legacy inits
+
+                        var active = _workspaceService.BaseConfig.ActiveWorkspace;
+                        if (string.IsNullOrWhiteSpace(active)) { continue; }
+                        // only init active + base chain
+                        bool ok = string.Equals(wsName, active, StringComparison.OrdinalIgnoreCase) || allowed.Contains(wsName);
+                        if (!ok) { continue; }
+
                         if (_workspaceCache.TryGetValue(wsName, out var wsObj)) {
                             if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Execute per-workspace init (legacy) -> {wsName}"); } catch { } }
                             ExecuteWorkspaceInitChain(wsName, wsDef, wsObj);
                         }
                     }
+                    if (swLegacyWsInit is not null) { swLegacyWsInit.Stop(); EmitTiming("jsEngine.legacyWorkspaceInit", swLegacyWsInit.Elapsed.TotalMilliseconds); }
                 }
                 // When grouped scriptInit is present, defer per-workspace init; orchestrator will run it after global init
             }
@@ -416,64 +450,64 @@ function __postResponse(workspace, request) {{
     }
 
     // Invoked by orchestrator when grouped scriptInit is present to ensure workspace JS init runs
-    public void ExecuteAllWorkspaceInitScripts()
-    {
-    if (_workspaceService?.BaseConfig is null) { return; }
-    if (ScriptDebug) { try { Console.Error.WriteLine("[JS:init] ExecuteAllWorkspaceInitScripts begin"); } catch { } }
-    var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
-    var timingsDetail = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_DETAIL"), "true", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_DETAIL"), "1", StringComparison.OrdinalIgnoreCase);
-    Stopwatch? swWsInit = null;
-    if (timingsEnabled) { swWsInit = Stopwatch.StartNew(); }
-    // If requested, limit per-workspace JS init to the active workspace and its base chain
-    var projectActiveOnly = string.Equals(Environment.GetEnvironmentVariable("A2C_PROJECT_ACTIVE_ONLY"), "true", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(Environment.GetEnvironmentVariable("A2C_PROJECT_ACTIVE_ONLY"), "1", StringComparison.OrdinalIgnoreCase);
-    var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-    if (projectActiveOnly && _workspaceService?.BaseConfig is not null) {
-        var baseConfig = _workspaceService.BaseConfig;
-        var active = baseConfig.ActiveWorkspace;
-        if (!string.IsNullOrWhiteSpace(active) && baseConfig.Workspaces.TryGetValue(active!, out var activeWs)) {
-            string cur = active!;
-            WorkspaceDefinition? curDef = activeWs;
-            while (!string.IsNullOrEmpty(cur) && curDef is not null) {
-                allowed.Add(cur);
-                if (!string.IsNullOrWhiteSpace(curDef.Extend) && baseConfig.Workspaces.TryGetValue(curDef.Extend, out var baseWs)) {
-                    cur = curDef.Extend;
-                    curDef = baseWs;
-                } else {
-                    break;
+    public void ExecuteAllWorkspaceInitScripts() {
+        if (_workspaceService?.BaseConfig is null) { return; }
+        if (ScriptDebug) { try { Console.Error.WriteLine("[JS:init] ExecuteAllWorkspaceInitScripts begin"); } catch { } }
+        var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
+        var timingsDetail = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_DETAIL"), "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_DETAIL"), "1", StringComparison.OrdinalIgnoreCase);
+        Stopwatch? swWsInit = null;
+        if (timingsEnabled) { swWsInit = Stopwatch.StartNew(); }
+        // Always lazy: limit per-workspace JS init to the active workspace and its base chain
+
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (_workspaceService?.BaseConfig is not null) {
+            var baseConfig = _workspaceService.BaseConfig;
+            var active = baseConfig.ActiveWorkspace;
+            if (!string.IsNullOrWhiteSpace(active) && baseConfig.Workspaces.TryGetValue(active!, out var activeWs)) {
+                string cur = active!;
+                WorkspaceDefinition? curDef = activeWs;
+                while (!string.IsNullOrEmpty(cur) && curDef is not null) {
+                    allowed.Add(cur);
+                    if (!string.IsNullOrWhiteSpace(curDef.Extend) && baseConfig.Workspaces.TryGetValue(curDef.Extend, out var baseWs)) {
+                        cur = curDef.Extend;
+                        curDef = baseWs;
+                    }
+                    else {
+                        break;
+                    }
                 }
             }
         }
-    }
-    // Optional limiter to reduce startup time in very large configs (primarily for debugging/tuning)
-    int limit = int.MaxValue;
-    var limitEnv = Environment.GetEnvironmentVariable("A2C_WS_INIT_LIMIT");
-    if (!string.IsNullOrWhiteSpace(limitEnv) && int.TryParse(limitEnv, out var parsed) && parsed > 0) {
-        limit = parsed;
-    }
-    int count = 0;
-    var bc = _workspaceService!.BaseConfig;
-    if (bc?.Workspaces is null) { return; }
-    foreach (var wsInit in bc.Workspaces) {
+        // Optional limiter to reduce startup time in very large configs (primarily for debugging/tuning)
+        int limit = int.MaxValue;
+        var limitEnv = Environment.GetEnvironmentVariable("A2C_WS_INIT_LIMIT");
+        if (!string.IsNullOrWhiteSpace(limitEnv) && int.TryParse(limitEnv, out var parsed) && parsed > 0) {
+            limit = parsed;
+        }
+        int count = 0;
+        var bc = _workspaceService!.BaseConfig;
+        if (bc?.Workspaces is null) { return; }
+        foreach (var wsInit in bc.Workspaces) {
             var wsName = wsInit.Key;
             var wsDef = wsInit.Value;
-            if (projectActiveOnly && allowed.Count > 0 && !allowed.Contains(wsName)) { continue; }
+            if (allowed.Count == 0) { continue; }
+            if (!allowed.Contains(wsName)) { continue; }
             if (_workspaceCache.TryGetValue(wsName, out var wsObj)) {
-        if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Execute per-workspace init (grouped) -> {wsName}"); } catch { } }
+                if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Execute per-workspace init (grouped) -> {wsName}"); } catch { } }
                 ExecuteWorkspaceInitChain(wsName, wsDef, wsObj);
-        if (++count >= limit) { break; }
+                if (++count >= limit) { break; }
             }
         }
-    if (ScriptDebug) { try { Console.Error.WriteLine("[JS:init] ExecuteAllWorkspaceInitScripts end"); } catch { } }
-    if (timingsEnabled && timingsDetail && swWsInit is not null) {
-        var line = $"A2C_TIMINGS: jsWorkspaceInit={swWsInit.Elapsed.TotalMilliseconds:F1} ms";
-        var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
-        try { Console.WriteLine(line); } catch { }
-        if (mirror) { try { Console.Error.WriteLine(line); } catch { } }
-    }
+        if (ScriptDebug) { try { Console.Error.WriteLine("[JS:init] ExecuteAllWorkspaceInitScripts end"); } catch { } }
+        if (timingsEnabled && timingsDetail && swWsInit is not null) {
+            var line = $"A2C_TIMINGS: jsWorkspaceInit={swWsInit.Elapsed.TotalMilliseconds:F1} ms";
+            var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
+            try { Console.WriteLine(line); } catch { }
+            if (mirror) { try { Console.Error.WriteLine(line); } catch { } }
+        }
     }
 
     public void AddHostObject(string itemName, object? target) {
@@ -482,7 +516,7 @@ function __postResponse(workspace, request) {{
         if (target is null) {
             return;
         }
-    Engine.AddHostObject(itemName, HostItemFlags.None, target);
+        Engine.AddHostObject(itemName, HostItemFlags.None, target);
     }
 
     protected void DefineInitScript(string workspaceKey, WorkspaceDefinition workspace, dynamic workspaceObj) {
@@ -514,7 +548,8 @@ function __postResponse(workspace, request) {{
                         if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Running global init once for '{workspaceKey}'"); } catch { } }
                         Engine.Execute(_compiledWorkspaceInitScripts[workspaceKey]);
                         _executedGlobalInits.Add(workspaceKey);
-                    } else {
+                    }
+                    else {
                         // Bind the target workspace object and execute compiled script.
                         try { Engine.Script.workspace = workspaceObj; } catch { }
                         if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Running init for workspace '{workspaceKey}'"); } catch { } }
@@ -529,8 +564,7 @@ function __postResponse(workspace, request) {{
     }
 
     // Execute per-workspace init in base-first order, iteratively, with cycle detection
-    private void ExecuteWorkspaceInitChain(string workspaceKey, WorkspaceDefinition workspace, dynamic workspaceObj)
-    {
+    private void ExecuteWorkspaceInitChain(string workspaceKey, WorkspaceDefinition workspace, dynamic workspaceObj) {
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var chain = new Stack<(string Key, WorkspaceDefinition Def)>();
 
@@ -547,7 +581,8 @@ function __postResponse(workspace, request) {{
             if (current.Base != null) {
                 currentKey = current.Extend ?? currentKey;
                 current = current.Base;
-            } else {
+            }
+            else {
                 break;
             }
         }
@@ -629,7 +664,7 @@ function __postResponse(workspace, request) {{
             Engine.Script.request = request;
             // Lazily define workspace-level wrappers if missing
             bool wsWrappersExist = false;
-            try { wsWrappersExist = (bool)(Engine.Evaluate($"typeof __preRequest__{workspaceName} === 'function'") ?? false); } catch { wsWrappersExist = false; }
+            try { wsWrappersExist = (bool) (Engine.Evaluate($"typeof __preRequest__{workspaceName} === 'function'") ?? false); } catch { wsWrappersExist = false; }
             if (!wsWrappersExist && _workspaceService.BaseConfig.Workspaces.TryGetValue(workspaceName, out var wsDefForWrappers)) {
                 EnsureWorkspaceWrappers(workspaceName, wsDefForWrappers);
             }
@@ -643,7 +678,8 @@ function __postResponse(workspace, request) {{
             if (!exists) {
                 if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:req] Missing __preRequest__{workspaceName}__{requestName}; falling back to __preRequest__{workspaceName}"); } catch { } }
                 Engine.Invoke($"__preRequest__{workspaceName}", invokeArgs.ToArray());
-            } else {
+            }
+            else {
                 var fn = $"__preRequest__{workspaceName}__{requestName}";
                 var preRequestResult = Engine.Invoke(
                     fn,
@@ -735,7 +771,7 @@ function __postResponse(workspace, request) {{
             }
             // Ensure workspace-level wrappers exist
             bool wsWrappersExist = false;
-            try { wsWrappersExist = (bool)(Engine.Evaluate($"typeof __postResponse__{workspaceName} === 'function'") ?? false); } catch { wsWrappersExist = false; }
+            try { wsWrappersExist = (bool) (Engine.Evaluate($"typeof __postResponse__{workspaceName} === 'function'") ?? false); } catch { wsWrappersExist = false; }
             if (!wsWrappersExist && _workspaceService.BaseConfig.Workspaces.TryGetValue(workspaceName, out var wsDefForWrappers)) {
                 EnsureWorkspaceWrappers(workspaceName, wsDefForWrappers);
             }
@@ -744,7 +780,8 @@ function __postResponse(workspace, request) {{
             if (!exists) {
                 if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:req] Missing __postResponse__{workspaceName}__{requestName}; falling back to __postResponse__{workspaceName}"); } catch { } }
                 return Engine.Invoke($"__postResponse__{workspaceName}", invokeArgs.ToArray());
-            } else {
+            }
+            else {
                 var fn = $"__postResponse__{workspaceName}__{requestName}";
                 var postResponseResult = Engine.Invoke(
                     fn,
@@ -760,7 +797,7 @@ function __postResponse(workspace, request) {{
     }
 
     public void SetValue(string name, object? value) {
-    Engine.AddHostObject(name, value);
+        Engine.AddHostObject(name, value);
     }
 
     public void SetResponse(ResponseDefinition dest, ResponseDefinition src) {
@@ -776,7 +813,7 @@ function __postResponse(workspace, request) {{
             return string.Empty;
         }
 
-    Engine.Execute(scriptCode);
+        Engine.Execute(scriptCode);
         return string.Empty;
     }
 
@@ -787,7 +824,7 @@ function __postResponse(workspace, request) {{
             return string.Empty;
         }
 
-    var result = Engine.Evaluate(scriptCode);
+        var result = Engine.Evaluate(scriptCode);
 
         if (result is null || result is Undefined || result is VoidResult) {
             return null;
@@ -861,7 +898,7 @@ function __postResponse(workspace, request) {{
         }
         var extraArgs = argsBuilder.ToString();
 
-    try {
+        try {
             Engine.Execute($@"
 function __preRequest__{workspaceName}__{requestName} (workspace, request{extraArgs}) {{
     try {{ this.workspace = workspace; this.request = request; }} catch (e) {{}}
@@ -888,8 +925,7 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
         }
     }
 
-    private void EnsureWorkspaceWrappers(string workspaceName, WorkspaceDefinition workspace)
-    {
+    private void EnsureWorkspaceWrappers(string workspaceName, WorkspaceDefinition workspace) {
         if (_definedWorkspaceWrappers.Contains(workspaceName)) {
             return;
         }
@@ -920,18 +956,17 @@ function __postResponse__{workspaceName}(workspace, request) {{
         }
     }
 
-    private static bool IsWorkspaceDependent(string? scriptCode)
-    {
-    if (string.IsNullOrWhiteSpace(scriptCode)) { return false; }
+    private static bool IsWorkspaceDependent(string? scriptCode) {
+        if (string.IsNullOrWhiteSpace(scriptCode)) { return false; }
         return scriptCode.IndexOf("workspace", StringComparison.OrdinalIgnoreCase) >= 0
             || scriptCode.IndexOf("request", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     // Project a single workspace object and its request shims into the JS engine on demand.
-    public void EnsureWorkspaceProjected(string workspaceName)
-    {
+    public void EnsureWorkspaceProjected(string workspaceName) {
         if (string.IsNullOrWhiteSpace(workspaceName)) { return; }
         if (_workspaceCache.ContainsKey(workspaceName)) { return; }
+        if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Projecting workspace on-demand -> {workspaceName}"); } catch { } }
         var bc = _workspaceService?.BaseConfig;
         if (bc?.Workspaces is null) { return; }
         if (!bc.Workspaces.TryGetValue(workspaceName, out var workspace) || workspace is null) { return; }
@@ -950,11 +985,12 @@ function __postResponse__{workspaceName}(workspace, request) {{
         workspaceObj.requests = new ExpandoObject() as dynamic;
 
         // Copy arbitrary workspace properties
-        var workspaceDict = (IDictionary<string, object>)workspaceObj;
+        var workspaceDict = (IDictionary<string, object>) workspaceObj;
         foreach (var kvp in workspace.Properties) {
             if (!workspaceDict.ContainsKey(kvp.Key)) {
                 workspaceDict.Add(kvp.Key, kvp.Value);
-            } else {
+            }
+            else {
                 _diags.Emit(nameof(ClearScriptEngine), new { Message = $"Failed to set property {kvp.Key} to {kvp.Value} in workspace {workspaceName}" });
             }
         }
@@ -973,7 +1009,7 @@ function __postResponse__{workspaceName}(workspace, request) {{
                 shimBuilder.Append($@"(function(){{
     if (!ws.requests) ws.requests = {{}};
     var r = ws.requests['{reqEsc}'];
-    if (!r) {{ r = {{}}; ws.requests['{reqEsc}'] = r; if (!ws['{reqEsc}']) ws['{reqEsc}'] = r; }}
+    if (!r) {{ r = {{}}; ws.requests['{reqEsc}'] = r; if (typeof ws['{reqEsc}'] === 'undefined') ws['{reqEsc}'] = r; }}
     if (typeof r.execute !== 'function') {{
         r.execute = function() {{
             var args = Array.prototype.slice.call(arguments);
@@ -991,8 +1027,7 @@ function __postResponse__{workspaceName}(workspace, request) {{
     }
 
     // Execute init scripts for a single workspace (base-first), compiling as needed.
-    public void ExecuteWorkspaceInitFor(string workspaceName)
-    {
+    public void ExecuteWorkspaceInitFor(string workspaceName) {
         if (string.IsNullOrWhiteSpace(workspaceName)) { return; }
         var bc = _workspaceService?.BaseConfig;
         if (bc?.Workspaces is null) { return; }
@@ -1002,15 +1037,14 @@ function __postResponse__{workspaceName}(workspace, request) {{
             EnsureWorkspaceProjected(workspaceName);
             if (!_workspaceCache.TryGetValue(workspaceName, out wsObj)) { return; }
         }
+        if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Running workspace init on-demand -> {workspaceName}"); } catch { } }
         ExecuteWorkspaceInitChain(workspaceName, wsDef, wsObj);
     }
 }
 
 public static class DynamicObjectExtensions {
     public static dynamic ToDynamic(object source) {
-        if (source is null) {
-            throw new ArgumentNullException(nameof(source));
-        }
+        ArgumentNullException.ThrowIfNull(source);
 
         IDictionary<string, object?> expando = new ExpandoObject();
 

@@ -282,65 +282,31 @@ internal class RunWsScriptCommand {
         }
 
         if (!invokedViaReference) {
-            // Fallback to existing name-based invocation (__script__...)
-            string scriptBody = string.Empty;
-
-            if (string.IsNullOrEmpty(workspaceName)) {
-                found = _workspaceService.BaseConfig.Scripts.TryGetValue(scriptName, out scriptDefinition);
-
-                if (!found) {
-                    Console.Error.WriteLine($"{Constants.ErrorChar} Script '{scriptName}' not found.");
-                    return Result.Error;
-                }
-
-                scriptBody = $"__script__{scriptName}";
-
-                try {
-                    CommandResult = _scriptEngine.Invoke(scriptBody, scriptParams.ToArray());
-                    // Promote: attempt to resolve and cache a2c.{scriptName} reference for next time
+            // Fallback to the unified invoker: a2c.__callScript(wsName|null, scriptName, args)
+            try {
+                var jsEngine = _scriptEngineFactory.GetEngine(ScriptEngineKinds.JavaScript);
+                dynamic scriptRoot2 = jsEngine.Script;
+                dynamic a2c2 = scriptRoot2.a2c;
+                if (string.IsNullOrEmpty(workspaceName)) {
+                    // Root script: no workspace
+                    CommandResult = a2c2.__callScript(null, scriptName, scriptParams.ToArray());
+                    // Promote cache for next time
                     PromoteReferenceToCache(scriptName, null);
                 }
-                catch (Exception ex) {
-                    var root = ex.GetBaseException();
-                    Console.Error.WriteLine($"{Constants.ErrorChar} Script '{scriptName}' (language: {resolvedLanguage}) threw an error.\n- Verify the script body compiles and any required packages are installed.\n- Enable A2C_SCRIPT_DEBUG=1 for more details.\nDetails: {root.Message}\n{root.StackTrace}");
-                    return Result.Error;
+                else {
+                    // Workspace script
+                    CommandResult = a2c2.__callScript(workspaceName, scriptName, scriptParams.ToArray());
+                    PromoteReferenceToCache(scriptName, workspaceName);
                 }
             }
-            else {
-                if (_workspaceService.BaseConfig.Workspaces.TryGetValue(workspaceName, out var workspace)) {
-                    found = workspace.Scripts.TryGetValue(scriptName, out scriptDefinition);
-
-                    if (!found) {
-                        Console.Error.WriteLine($"{Constants.ErrorChar} Script '{workspaceName}.{scriptName}' not found.");
-                        return Result.Error;
-                    }
-
-                    scriptBody = $"__script__{workspaceName}__{scriptName}";
-
-
-                    // For the __script__ workspace function, inject the workspace as the first arg
-                    var argsWithWorkspace = new List<object?>();
-                    if (workspaceObjForFallback is not null) {
-                        argsWithWorkspace.Add(workspaceObjForFallback);
-                    }
-                    argsWithWorkspace.AddRange(scriptParams);
-
-                    try {
-                        // Workspace __script__ wrappers expect the first arg to be the workspace object
-                        CommandResult = _scriptEngine.Invoke(scriptBody, argsWithWorkspace.ToArray());
-                        // Promote: attempt to resolve and cache a2c.workspaces.{workspace}.{scriptName} reference for next time
-                        PromoteReferenceToCache(scriptName, workspaceName);
-                    }
-                    catch (Exception ex) {
-                        var root = ex.GetBaseException();
-                        Console.Error.WriteLine($"{Constants.ErrorChar} Script '{workspaceName}.{scriptName}' (language: {resolvedLanguage}) threw an error.\n- Verify the script body compiles and any required packages are installed.\n- Enable A2C_SCRIPT_DEBUG=1 for more details.\nDetails: {root.Message}\n{root.StackTrace}");
-                        return Result.Error;
-                    }
-                }
-                else {
-                    Console.Error.WriteLine($"{Constants.ErrorChar} Workspace '{workspaceName}' not found.");
-                    return Result.Error;
-                }
+            catch (Microsoft.ClearScript.ScriptEngineException ex) {
+                System.Console.Error.WriteLine($"{Constants.ErrorChar} Script invoke error via a2c.__callScript: {ex.ErrorDetails}");
+                return Result.Error;
+            }
+            catch (Exception ex) {
+                var root = ex.GetBaseException();
+                Console.Error.WriteLine($"{Constants.ErrorChar} Script '{(string.IsNullOrEmpty(workspaceName) ? scriptName : workspaceName + "." + scriptName)}' threw an error.\n- Verify the script body compiles and any required packages are installed.\n- Enable A2C_SCRIPT_DEBUG=1 for more details.\nDetails: {root.Message}\n{root.StackTrace}");
+                return Result.Error;
             }
         }
         return Result.Success;

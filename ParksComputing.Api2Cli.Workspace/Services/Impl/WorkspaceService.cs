@@ -92,10 +92,12 @@ internal class WorkspaceService : IWorkspaceService {
                 else if (BaseConfig.Workspaces.ContainsKey(workspaceName)) {
                     ActiveWorkspace = BaseConfig.Workspaces[workspaceName];
                     BaseConfig.ActiveWorkspace = workspaceName;
+                    try { ActiveWorkspaceChanged?.Invoke(workspaceName); } catch { /* listener errors should not break SetActiveWorkspace */ }
                 }
             }
         }
     }
+    public event Action<string>? ActiveWorkspaceChanged;
 
     private void EnsureWorkspaceFileExists() {
         if (!File.Exists(WorkspaceFilePath)) {

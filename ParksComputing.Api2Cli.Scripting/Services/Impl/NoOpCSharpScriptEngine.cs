@@ -7,7 +7,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
     /// Minimal no-op implementation of IApi2CliScriptEngine for C#.
     /// Useful for performance A/B testing by stubbing out Roslyn costs.
     /// </summary>
-    internal sealed class NoOpCSharpScriptEngine : IApi2CliScriptEngine {
+    internal sealed class NoOpScriptEngine : IApi2CliScriptEngine {
         private dynamic _globals = new ExpandoObject();
 
         public dynamic Script => _globals;
@@ -31,7 +31,9 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
         public object? Invoke(string script, params object?[] args) => null;
 
         public void AddHostObject(string itemName, object? target) {
-            if (target is null) return;
+            if (target is null) {
+                return;
+            }
             SetValue(itemName, target);
         }
 
