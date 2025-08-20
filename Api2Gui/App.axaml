@@ -1,0 +1,58 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fluent="clr-namespace:Avalonia.Themes.Fluent;assembly=Avalonia.Themes.Fluent"
+             xmlns:vm="clr-namespace:ParksComputing.Api2Gui"
+             x:Class="ParksComputing.Api2Gui.App">
+  <Application.Styles>
+    <fluent:FluentTheme />
+  </Application.Styles>
+  <Application.DataTemplates>
+    <DataTemplate DataType="{x:Type vm:WorkspaceDetailViewModel}">
+      <StackPanel Margin="12">
+        <TextBlock Text="Workspace" FontWeight="Bold"/>
+        <TextBlock Text="{Binding Name}"/>
+        <TextBlock Text="{Binding BaseUrl}"/>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type vm:ScriptRunnerViewModel}">
+      <StackPanel Margin="12" Spacing="8">
+        <TextBlock Text="Script" FontWeight="Bold"/>
+        <TextBlock Text="{Binding WorkspaceName}"/>
+        <TextBlock Text="{Binding ScriptName}"/>
+        <ItemsControl ItemsSource="{Binding Args}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{Binding Name}" Width="140"/>
+                <TextBox Text="{Binding Value}" Width="300"/>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Button Content="Run" Width="100" Command="{Binding RunCommand}"/>
+        <TextBox Text="{Binding Output}" AcceptsReturn="True" Height="200"/>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type vm:RequestRunnerViewModel}">
+      <StackPanel Margin="12" Spacing="8">
+        <TextBlock Text="Request" FontWeight="Bold"/>
+        <TextBlock Text="{Binding WorkspaceName}"/>
+        <TextBlock Text="{Binding RequestName}"/>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="BaseUrl" Width="140"/>
+          <TextBox Text="{Binding BaseUrl}" Width="400"/>
+        </StackPanel>
+        <TextBlock Text="Headers (key:value per line)"/>
+        <TextBox Text="{Binding HeadersText}" AcceptsReturn="True" Height="120"/>
+        <TextBlock Text="Parameters (key=value per line)"/>
+        <TextBox Text="{Binding ParametersText}" AcceptsReturn="True" Height="120"/>
+        <TextBlock Text="Payload"/>
+        <TextBox Text="{Binding Payload}" AcceptsReturn="True" Height="160"/>
+        <Button Content="Send" Width="100" Command="{Binding RunCommand}"/>
+        <TextBox Text="{Binding Output}" AcceptsReturn="True" Height="200"/>
+      </StackPanel>
+    </DataTemplate>
+  </Application.DataTemplates>
+</Application>

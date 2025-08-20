@@ -1,0 +1,14 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:ParksComputing.Api2Gui"
+        mc:Ignorable="d"
+        x:Class="ParksComputing.Api2Gui.MainWindow"
+        Width="1000" Height="700"
+        Title="Api2Gui">
+  <Grid ColumnDefinitions="2*,3*" RowDefinitions="*">
+  <TreeView Grid.Column="0" ItemsSource="{Binding WorkspaceItems}" SelectionChanged="WorkspaceTree_OnSelectionChanged"/>
+    <ContentControl Grid.Column="1" Content="{Binding Detail}"/>
+  </Grid>
+</Window>

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ParksComputing.Api2Gui</RootNamespace>
+    <AssemblyName>Api2Gui</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.0.10" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.0.10" />
+    <PackageReference Include="Avalonia.ReactiveUI" Version="11.0.10" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.10" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Workspace\ParksComputing.Api2Cli.Workspace.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Http\ParksComputing.Api2Cli.Http.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Scripting\ParksComputing.Api2Cli.Scripting.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Orchestration\ParksComputing.Api2Cli.Orchestration.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Diagnostics\ParksComputing.Api2Cli.Diagnostics.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.DataStore\ParksComputing.Api2Cli.DataStore.csproj" />
+    <ProjectReference Include="..\ParksComputing.Api2Cli.Api\ParksComputing.Api2Cli.Api.csproj" />
+  <ProjectReference Include="..\a2c\a2c.csproj" />
+  </ItemGroup>
+</Project>
