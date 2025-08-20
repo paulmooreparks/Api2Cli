@@ -83,14 +83,13 @@ internal class WorkspaceService : IWorkspaceService {
 
     public void SetActiveWorkspace(string workspaceName) {
         if (!string.IsNullOrEmpty(workspaceName)) {
-            Console.WriteLine($"Setting active workspace to '{workspaceName}'");
             if (BaseConfig.Workspaces is not null) {
                 if (string.Equals(workspaceName, "/")) {
                     ActiveWorkspace = new WorkspaceDefinition();
                     BaseConfig.ActiveWorkspace = string.Empty;
                 }
-                else if (BaseConfig.Workspaces.ContainsKey(workspaceName)) {
-                    ActiveWorkspace = BaseConfig.Workspaces[workspaceName];
+                else if (BaseConfig.Workspaces.TryGetValue(workspaceName, out WorkspaceDefinition? value)) {
+                    ActiveWorkspace = value;
                     BaseConfig.ActiveWorkspace = workspaceName;
                     try { ActiveWorkspaceChanged?.Invoke(workspaceName); } catch { /* listener errors should not break SetActiveWorkspace */ }
                 }
