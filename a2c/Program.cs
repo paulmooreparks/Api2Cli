@@ -27,6 +27,21 @@ internal class Program {
     }
 
     static async Task<int> Main(string[] args) {
+    // Internal timing: measure only time spent inside a2c (exclude dotnet host/restore/build)
+    var __a2cOverallSw = Stopwatch.StartNew();
+    bool __a2cTimings = "1".Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), StringComparison.OrdinalIgnoreCase)
+                || "true".Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), StringComparison.OrdinalIgnoreCase);
+    var __a2cBuildSw = new Stopwatch();
+    var __a2cConfigWsSw = new Stopwatch();
+    var __a2cRunSw = new Stopwatch();
+    var __a2cTimingsPrinted = false;
+
+    if (__a2cTimings) {
+        // Emit a quick marker early so users can verify the flag was recognized
+        const string enabledMsg = "A2C_TIMINGS: enabled";
+        Console.WriteLine(enabledMsg);
+    }
+
         DiagnosticListener.AllListeners.Subscribe(new MyObserver());
 
     // Fast-path: handle --version/-v before building services (avoid heavy startup)
@@ -64,7 +79,8 @@ internal class Program {
             }
         }
 
-        var cli = new ClifferBuilder()
+    __a2cBuildSw.Start();
+    var cli = new ClifferBuilder()
                 .ConfigureServices(services => {
                     services.AddApi2CliWorkspaceServices();
                     services.AddApi2CliHttpServices();
@@ -87,22 +103,44 @@ internal class Program {
                     services.AddApi2CliDataStore(databasePath);
                 })
                 .Build();
+    __a2cBuildSw.Stop();
 
         Cliffer.Macro.CustomMacroArgumentProcessor += CustomMacroArgumentProcessor;
         Utility.SetServiceProvider(cli.ServiceProvider);
         var rootCommand = cli.RootCommandInstance as A2CRootCommand;
 
         if (rootCommand is not null) {
+            __a2cConfigWsSw.Start();
             rootCommand.ConfigureWorkspaces();
+            __a2cConfigWsSw.Stop();
         }
 
+        var __mirrorTimings = "1".Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), StringComparison.OrdinalIgnoreCase)
+            || "true".Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), StringComparison.OrdinalIgnoreCase);
+
         ClifferEventHandler.OnExit += () => {
+            try {
+                if (__a2cTimings && !__a2cTimingsPrinted) {
+                    if (__a2cRunSw.IsRunning) { __a2cRunSw.Stop(); }
+                    if (__a2cOverallSw.IsRunning) { __a2cOverallSw.Stop(); }
+                    var timingLine = $"A2C_TIMINGS: overall={__a2cOverallSw.Elapsed.TotalMilliseconds:F1} ms, build={__a2cBuildSw.Elapsed.TotalMilliseconds:F1} ms, configureWorkspaces={__a2cConfigWsSw.Elapsed.TotalMilliseconds:F1} ms, run={__a2cRunSw.Elapsed.TotalMilliseconds:F1} ms";
+                    Console.WriteLine(timingLine);
+                    if (__mirrorTimings) { Console.Error.WriteLine(timingLine); }
+                    __a2cTimingsPrinted = true;
+                }
+            } catch { /* best-effort; never block exit */ }
         };
 
         Console.InputEncoding = Encoding.UTF8;
         Console.OutputEncoding = Encoding.UTF8;
 
-        return await cli.RunAsync(args);
+        __a2cRunSw.Start();
+        var exitCode = await cli.RunAsync(args);
+        __a2cRunSw.Stop();
+
+    __a2cOverallSw.Stop();
+
+        return exitCode;
     }
 
     private static string[] CustomMacroArgumentProcessor(string[] args) {

@@ -67,12 +67,51 @@ internal class A2CRootCommand {
     public void ConfigureWorkspaces() {
         // Initialize scripts via orchestration layer (decoupled from Workspace)
         var orchestrator = Utility.GetService<IWorkspaceScriptingOrchestrator>();
+
+        var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
+        System.Diagnostics.Stopwatch? swScripting = null;
+        System.Diagnostics.Stopwatch? swInit = null;
+        System.Diagnostics.Stopwatch? swWarm = null;
+        if (timingsEnabled) {
+            swScripting = System.Diagnostics.Stopwatch.StartNew();
+            swInit = System.Diagnostics.Stopwatch.StartNew();
+        }
+
         orchestrator!.Initialize();
+
+        if (timingsEnabled && swInit is not null) {
+            var ms = swInit.Elapsed.TotalMilliseconds;
+            var line = $"A2C_TIMINGS: scriptingInit={ms:F1} ms";
+            var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
+            try { Console.WriteLine(line); } catch { }
+            if (mirror) { try { Console.Error.WriteLine(line); } catch { } }
+        }
         var doWarm = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "1", StringComparison.OrdinalIgnoreCase);
         int limit = 25;
         if (int.TryParse(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP_LIMIT"), out var parsed) && parsed > 0) { limit = parsed; }
         var debug = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
+        if (timingsEnabled) { swWarm = System.Diagnostics.Stopwatch.StartNew(); }
         orchestrator.Warmup(limit, doWarm, debug);
+
+        if (timingsEnabled && swWarm is not null) {
+            var ms = swWarm.Elapsed.TotalMilliseconds;
+            var line = $"A2C_TIMINGS: scriptingWarmup={ms:F1} ms";
+            var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
+            try { Console.WriteLine(line); } catch { }
+            if (mirror) { try { Console.Error.WriteLine(line); } catch { } }
+        }
+
+    if (timingsEnabled && swScripting is not null) {
+            var ms = swScripting.Elapsed.TotalMilliseconds;
+            var line = $"A2C_TIMINGS: scriptingSetup={ms:F1} ms";
+            var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
+            try { Console.WriteLine(line); } catch { }
+            if (mirror) { try { Console.Error.WriteLine(line); } catch { } }
+        }
 
         // Register a single request executor bridge once; avoid per-request registration which causes O(N^2) wiring
         orchestrator.RegisterRequestExecutor((wsName, reqName, args) => {
@@ -150,13 +189,10 @@ internal class A2CRootCommand {
             }
         }
 
-        var workspaceColl = _a2c.Workspaces as IDictionary<string, object>;
-
     foreach (var workspaceKvp in (_workspaceService.BaseConfig?.Workspaces ?? new Dictionary<string, Workspace.Models.WorkspaceDefinition>())
              .OrderBy(w => w.Key, StringComparer.OrdinalIgnoreCase)) {
             var workspaceName = workspaceKvp.Key;
             var workspaceConfig = workspaceKvp.Value;
-            var workspace = workspaceColl![workspaceName] as dynamic;
 
             var workspaceCommand = new Command(workspaceName, $"[workspace] {workspaceConfig.Description}");
             workspaceCommand.IsHidden = workspaceConfig.IsHidden;
@@ -234,8 +270,6 @@ internal class A2CRootCommand {
                 paramList.Add("params");
                 // Workspace script/wrapper registration handled by the orchestrator
             }
-
-            var requests = workspace.requests as IDictionary<string, object>;
 
             foreach (var requestKvp in workspaceConfig.Requests.OrderBy(r => r.Key, StringComparer.OrdinalIgnoreCase)) {
                 var request = requestKvp.Value;

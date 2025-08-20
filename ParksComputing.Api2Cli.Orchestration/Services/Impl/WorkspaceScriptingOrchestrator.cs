@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 
 using ParksComputing.Api2Cli.Orchestration.Services;
 using ParksComputing.Api2Cli.Scripting.Services;
@@ -65,7 +66,26 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
 
     public void Initialize() {
         var js = _engineFactory.GetEngine(JavaScript);
+
+        // Fine-grained timings for scripting initialization
+        var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
+        bool mirrorTimings = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
+        Action<string>? emitTiming = null;
+        if (timingsEnabled) {
+            emitTiming = (line) => {
+                try { Console.WriteLine(line); } catch { }
+                if (mirrorTimings) { try { Console.Error.WriteLine(line); } catch { }
+                }
+            };
+        }
+
+        Stopwatch? swJsEngine = timingsEnabled ? Stopwatch.StartNew() : null;
         js.InitializeScriptEnvironment();
+        if (timingsEnabled && swJsEngine is not null) {
+            emitTiming!("A2C_TIMINGS: scriptingInit.jsEngine=" + swJsEngine.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
+        }
 
         var baseConfig = _workspaceService.BaseConfig;
 
@@ -84,8 +104,12 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
 
     IApi2CliScriptEngine? cs = null;
         if (needCs) {
+            Stopwatch? swCsEngine = timingsEnabled ? Stopwatch.StartNew() : null;
             cs = _engineFactory.GetEngine(CSharp);
             cs.InitializeScriptEnvironment();
+            if (timingsEnabled && swCsEngine is not null) {
+                emitTiming!("A2C_TIMINGS: scriptingInit.csEngine=" + swCsEngine.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
+            }
         }
 
         // CLI-level JS function cache is process-local; nothing to clear here.
@@ -121,17 +145,29 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
     if (baseConfig.ScriptInit is not null) {
             if (needCs && !string.IsNullOrWhiteSpace(baseConfig.ScriptInit.CSharp)) {
         if (IsScriptDebugEnabled()) { try { System.Console.Error.WriteLine("[CS:init] Global C# scriptInit begin"); } catch { } }
+                Stopwatch? swCsGlobalInit = timingsEnabled ? Stopwatch.StartNew() : null;
                 cs!.ExecuteInitScript(baseConfig.ScriptInit.CSharp);
+                if (timingsEnabled && swCsGlobalInit is not null) {
+                    emitTiming!("A2C_TIMINGS: scriptingInit.globalInit.cs=" + swCsGlobalInit.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
+                }
         if (IsScriptDebugEnabled()) { try { System.Console.Error.WriteLine("[CS:init] Global C# scriptInit end"); } catch { } }
             }
             if (!string.IsNullOrWhiteSpace(baseConfig.ScriptInit.JavaScript)) {
+                Stopwatch? swJsGlobalInit = timingsEnabled ? Stopwatch.StartNew() : null;
                 js.ExecuteInitScript(baseConfig.ScriptInit.JavaScript);
+                if (timingsEnabled && swJsGlobalInit is not null) {
+                    emitTiming!("A2C_TIMINGS: scriptingInit.globalInit.js=" + swJsGlobalInit.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
+                }
             }
-            // Now that global init ran, execute per-workspace JavaScript init (base-first) via JS engine helper
+            // Now that global init ran, execute per-workspace JavaScript init (base-first) via JS engine helper.
+            // This runs only for the new grouped ScriptInit path; legacy per-workspace init is handled inside ClearScriptEngine.
             try {
                 var jsImpl = _engineFactory.GetEngine(JavaScript);
-                // Invoke through the engine interface (no-op for non-JS engines)
+                Stopwatch? swJsWsInit = timingsEnabled ? Stopwatch.StartNew() : null;
                 jsImpl.ExecuteAllWorkspaceInitScripts();
+                if (timingsEnabled && swJsWsInit is not null) {
+                    emitTiming!("A2C_TIMINGS: scriptingInit.wsInit.js=" + swJsWsInit.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
+                }
             } catch { /* ignore; best-effort */ }
         }
 
@@ -139,96 +175,185 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         if (needCs) {
             if (baseConfig.ScriptInit is null) {
                 if (IsScriptDebugEnabled()) { try { System.Console.Error.WriteLine("[CS:init] ExecuteCSharpInitScripts begin"); } catch { } }
+                Stopwatch? swCsLegacyInit = timingsEnabled ? Stopwatch.StartNew() : null;
                 ExecuteCSharpInitScripts();
+                if (timingsEnabled && swCsLegacyInit is not null) {
+                    emitTiming!("A2C_TIMINGS: scriptingInit.csInit.legacy=" + swCsLegacyInit.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
+                }
                 if (IsScriptDebugEnabled()) { try { System.Console.Error.WriteLine("[CS:init] ExecuteCSharpInitScripts end"); } catch { } }
             }
             else {
+                Stopwatch? swCsWsInit = timingsEnabled ? Stopwatch.StartNew() : null;
                 ExecuteAllWorkspaceCSharpScriptInits();
+                if (timingsEnabled && swCsWsInit is not null) {
+                    emitTiming!("A2C_TIMINGS: scriptingInit.csInit.ws=" + swCsWsInit.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
+                }
             }
         }
 
         // Note: Per-workspace JavaScript init is executed inside the JS engine initialization
         // (ClearScriptEngine.InitializeScriptEnvironment) to ensure base-first ordering and workspace binding.
 
-    // Register root scripts into JS engine's a2c and optionally C# engine globals.
-    // Batch JS registrations to minimize host transitions.
+    // Register scripts using lightweight stubs and lazy compilation.
+    // Expose a host-side dictionary of JS bodies and helpers to compile them on first use.
     bool dbg = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
-    if (dbg) { try { System.Console.Error.WriteLine("[Orch] Register root scripts begin"); } catch { } }
-        var jsRootBlock = new System.Text.StringBuilder();
-        var jsRootCSharpShims = new System.Text.StringBuilder();
+    if (dbg) { try { System.Console.Error.WriteLine("[Orch] Register scripts (lazy) begin"); } catch { } }
+        Stopwatch? swRegisterScripts = timingsEnabled ? Stopwatch.StartNew() : null;
+        var jsBodies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // Root scripts: record JS bodies, record C# wrappers, define tiny stubs
+        var jsRootStubs = new System.Text.StringBuilder();
         foreach (var script in _workspaceService.BaseConfig.Scripts) {
             var name = script.Key;
             var def = script.Value;
             var (lang, body) = def.ResolveLanguageAndBody();
-            var paramList = string.Join(", ", def.Arguments.Select(a => a.Value.Name ?? a.Key));
-
             if (string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) {
-                // Define as a property assignment with an anonymous function to avoid polluting global scope
-                jsRootBlock.Append($"a2c['{name}'] = function({paramList}) {{\n{body}\n}};\n");
-            }
-            else if (needCs && string.Equals(lang, CSharp, StringComparison.OrdinalIgnoreCase)) {
-                // Record wrapper definition for lazy compile and set up param signatures
+                if (!string.IsNullOrEmpty(body)) {
+                    jsBodies[$"__root__::{name}"] = body!;
+                }
+                // define stub that calls the generic invoker
+                jsRootStubs.Append($"a2c['{JsEscape(name)}'] = (...args) => a2c.__callScript(null, '{JsEscape(name)}', args);\n");
+            } else if (needCs && string.Equals(lang, CSharp, StringComparison.OrdinalIgnoreCase)) {
                 var key = $"__script__{name}";
                 _csWrappers[key] = new CsWrapperDef {
                     Body = body ?? string.Empty,
                     HasWorkspace = false,
                     Args = def.Arguments.Select(a => (ResolveCSharpTypeToken(a.Value.Type), a.Value.Name ?? a.Key)).ToList()
                 };
-                // JS shim to call C# wrapper (host will convert types and compile lazily)
-                jsRootCSharpShims.Append($"a2c['{name}'] = (...args) => a2c.csharpInvoke('{key}', args);\n");
+                // stub still routes via generic invoker to avoid extra shims
+                jsRootStubs.Append($"a2c['{JsEscape(name)}'] = (...args) => a2c.__callScript(null, '{JsEscape(name)}', args);\n");
             }
         }
-        if (jsRootBlock.Length > 0) { js.EvaluateScript(jsRootBlock.ToString()); }
-        if (jsRootCSharpShims.Length > 0) { js.EvaluateScript(jsRootCSharpShims.ToString()); }
-        if (dbg) { try { System.Console.Error.WriteLine("[Orch] Register root scripts end"); } catch { } }
+        double evalRootStubsMs = 0;
+        if (jsRootStubs.Length > 0) {
+            Stopwatch? swEvalRoot = timingsEnabled ? Stopwatch.StartNew() : null;
+            js.EvaluateScript(jsRootStubs.ToString());
+            if (timingsEnabled && swEvalRoot is not null) { evalRootStubsMs += swEvalRoot.Elapsed.TotalMilliseconds; }
+        }
 
-        // Register workspace scripts wrappers for both JS and C#; assume a2c.workspaces exists
-        if (dbg) { try { System.Console.Error.WriteLine("[Orch] Register workspace scripts begin"); } catch { } }
+        // Workspace scripts: record JS bodies, record C# wrappers, define tiny stubs
         if (_requestExecutor is not null) {
-            // Add a single bridge function once (robust args normalization)
-            js.AddHostObject("a2cRequestInvoke", new Func<string, string, object?, object?>((w, r, argsObj) => {
-                object?[] argsArray = argsObj switch {
-                    null => Array.Empty<object?>(),
-                    object?[] arr => arr,
-                    System.Collections.IEnumerable e when argsObj is not string => e.Cast<object?>().ToArray(),
-                    _ => new object?[] { argsObj }
-                };
-                return _requestExecutor!(w, r, argsArray);
-            }));
+            // Add a single bridge function once (robust args normalization); ignore if already present
+            try {
+                js.AddHostObject("a2cRequestInvoke", new Func<string, string, object?, object?>((w, r, argsObj) => {
+                    object?[] argsArray = argsObj switch {
+                        null => Array.Empty<object?>(),
+                        object?[] arr => arr,
+                        System.Collections.IEnumerable e when argsObj is not string => e.Cast<object?>().ToArray(),
+                        _ => new object?[] { argsObj }
+                    };
+                    return _requestExecutor!(w, r, argsArray);
+                }));
+            } catch { /* ignore duplicate add */ }
+        }
+
+        // Optionally limit script registration to active workspace and its base chain to reduce startup overhead
+        var projectActiveOnly = string.Equals(Environment.GetEnvironmentVariable("A2C_PROJECT_ACTIVE_ONLY"), "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Environment.GetEnvironmentVariable("A2C_PROJECT_ACTIVE_ONLY"), "1", StringComparison.OrdinalIgnoreCase);
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (projectActiveOnly) {
+            var bc = _workspaceService.BaseConfig;
+            var active = bc.ActiveWorkspace;
+            if (!string.IsNullOrWhiteSpace(active) && bc.Workspaces.TryGetValue(active!, out var activeWs)) {
+                string cur = active!;
+                WorkspaceDefinition? curDef = activeWs;
+                while (!string.IsNullOrEmpty(cur) && curDef is not null) {
+                    allowed.Add(cur);
+                    if (!string.IsNullOrWhiteSpace(curDef.Extend) && bc.Workspaces.TryGetValue(curDef.Extend, out var baseWs)) {
+                        cur = curDef.Extend;
+                        curDef = baseWs;
+                    } else {
+                        break;
+                    }
+                }
+            }
         }
         foreach (var wkvp in _workspaceService.BaseConfig.Workspaces) {
+            if (projectActiveOnly && allowed.Count > 0 && !allowed.Contains(wkvp.Key)) { continue; }
             var wsName = wkvp.Key;
             var ws = wkvp.Value;
             if (dbg) { try { System.Console.Error.WriteLine($"[Orch] Workspace '{wsName}': scripts={ws.Scripts.Count}, requests={ws.Requests.Count}"); } catch { } }
-            var jsWsBlock = new System.Text.StringBuilder();
-            var jsWsCSharpShims = new System.Text.StringBuilder();
             foreach (var script in ws.Scripts) {
                 var name = script.Key;
                 var def = script.Value;
                 var (lang, body) = def.ResolveLanguageAndBody();
-                var paramList = string.Join(", ", def.Arguments.Select(a => a.Value.Name ?? a.Key));
                 if (string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) {
-                    // Assign a closure that captures workspace as a hidden parameter; avoid global function pollution
-                    jsWsBlock.Append($"a2c.workspaces['{wsName}']['{name}'] = (function(workspace) {{ return function({paramList}) {{\n{body}\n}}; }})(a2c.workspaces['{wsName}']);\n");
-                }
-                else if (needCs && string.Equals(lang, CSharp, StringComparison.OrdinalIgnoreCase)) {
-                    // Record workspace wrapper for lazy compile. First hidden param is workspace.
+                    if (!string.IsNullOrEmpty(body)) {
+                        jsBodies[$"{wsName}::{name}"] = body!;
+                    }
+                } else if (needCs && string.Equals(lang, CSharp, StringComparison.OrdinalIgnoreCase)) {
                     var key = $"__script__{wsName}__{name}";
                     _csWrappers[key] = new CsWrapperDef {
                         Body = body ?? string.Empty,
                         HasWorkspace = true,
                         Args = def.Arguments.Select(a => (ResolveCSharpTypeToken(a.Value.Type), a.Value.Name ?? a.Key)).ToList()
                     };
-                    // JS shim injects workspace as first arg; host will compile lazily
-                    jsWsCSharpShims.Append($"a2c.workspaces['{wsName}']['{name}'] = (...args) => a2c.csharpInvoke('{key}', [a2c.workspaces['{wsName}'], ...args]);\n");
                 }
             }
-            if (jsWsBlock.Length > 0) { js.EvaluateScript(jsWsBlock.ToString()); }
-            if (jsWsCSharpShims.Length > 0) { js.EvaluateScript(jsWsCSharpShims.ToString()); }
-
-            // No per-request wiring here; let the JS engine's lazy shims call a2cRequestInvoke when present
         }
-        if (dbg) { try { System.Console.Error.WriteLine("[Orch] Register workspace scripts end"); } catch { } }
+                // Wrap each workspace with a Proxy to lazily resolve missing properties to script invocations
+                double evalProxyMs = 0;
+                Stopwatch? swEvalProxy = timingsEnabled ? Stopwatch.StartNew() : null;
+                js.EvaluateScript(@"Object.keys(a2c.workspaces).forEach(function(wsName){
+    var target = a2c.workspaces[wsName];
+    a2c.workspaces[wsName] = new Proxy(target, {
+        get: function(t, prop) {
+            if (prop in t) { return t[prop]; }
+            if (typeof prop === 'string') {
+                return (...args) => a2c.__callScript(wsName, prop, args);
+            }
+            return t[prop];
+        }
+    });
+});");
+                if (timingsEnabled && swEvalProxy is not null) { evalProxyMs += swEvalProxy.Elapsed.TotalMilliseconds; }
+
+        // Expose JS bodies and helpers for lazy compilation
+        js.AddHostObject("a2cJsBodies", jsBodies);
+    js.AddHostObject("a2cCompileJsWsScript", new Action<string, string>((wsName, name) => {
+            var key = $"{wsName}::{name}";
+            if (!jsBodies.TryGetValue(key, out var bodyText) || string.IsNullOrWhiteSpace(bodyText)) { return; }
+            var code = $"(function(){{ var ws = a2c.workspaces['{JsEscape(wsName)}']; var fn = (function(workspace) {{ return function(...args) {{\n{bodyText}\n}}; }})(ws); fn._compiled=true; a2c.workspaces['{JsEscape(wsName)}']['{JsEscape(name)}']=fn; }})()";
+            js.EvaluateScript(code);
+        }));
+        js.AddHostObject("a2cCompileJsRootScript", new Action<string>((name) => {
+            var key = $"__root__::{name}";
+            if (!jsBodies.TryGetValue(key, out var bodyText) || string.IsNullOrWhiteSpace(bodyText)) { return; }
+            var code = $"(function(){{ var fn = function(...args) {{\n{bodyText}\n}}; fn._compiled=true; a2c['{JsEscape(name)}']=fn; }})()";
+            js.EvaluateScript(code);
+        }));
+
+        // Generic JS invoker that compiles JS on first use or falls back to C# wrapper
+    double evalInvokerMs = 0;
+    Stopwatch? swEvalInvoker = timingsEnabled ? Stopwatch.StartNew() : null;
+    js.EvaluateScript(@"a2c.__callScript = function(wsName, name, args) {
+  if (wsName) {
+    var ws = a2c.workspaces[wsName];
+    var fn = ws[name];
+    if (typeof fn !== 'function' || !fn._compiled) {
+      if (typeof a2cCompileJsWsScript === 'function') { a2cCompileJsWsScript(wsName, name); fn = ws[name]; }
+    }
+    if (typeof fn === 'function') { return fn.apply(ws, args || []); }
+    return a2c.csharpInvoke('__script__' + wsName + '__' + name, [ws].concat(args || []));
+  } else {
+    var fn2 = a2c[name];
+    if (typeof fn2 !== 'function' || !fn2._compiled) {
+      if (typeof a2cCompileJsRootScript === 'function') { a2cCompileJsRootScript(name); fn2 = a2c[name]; }
+    }
+    if (typeof fn2 === 'function') { return fn2.apply(a2c, args || []); }
+    return a2c.csharpInvoke('__script__' + name, args || []);
+  }
+};");
+    if (timingsEnabled && swEvalInvoker is not null) { evalInvokerMs += swEvalInvoker.Elapsed.TotalMilliseconds; }
+
+        if (timingsEnabled && swRegisterScripts is not null) {
+            emitTiming!("A2C_TIMINGS: scriptingInit.registerScripts=" + swRegisterScripts.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
+            if (evalRootStubsMs > 0) { emitTiming!("A2C_TIMINGS: scriptingInit.jsEval.rootStubs=" + evalRootStubsMs.ToString("F1") + " ms"); }
+            if (evalProxyMs > 0) { emitTiming!("A2C_TIMINGS: scriptingInit.jsEval.proxyWrap=" + evalProxyMs.ToString("F1") + " ms"); }
+            if (evalInvokerMs > 0) { emitTiming!("A2C_TIMINGS: scriptingInit.jsEval.invoker=" + evalInvokerMs.ToString("F1") + " ms"); }
+    }
+
+        if (dbg) { try { System.Console.Error.WriteLine("[Orch] Register scripts (lazy) end"); } catch { } }
 
         // C# init already executed above to satisfy wrapper dependencies
 
@@ -714,6 +839,17 @@ partial class WorkspaceScriptingOrchestrator {
         }
         if (char.IsDigit(sb[0])) { sb.Insert(0, '_'); }
         return sb.ToString();
+    }
+
+    // Escape a .NET string for safe embedding inside a JavaScript single-quoted string literal
+    private static string JsEscape(string? value) {
+        if (string.IsNullOrEmpty(value)) { return string.Empty; }
+        var s = value!;
+        return s
+            .Replace("\\", "\\\\")  // backslashes first
+            .Replace("'", "\\'")        // single quotes
+            .Replace("\r", "\\r")
+            .Replace("\n", "\\n");
     }
 
     private void BuildCSharpHandlerChain() {

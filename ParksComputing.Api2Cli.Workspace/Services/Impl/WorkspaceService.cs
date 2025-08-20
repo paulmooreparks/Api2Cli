@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
+using System.Diagnostics;
 
 using ParksComputing.Xfer.Lang.Configuration;
 using ParksComputing.Xfer.Lang.Converters;
@@ -129,7 +130,14 @@ internal class WorkspaceService : IWorkspaceService {
     private BaseConfig LoadWorkspace() {
         var baseConfig = new BaseConfig();
 
-    var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
+        var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
+        Stopwatch? sw = null;
+        if (timingsEnabled) {
+            sw = Stopwatch.StartNew();
+        }
+
+        var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
 
         var document = XferParser.Parse(xfer);
 
@@ -156,7 +164,7 @@ internal class WorkspaceService : IWorkspaceService {
             // baseConfig.activeWorkspace = "default";
         }
 
-        foreach (var workspaceKvp in baseConfig.Workspaces) {
+    foreach (var workspaceKvp in baseConfig.Workspaces) {
             var workspace = workspaceKvp.Value;
 
             if (workspace is not null) {
@@ -172,6 +180,14 @@ internal class WorkspaceService : IWorkspaceService {
                     }
                 }
             }
+        }
+
+        if (timingsEnabled && sw is not null) {
+            var line = $"A2C_TIMINGS: configParse={sw.Elapsed.TotalMilliseconds:F1} ms";
+            var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
+            try { Console.WriteLine(line); } catch { }
+            if (mirror) { try { Console.Error.WriteLine(line); } catch { } }
         }
 
         return baseConfig;

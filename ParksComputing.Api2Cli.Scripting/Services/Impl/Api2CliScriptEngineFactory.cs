@@ -33,10 +33,14 @@ internal class Api2CliScriptEngineFactory : IApi2CliScriptEngineFactory
     public IApi2CliScriptEngine GetEngine(string engineType)
     {
         var key = engineType?.ToLowerInvariant();
+        var stubCSharp = string.Equals(Environment.GetEnvironmentVariable("A2C_STUB_CSHARP"), "1", StringComparison.OrdinalIgnoreCase)
+                          || string.Equals(Environment.GetEnvironmentVariable("A2C_STUB_CSHARP"), "true", StringComparison.OrdinalIgnoreCase);
         return key switch
         {
             var k when k != null && JavaScriptAliases.Contains(k) => _serviceProvider.GetRequiredService<ClearScriptEngine>(),
-            var k when k != null && CSharpAliases.Contains(k) => _serviceProvider.GetRequiredService<CSharpScriptEngine>(),
+            var k when k != null && CSharpAliases.Contains(k) => stubCSharp
+                ? _serviceProvider.GetRequiredService<NoOpCSharpScriptEngine>()
+                : _serviceProvider.GetRequiredService<CSharpScriptEngine>(),
             _ => _serviceProvider.GetRequiredService<ClearScriptEngine>() // Default to JavaScript
         };
     }
