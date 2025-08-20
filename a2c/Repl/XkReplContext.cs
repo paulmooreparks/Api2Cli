@@ -38,8 +38,8 @@ internal class A2CReplContext : DefaultReplContext
         get {
             Assembly assembly = Assembly.GetExecutingAssembly();
             Version? version = assembly.GetName().Version;
-            string versionString = version?.ToString() ?? "Unknown";
-            return $"{Title} v{versionString}";
+            var verStr = version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "Unknown";
+            return $"{Title} v{verStr}";
         }
     }
 

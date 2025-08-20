@@ -15,6 +15,7 @@ using Microsoft.ClearScript;
 using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
 using ParksComputing.Api2Cli.Orchestration.Services;
+using ParksComputing.Api2Cli.Cli.Services;
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
 
@@ -87,6 +88,13 @@ internal class RunWsScriptCommand {
         if (scriptName is null) {
             Console.Error.WriteLine($"{Constants.ErrorChar} Script name is required.");
             return Result.Error;
+        }
+
+        // If a workspace was specified, switch and lazily activate it before resolving functions.
+        if (!string.IsNullOrEmpty(workspaceName)) {
+            _workspaceService.SetActiveWorkspace(workspaceName);
+            var orchestrator = Utility.GetService<ParksComputing.Api2Cli.Orchestration.Services.IWorkspaceScriptingOrchestrator>();
+            orchestrator?.ActivateWorkspace(workspaceName);
         }
 
         var paramList = string.Empty;

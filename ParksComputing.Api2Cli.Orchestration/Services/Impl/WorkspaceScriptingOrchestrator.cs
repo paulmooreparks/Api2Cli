@@ -253,7 +253,8 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (projectActiveOnly) {
             var bc = _workspaceService.BaseConfig;
-            var active = bc.ActiveWorkspace;
+            var active = Environment.GetEnvironmentVariable("A2C_ACTIVE_WORKSPACE");
+            if (string.IsNullOrWhiteSpace(active)) { active = bc.ActiveWorkspace; }
             if (!string.IsNullOrWhiteSpace(active) && bc.Workspaces.TryGetValue(active!, out var activeWs)) {
                 string cur = active!;
                 WorkspaceDefinition? curDef = activeWs;
@@ -291,28 +292,63 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 }
             }
         }
-                // Wrap each workspace with a Proxy to lazily resolve missing properties to script invocations
-                double evalProxyMs = 0;
-                Stopwatch? swEvalProxy = timingsEnabled ? Stopwatch.StartNew() : null;
-                js.EvaluateScript(@"Object.keys(a2c.workspaces).forEach(function(wsName){
-    var target = a2c.workspaces[wsName];
-    a2c.workspaces[wsName] = new Proxy(target, {
-        get: function(t, prop) {
-            if (prop in t) { return t[prop]; }
-            if (typeof prop === 'string') {
-                return (...args) => a2c.__callScript(wsName, prop, args);
+                                // Wrap each existing workspace with a Proxy to lazily resolve missing properties to script invocations
+                                // Also expose a helper to wrap newly projected workspaces on-demand
+                                double evalProxyMs = 0;
+                                Stopwatch? swEvalProxy = timingsEnabled ? Stopwatch.StartNew() : null;
+                                js.EvaluateScript(@"(function(){
+    function __mkProxy(wsName){
+        var target = a2c.workspaces[wsName];
+        if (!target) return;
+        // Avoid double wrapping using a sentinel on the proxy object
+        var already = false;
+        try { already = !!(a2c.workspaces[wsName] && a2c.workspaces[wsName].__a2cProxyWrapped); } catch(e) { already = false; }
+        if (already) return;
+        a2c.workspaces[wsName] = new Proxy(target, {
+            get: function(t, prop) {
+                if (prop in t) { return t[prop]; }
+                if (typeof prop === 'string') {
+                    return (...args) => a2c.__callScript(wsName, prop, args);
+                }
+                return t[prop];
             }
-            return t[prop];
-        }
-    });
-});");
-                if (timingsEnabled && swEvalProxy is not null) { evalProxyMs += swEvalProxy.Elapsed.TotalMilliseconds; }
+        });
+        try { a2c.workspaces[wsName].__a2cProxyWrapped = true; } catch(e) {}
+    }
+    // Wrap all currently registered workspaces
+    Object.keys(a2c.workspaces).forEach(__mkProxy);
+    // Expose helper for future lazy projections
+    a2c.__wrapWorkspaceProxy = function(wsName){ __mkProxy(wsName); };
+})();");
+                                if (timingsEnabled && swEvalProxy is not null) { evalProxyMs += swEvalProxy.Elapsed.TotalMilliseconds; }
 
         // Expose JS bodies and helpers for lazy compilation
         js.AddHostObject("a2cJsBodies", jsBodies);
     js.AddHostObject("a2cCompileJsWsScript", new Action<string, string>((wsName, name) => {
-            var key = $"{wsName}::{name}";
-            if (!jsBodies.TryGetValue(key, out var bodyText) || string.IsNullOrWhiteSpace(bodyText)) { return; }
+            // Resolve JS body from this workspace or any of its base workspaces
+            string? ResolveBody(string curWs) {
+                var k = $"{curWs}::{name}";
+                if (jsBodies.TryGetValue(k, out var body) && !string.IsNullOrWhiteSpace(body)) { return body; }
+                // Walk base chain if available
+                try {
+                    var bc = _workspaceService.BaseConfig;
+                    if (bc.Workspaces.TryGetValue(curWs, out var wsDef)) {
+                        var baseKey = wsDef.Extend;
+                        while (!string.IsNullOrWhiteSpace(baseKey)) {
+                            var k2 = $"{baseKey}::{name}";
+                            if (jsBodies.TryGetValue(k2, out var baseBody) && !string.IsNullOrWhiteSpace(baseBody)) { return baseBody; }
+                            if (!bc.Workspaces.TryGetValue(baseKey, out var baseDef)) {
+                                break;
+                            }
+                            baseKey = baseDef.Extend;
+                        }
+                    }
+                } catch { /* ignore */ }
+                return null;
+            }
+
+            var bodyText = ResolveBody(wsName);
+            if (string.IsNullOrWhiteSpace(bodyText)) { return; }
             var code = $"(function(){{ var ws = a2c.workspaces['{JsEscape(wsName)}']; var fn = (function(workspace) {{ return function(...args) {{\n{bodyText}\n}}; }})(ws); fn._compiled=true; a2c.workspaces['{JsEscape(wsName)}']['{JsEscape(name)}']=fn; }})()";
             js.EvaluateScript(code);
         }));
@@ -330,9 +366,9 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
   if (wsName) {
     var ws = a2c.workspaces[wsName];
     var fn = ws[name];
-    if (typeof fn !== 'function' || !fn._compiled) {
-      if (typeof a2cCompileJsWsScript === 'function') { a2cCompileJsWsScript(wsName, name); fn = ws[name]; }
-    }
+        if (typeof fn !== 'function' || !fn._compiled) {
+            if (typeof a2cCompileJsWsScript === 'function') { a2cCompileJsWsScript(wsName, name); fn = ws[name]; }
+        }
     if (typeof fn === 'function') { return fn.apply(ws, args || []); }
     return a2c.csharpInvoke('__script__' + wsName + '__' + name, [ws].concat(args || []));
   } else {
@@ -358,6 +394,21 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         // C# init already executed above to satisfy wrapper dependencies
 
     // C# handler classes will be built lazily per workspace on first use
+    }
+
+    public void ActivateWorkspace(string workspaceName)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceName)) { return; }
+        // Ensure JS engine exists (idempotent)
+        var js = _engineFactory.GetEngine(JavaScript);
+        js.InitializeScriptEnvironment();
+        // Project and init JS for this workspace (base-first)
+        js.EnsureWorkspaceProjected(workspaceName);
+        // If grouped ScriptInit is present, ExecuteWorkspaceInitFor handles base-first order; else legacy was already run at init
+        js.ExecuteWorkspaceInitFor(workspaceName);
+
+        // Build C# handlers on demand for this workspace if needed
+        EnsureCSharpHandlersFor(workspaceName);
     }
 
     // Lazily compile a recorded C# wrapper into a Func<...> and register into the C# engine under the given key

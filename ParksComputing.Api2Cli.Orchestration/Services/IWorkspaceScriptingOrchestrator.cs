@@ -5,6 +5,13 @@ public interface IWorkspaceScriptingOrchestrator
     // Initialize both JS and C# engines, expose a2c, and register scripts from the current BaseConfig
     void Initialize();
 
+    // Activate a specific workspace on demand (lazy). This will:
+    // - Ensure engines are initialized
+    // - Project the workspace into the JS runtime and run its JS init chain (base-first)
+    // - Run the workspace's C# init chain when applicable
+    // - Build any C# handlers for this workspace lazily
+    void ActivateWorkspace(string workspaceName);
+
     // Optional warmup limited by count
     void Warmup(int limit = 25, bool enable = false, bool debug = false);
 

@@ -10,6 +10,7 @@ using ParksComputing.Api2Cli.Cli.Services;
 using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.Api;
+using ParksComputing.Api2Cli.Orchestration.Services;
 
 using System.CommandLine;
 using System.CommandLine.Invocation;
@@ -32,8 +33,8 @@ internal class WorkspaceCommand {
         System.CommandLine.RootCommand rootCommand,
         IServiceProvider serviceProvider,
         IWorkspaceService workspaceService
-        ) 
-    { 
+        )
+    {
         WorkspaceName = workspaceName;
         _rootCommand = rootCommand;
         _serviceProvider = serviceProvider;
@@ -44,13 +45,17 @@ internal class WorkspaceCommand {
         Command command,
         InvocationContext context,
         string? baseUrl
-        ) 
+        )
     {
         var tmpWorkspace = _workspaceService.ActiveWorkspace;
         _workspaceService.SetActiveWorkspace(WorkspaceName);
         var workspace = _workspaceService.ActiveWorkspace;
         var tmpBaseUrl = workspace.BaseUrl;
         workspace.BaseUrl = baseUrl;
+
+        // New: lazily activate scripts for this workspace on first switch
+        var orchestrator = Utility.GetService<IWorkspaceScriptingOrchestrator>();
+        orchestrator?.ActivateWorkspace(WorkspaceName);
 
         var replContext = new WorkspaceReplContext(
             command,

@@ -84,4 +84,12 @@ public interface IApi2CliScriptEngine {
 
     // For JS engine: execute per-workspace initialization scripts (base-first). No-op for other engines.
     void ExecuteAllWorkspaceInitScripts();
+
+    // Lazy activation support: project a single workspace object and its request shims into the engine on demand.
+    // Engines that don't have a concept of per-workspace projection may implement this as a no-op.
+    void EnsureWorkspaceProjected(string workspaceName);
+
+    // Lazy activation support: execute init scripts for a single workspace (base-first) on demand.
+    // Engines that don't handle per-workspace init may implement this as a no-op.
+    void ExecuteWorkspaceInitFor(string workspaceName);
 }

@@ -22,7 +22,6 @@ public static class ServiceCollectionExtensions {
         services.TryAddSingleton<IApi2CliScriptEngineFactory, Api2CliScriptEngineFactory>();
         services.TryAddSingleton<ClearScriptEngine>();
         services.TryAddSingleton<CSharpScriptEngine>();
-    services.TryAddSingleton<NoOpCSharpScriptEngine>();
         services.TryAddSingleton<IPropertyResolver, PropertyResolver>();
         services.TryAddSingleton<IHttpApi, HttpApi>();
         services.TryAddSingleton<IStoreApi, StoreApi>();
