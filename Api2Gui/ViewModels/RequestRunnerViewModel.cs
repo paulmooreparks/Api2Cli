@@ -9,8 +9,7 @@ using ParksComputing.Api2Cli.Workspace.Services;
 
 namespace ParksComputing.Api2Gui;
 
-public class RequestRunnerViewModel : System.ComponentModel.INotifyPropertyChanged
-{
+public class RequestRunnerViewModel : System.ComponentModel.INotifyPropertyChanged {
     private readonly IServiceProvider _services;
     private readonly IWorkspaceService _ws;
     private readonly IWorkspaceScriptingOrchestrator _orchestrator;
@@ -24,50 +23,51 @@ public class RequestRunnerViewModel : System.ComponentModel.INotifyPropertyChang
     public string? Payload { get; set; }
 
     private string? _output;
-    public string? Output
-    {
+    public string? Output {
         get => _output;
-        private set { if (_output != value) { _output = value; OnPropertyChanged(nameof(Output)); } }
+        private set {
+            if (_output != value) {
+                _output = value;
+                OnPropertyChanged(nameof(Output));
+            }
+        }
     }
 
     public ICommand RunCommand { get; }
 
-    public string HeadersText
-    {
+    public string HeadersText {
         get => string.Join("\n", Headers);
         set {
             Headers.Clear();
-            if (!string.IsNullOrWhiteSpace(value))
+            if (!string.IsNullOrWhiteSpace(value)) {
                 Headers.AddRange(value.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0));
+            }
         }
     }
 
-    public string ParametersText
-    {
+    public string ParametersText {
         get => string.Join("\n", Parameters);
         set {
             Parameters.Clear();
-            if (!string.IsNullOrWhiteSpace(value))
+            if (!string.IsNullOrWhiteSpace(value)) {
                 Parameters.AddRange(value.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0));
+            }
         }
     }
 
-    public RequestRunnerViewModel(string workspaceName, string requestName, IServiceProvider services)
-    {
+    public RequestRunnerViewModel(string workspaceName, string requestName, IServiceProvider services) {
         WorkspaceName = workspaceName;
         RequestName = requestName;
         _services = services;
         _ws = services.GetRequiredService<IWorkspaceService>();
-    _orchestrator = services.GetRequiredService<IWorkspaceScriptingOrchestrator>();
-    var wsDef = _ws.BaseConfig.Workspaces[workspaceName];
+        _orchestrator = services.GetRequiredService<IWorkspaceScriptingOrchestrator>();
+        var wsDef = _ws.BaseConfig.Workspaces[workspaceName];
         BaseUrl = wsDef.BaseUrl;
         RunCommand = new RelayCommand(_ => Run());
     }
 
-    public void Run()
-    {
-        try
-        {
+    public void Run() {
+        try {
             _ws.SetActiveWorkspace(WorkspaceName);
             _orchestrator.ActivateWorkspace(WorkspaceName);
             var send = new SendCommand(
@@ -94,8 +94,7 @@ public class RequestRunnerViewModel : System.ComponentModel.INotifyPropertyChang
 
             Output = send.CommandResult?.ToString();
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             Output = ex.Message;
         }
     }

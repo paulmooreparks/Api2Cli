@@ -18,6 +18,7 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
         // Initialize C# only when needed, to avoid Roslyn startup cost on JS-only scenarios
         bool forceCs = string.Equals(Environment.GetEnvironmentVariable("A2C_FORCE_CS"), "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Environment.GetEnvironmentVariable("A2C_FORCE_CS"), "1", StringComparison.OrdinalIgnoreCase);
+
         if (forceCs || HasAnyCSharp(workspaceService)) {
             var csScriptEngine = engineFactory.GetEngine(CSharp);
             csScriptEngine.InitializeScriptEnvironment();
@@ -29,37 +30,59 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
         // Optional warmup (controlled by env vars)
         var warmupFlag = Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP");
         var doWarmup = string.Equals(warmupFlag, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(warmupFlag, "1", StringComparison.OrdinalIgnoreCase);
+
         if (doWarmup) {
             int limit = 25;
             var limitStr = Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP_LIMIT");
-            if (!string.IsNullOrEmpty(limitStr) && int.TryParse(limitStr, out var parsed) && parsed > 0) {
+
+            if (!string.IsNullOrEmpty(limitStr) && int.TryParse(limitStr, out var parsed) && parsed > 0)
+            {
                 limit = parsed;
             }
 
             var resolver = new RunWsScriptCommand(workspaceService, engineFactory, jsScriptEngine);
             int warmed = 0;
 
-            foreach (var kvp in workspaceService.BaseConfig.Scripts) {
-                if (warmed >= limit) { break; }
+            foreach (var kvp in workspaceService.BaseConfig.Scripts)
+            {
+                if (warmed >= limit) {
+                    break;
+                }
+
                 var name = kvp.Key;
                 var def = kvp.Value;
                 var lang = def.ScriptTags?.FirstOrDefault() ?? JavaScript;
-                if (!string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) { continue; }
+
+                if (!string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) {
+                    continue;
+                }
+
                 resolver.TryResolveScriptFunction(name, null, out _, out _);
                 warmed++;
             }
 
-            if (warmed < limit) {
+            if (warmed < limit)
+            {
                 foreach (var wkvp in workspaceService.BaseConfig.Workspaces) {
-                    if (warmed >= limit) { break; }
+                    if (warmed >= limit) {
+                        break;
+                    }
                     var wsName = wkvp.Key;
                     var ws = wkvp.Value;
+
                     foreach (var skvp in ws.Scripts) {
-                        if (warmed >= limit) { break; }
+                        if (warmed >= limit) {
+                            break;
+                        }
+
                         var name = skvp.Key;
                         var def = skvp.Value;
                         var lang = def.ScriptTags?.FirstOrDefault() ?? JavaScript;
-                        if (!string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) { continue; }
+
+                        if (!string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) {
+                            continue;
+                        }
+
                         resolver.TryResolveScriptFunction(name, wsName, out _, out _);
                         warmed++;
                     }
@@ -67,6 +90,7 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
             }
 
             var dbg = Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG");
+
             if (string.Equals(dbg, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(dbg, "1", StringComparison.OrdinalIgnoreCase)) {
 
             }

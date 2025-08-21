@@ -184,7 +184,12 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         // Register scripts using lightweight stubs and lazy compilation.
         // Expose a host-side dictionary of JS bodies and helpers to compile them on first use.
         bool dbg = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
-        if (dbg) { try { System.Console.Error.WriteLine("[Orch] Register scripts (lazy) begin"); } catch { } }
+        if (dbg) {
+            try {
+                System.Console.Error.WriteLine("[Orch] Register scripts (lazy) begin");
+            }
+            catch { }
+        }
         Stopwatch? swRegisterScripts = timingsEnabled ? Stopwatch.StartNew() : null;
         var jsBodies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -216,7 +221,9 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         if (jsRootStubs.Length > 0) {
             Stopwatch? swEvalRoot = timingsEnabled ? Stopwatch.StartNew() : null;
             js.EvaluateScript(jsRootStubs.ToString());
-            if (timingsEnabled && swEvalRoot is not null) { evalRootStubsMs += swEvalRoot.Elapsed.TotalMilliseconds; }
+            if (timingsEnabled && swEvalRoot is not null) {
+                evalRootStubsMs += swEvalRoot.Elapsed.TotalMilliseconds;
+            }
         }
 
         // Workspace scripts: record JS bodies, record C# wrappers, define tiny stubs
@@ -258,10 +265,19 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
             }
         }
         foreach (var wkvp in _workspaceService.BaseConfig.Workspaces) {
-            if (projectActiveOnly && allowed.Count > 0 && !allowed.Contains(wkvp.Key)) { continue; }
+            if (projectActiveOnly && allowed.Count > 0 && !allowed.Contains(wkvp.Key)) {
+
+                continue;
+
+            }
             var wsName = wkvp.Key;
             var ws = wkvp.Value;
-            if (dbg) { try { System.Console.Error.WriteLine($"[Orch] Workspace '{wsName}': scripts={ws.Scripts.Count}, requests={ws.Requests.Count}"); } catch { } }
+            if (dbg) {
+                try {
+                    System.Console.Error.WriteLine($"[Orch] Workspace '{wsName}': scripts={ws.Scripts.Count}, requests={ws.Requests.Count}");
+                }
+                catch { }
+            }
             foreach (var script in ws.Scripts) {
                 var name = script.Key;
                 var def = script.Value;
@@ -294,7 +310,9 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         if (__a2cWrapped[wsName]) return;
         a2c.workspaces[wsName] = new Proxy(target, {
             get: function(t, prop) {
-                if (prop in t) { return t[prop]; }
+                if (prop in t) {
+                    return t[prop];
+                }
                 if (typeof prop === 'string') {
                     return (...args) => a2c.__callScript(wsName, prop, args);
                 }
@@ -306,7 +324,9 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
     // Expose helper for on-demand wrapping; do not wrap at startup
     a2c.__wrapWorkspaceProxy = function(wsName){ __mkProxy(wsName); };
 })();");
-        if (timingsEnabled && swEvalProxy is not null) { evalProxyMs += swEvalProxy.Elapsed.TotalMilliseconds; }
+        if (timingsEnabled && swEvalProxy is not null) {
+            evalProxyMs += swEvalProxy.Elapsed.TotalMilliseconds;
+        }
 
         // Expose JS bodies and helpers for lazy compilation
         js.AddHostObject("a2cJsBodies", jsBodies);
@@ -314,7 +334,11 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
             // Resolve JS body from this workspace or any of its base workspaces
             string? ResolveBody(string curWs) {
                 var k = $"{curWs}::{name}";
-                if (jsBodies.TryGetValue(k, out var body) && !string.IsNullOrWhiteSpace(body)) { return body; }
+
+                if (jsBodies.TryGetValue(k, out var body) && !string.IsNullOrWhiteSpace(body)) {
+                    return body;
+                }
+
                 // Walk base chain if available
                 try {
                     var bc = _workspaceService.BaseConfig;
@@ -322,7 +346,11 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                         var baseKey = wsDef.Extend;
                         while (!string.IsNullOrWhiteSpace(baseKey)) {
                             var k2 = $"{baseKey}::{name}";
-                            if (jsBodies.TryGetValue(k2, out var baseBody) && !string.IsNullOrWhiteSpace(baseBody)) { return baseBody; }
+                            if (jsBodies.TryGetValue(k2, out var baseBody) && !string.IsNullOrWhiteSpace(baseBody)) {
+
+                                return baseBody;
+
+                            }
                             if (!bc.Workspaces.TryGetValue(baseKey, out var baseDef)) {
                                 break;
                             }
@@ -335,13 +363,21 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
             }
 
             var bodyText = ResolveBody(wsName);
-            if (string.IsNullOrWhiteSpace(bodyText)) { return; }
+            if (string.IsNullOrWhiteSpace(bodyText)) {
+
+                return;
+
+            }
             var code = $"(function(){{ var ws = a2c.workspaces['{JsEscape(wsName)}']; var fn = (function(workspace) {{ return function(...args) {{\n{bodyText}\n}}; }})(ws); fn._compiled=true; a2c.workspaces['{JsEscape(wsName)}']['{JsEscape(name)}']=fn; }})()";
             js.EvaluateScript(code);
         }));
         js.AddHostObject("a2cCompileJsRootScript", new Action<string>((name) => {
             var key = $"__root__::{name}";
-            if (!jsBodies.TryGetValue(key, out var bodyText) || string.IsNullOrWhiteSpace(bodyText)) { return; }
+
+            if (!jsBodies.TryGetValue(key, out var bodyText) || string.IsNullOrWhiteSpace(bodyText)) {
+                return;
+            }
+
             var code = $"(function(){{ var fn = function(...args) {{\n{bodyText}\n}}; fn._compiled=true; a2c['{JsEscape(name)}']=fn; }})()";
             js.EvaluateScript(code);
         }));
@@ -354,29 +390,52 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         var ws = a2c.workspaces[wsName];
         var fn = ws[name];
         if (typeof fn !== 'function' || !fn._compiled) {
-            if (typeof a2cCompileJsWsScript === 'function') { a2cCompileJsWsScript(wsName, name); fn = ws[name]; }
+            if (typeof a2cCompileJsWsScript === 'function') {
+                a2cCompileJsWsScript(wsName, name);
+                fn = ws[name];
+            }
         }
-        if (typeof fn === 'function' && fn._compiled) { return fn.apply(ws, args || []); }
+        if (typeof fn === 'function' && fn._compiled) {
+            return fn.apply(ws, args || []);
+        }
         return a2c.csharpInvoke('__script__' + wsName + '__' + name, [ws].concat(args || []));
     } else {
         var fn2 = a2c[name];
         if (typeof fn2 !== 'function' || !fn2._compiled) {
-            if (typeof a2cCompileJsRootScript === 'function') { a2cCompileJsRootScript(name); fn2 = a2c[name]; }
+            if (typeof a2cCompileJsRootScript === 'function') {
+                a2cCompileJsRootScript(name);
+                fn2 = a2c[name];
+            }
         }
-        if (typeof fn2 === 'function' && fn2._compiled) { return fn2.apply(a2c, args || []); }
+        if (typeof fn2 === 'function' && fn2._compiled) {
+            return fn2.apply(a2c, args || []);
+        }
         return a2c.csharpInvoke('__script__' + name, args || []);
     }
 };");
-        if (timingsEnabled && swEvalInvoker is not null) { evalInvokerMs += swEvalInvoker.Elapsed.TotalMilliseconds; }
+        if (timingsEnabled && swEvalInvoker is not null) {
+            evalInvokerMs += swEvalInvoker.Elapsed.TotalMilliseconds;
+        }
 
         if (timingsEnabled && swRegisterScripts is not null) {
             emitTiming!("A2C_TIMINGS: scriptingInit.registerScripts=" + swRegisterScripts.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
-            if (evalRootStubsMs > 0) { emitTiming!("A2C_TIMINGS: scriptingInit.jsEval.rootStubs=" + evalRootStubsMs.ToString("F1") + " ms"); }
-            if (evalProxyMs > 0) { emitTiming!("A2C_TIMINGS: scriptingInit.jsEval.proxyWrap=" + evalProxyMs.ToString("F1") + " ms"); }
-            if (evalInvokerMs > 0) { emitTiming!("A2C_TIMINGS: scriptingInit.jsEval.invoker=" + evalInvokerMs.ToString("F1") + " ms"); }
+            if (evalRootStubsMs > 0) {
+                emitTiming!("A2C_TIMINGS: scriptingInit.jsEval.rootStubs=" + evalRootStubsMs.ToString("F1") + " ms");
+            }
+            if (evalProxyMs > 0) {
+                emitTiming!("A2C_TIMINGS: scriptingInit.jsEval.proxyWrap=" + evalProxyMs.ToString("F1") + " ms");
+            }
+            if (evalInvokerMs > 0) {
+                emitTiming!("A2C_TIMINGS: scriptingInit.jsEval.invoker=" + evalInvokerMs.ToString("F1") + " ms");
+            }
         }
 
-        if (dbg) { try { System.Console.Error.WriteLine("[Orch] Register scripts (lazy) end"); } catch { } }
+        if (dbg) {
+            try {
+                System.Console.Error.WriteLine("[Orch] Register scripts (lazy) end");
+            }
+            catch { }
+        }
 
         // C# init already executed above to satisfy wrapper dependencies
 
@@ -384,7 +443,10 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
     }
 
     public void ActivateWorkspace(string workspaceName) {
-        if (string.IsNullOrWhiteSpace(workspaceName)) { return; }
+        if (string.IsNullOrWhiteSpace(workspaceName)) {
+            return;
+        }
+
         // Ensure JS engine exists (idempotent)
         var js = _engineFactory.GetEngine(JavaScript);
         js.InitializeScriptEnvironment();
@@ -447,48 +509,93 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
 
     // Ensure the global C# scriptInit (grouped ScriptInit.CSharp) has run once before any C# usage
     private void EnsureGlobalCSharpInit() {
-        if (_csGlobalInitRan) { return; }
-        if (!_needCs) { _csGlobalInitRan = true; return; }
+        if (_csGlobalInitRan) {
+            return;
+        }
+        if (!_needCs) {
+            _csGlobalInitRan = true;
+            return;
+        }
         var baseConfig = _workspaceService.BaseConfig;
         var body = baseConfig?.ScriptInit?.CSharp;
-        if (string.IsNullOrWhiteSpace(body)) { _csGlobalInitRan = true; return; }
+        if (string.IsNullOrWhiteSpace(body)) {
+
+            _csGlobalInitRan = true;
+            return;
+
+        }
         lock (_csInitLock) {
-            if (_csGlobalInitRan) { return; }
+            if (_csGlobalInitRan) {
+                return;
+            }
             var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
             var mirrorTimings = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
             System.Diagnostics.Stopwatch? sw = timingsEnabled ? System.Diagnostics.Stopwatch.StartNew() : null;
-            if (IsScriptDebugEnabled()) { try { System.Console.Error.WriteLine("[CS:init] Global C# scriptInit begin (deferred)"); } catch { } }
+            if (IsScriptDebugEnabled()) {
+                try {
+                    System.Console.Error.WriteLine("[CS:init] Global C# scriptInit begin (deferred)");
+                }
+                catch { }
+            }
             EnsureCSharpEngineInitialized();
             var cs = _engineFactory.GetEngine(CSharp);
             cs.ExecuteInitScript(body);
             if (timingsEnabled && sw is not null) {
                 var line = $"A2C_TIMINGS: scriptingInit.globalInit.cs={sw.Elapsed.TotalMilliseconds:F1} ms";
-                try { System.Console.WriteLine(line); } catch { }
-                if (mirrorTimings) { try { System.Console.Error.WriteLine(line); } catch { } }
+                try {
+                    System.Console.WriteLine(line);
+                }
+                catch { }
+                if (mirrorTimings) {
+                    try {
+                        System.Console.Error.WriteLine(line);
+                    }
+                    catch { }
+                }
             }
-            if (IsScriptDebugEnabled()) { try { System.Console.Error.WriteLine("[CS:init] Global C# scriptInit end (deferred)"); } catch { } }
+            if (IsScriptDebugEnabled()) {
+                try { System.Console.Error.WriteLine("[CS:init] Global C# scriptInit end (deferred)"); }
+                catch { }
+
+            }
             _csGlobalInitRan = true;
         }
     }
 
     // Lazily execute per-workspace C# scriptInit (grouped ScriptInit) for the active workspace and its base chain
     private void TryExecuteWorkspaceCSharpScriptInit(string workspaceName) {
-        if (!_needCs) { return; }
+        if (!_needCs) {
+            return;
+        }
+
         var bc = _workspaceService.BaseConfig;
+
         // Only applies when grouped ScriptInit is configured; legacy init path remains as-is
-        if (bc.ScriptInit is null) { return; }
-        if (!bc.Workspaces.TryGetValue(workspaceName, out var wsDef) || wsDef is null) { return; }
+        if (bc.ScriptInit is null) {
+            return;
+        }
+
+        if (!bc.Workspaces.TryGetValue(workspaceName, out var wsDef) || wsDef is null) {
+            return;
+        }
 
         lock (_csBuildLock) {
             var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             // Seed visited with already-ran workspaces to avoid re-running
-            foreach (var ran in _csWorkspaceInitRan) { visited.Add(ran); }
+            foreach (var ran in _csWorkspaceInitRan) {
+                visited.Add(ran);
+            }
+
             var visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             ExecuteWorkspaceCSharpScriptInitRecursive(workspaceName, wsDef, visiting, visited);
+
             // Persist the newly executed set
-            foreach (var v in visited) { _csWorkspaceInitRan.Add(v); }
+            foreach (var v in visited) {
+                _csWorkspaceInitRan.Add(v);
+            }
         }
     }
 
@@ -497,14 +604,17 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         if (_csCompiledWrappers.Contains(key)) {
             return;
         }
+
         if (!_csWrappers.TryGetValue(key, out var def)) {
             // Nothing recorded; avoid repeated lookups
             _csCompiledWrappers.Add(key);
             return;
         }
+
         // Build generic signature and parameter list
         string funcGeneric;
         string paramSig;
+
         if (def.HasWorkspace) {
             funcGeneric = "object" + (def.Args.Count > 0 ? ", " + string.Join(", ", def.Args.Select(a => a.TypeToken)) + ", object" : ", object");
             paramSig = "dynamic workspace" + (def.Args.Count > 0 ? ", " + string.Join(", ", def.Args.Select(a => $"{a.TypeToken} {a.Name}")) : string.Empty);
@@ -513,6 +623,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
             funcGeneric = def.Args.Count > 0 ? string.Join(", ", def.Args.Select(a => a.TypeToken)) + ", object" : "object";
             paramSig = def.Args.Count > 0 ? string.Join(", ", def.Args.Select(a => $"{a.TypeToken} {a.Name}")) : string.Empty;
         }
+
         var body = EnsureReturns(def.Body);
         var code = $@"new System.Func<{funcGeneric}>(({paramSig}) => {{
     {body}
@@ -530,7 +641,8 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         ref string? payload,
         IDictionary<string, string> cookies,
         object?[] extraArgs
-    ) {
+        )
+    {
         var baseConfig = _workspaceService.BaseConfig;
         var js = _engineFactory.GetEngine(JavaScript);
 
@@ -571,7 +683,8 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         System.Net.Http.Headers.HttpResponseHeaders headers,
         string responseContent,
         object?[] extraArgs
-    ) {
+        )
+    {
         var js = _engineFactory.GetEngine(JavaScript);
         object? lastCsResult = null;
 
@@ -596,6 +709,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
             var globalKey2 = "__cs_post__global";
             object?[] postArgs = new object?[] { wsDyn2, reqDyn2, statusCode, headers, responseContent, extraArgs };
             lastCsResult = cs.Invoke(reqKey2, postArgs);
+
             if (lastCsResult is null || (lastCsResult is string sres && string.Equals(sres, responseContent, StringComparison.Ordinal))) {
                 lastCsResult = cs.Invoke(wsKey2, postArgs) ?? cs.Invoke(globalKey2, postArgs);
             }
@@ -603,15 +717,18 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
 
         // Then defer to JS chain; prefer JS result only when it actually changes the content
         var jsResult = js.InvokePostResponse(workspaceName, requestName, statusCode, headers, responseContent, extraArgs);
+
         if (jsResult is null) {
             return lastCsResult;
         }
+
         if (jsResult is string jsStr && string.Equals(jsStr, responseContent, StringComparison.Ordinal)) {
             // JS chain returned original content (no-op); favor C# result if it changed content
             if (lastCsResult is string csStr && !string.Equals(csStr, responseContent, StringComparison.Ordinal)) {
                 return csStr;
             }
         }
+
         return jsResult ?? lastCsResult;
     }
 
@@ -620,14 +737,18 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         if (!_needCs || !_hasAnyCSharpHandlers) {
             return;
         }
+
         lock (_csBuildLock) {
             EnsureCSharpEngineInitialized();
             var cs = _engineFactory.GetEngine(CSharp);
+
             if (!_csGlobalBuilt) {
                 BuildGlobalHandlers(cs);
                 _csGlobalBuilt = true;
             }
+
             var safeWs = Sanitize(workspaceName);
+
             if (!_csWorkspaceBuilt.Contains(safeWs)) {
                 if (_workspaceService.BaseConfig.Workspaces.TryGetValue(workspaceName, out var ws)) {
                     BuildWorkspaceHandlerRecursive(cs, workspaceName, ws);
@@ -653,11 +774,19 @@ new __CsHandlers_Global()
 ";
         var gHandler = cs.EvaluateScript(globalCode);
         cs.SetValue("__cs_pre__global", (Action<dynamic, dynamic, IDictionary<string, string>, IList<string>, dynamic, IDictionary<string, string>, object?[]>) ((workspace, request, Headers, Parameters, PayloadBox, Cookies, ExtraArgs) => {
-            var h = gHandler; if (h == null) { return; }
+            var h = gHandler;
+            if (h == null) {
+                return;
+            }
             ((dynamic) h).PreRequest(workspace, request, Headers, Parameters, PayloadBox, Cookies, ExtraArgs);
         }));
         cs.SetValue("__cs_post__global", (Func<dynamic, dynamic, int, HttpResponseHeaders, string, object?[], object>) ((workspace, request, StatusCode, ResponseHeaders, ResponseContent, ExtraArgs) => {
-            var h = gHandler; if (h == null) { return ResponseContent; }
+            var h = gHandler;
+
+            if (h == null) {
+                return ResponseContent;
+            }
+
             return ((dynamic) h).PostResponse(workspace, request, StatusCode, ResponseHeaders, ResponseContent, ExtraArgs) ?? ResponseContent;
         }));
     }
@@ -671,6 +800,7 @@ new __CsHandlers_Global()
         if (!enable) {
             return;
         }
+
         int warmed = 0;
         var js = _engineFactory.GetEngine(JavaScript);
 
@@ -679,6 +809,7 @@ new __CsHandlers_Global()
             if (warmed >= limit) {
                 break;
             }
+
             var def = kvp.Value;
             var lang = def.ScriptTags?.FirstOrDefault() ?? JavaScript;
 
@@ -686,7 +817,13 @@ new __CsHandlers_Global()
                 continue;
             }
 
-            try { js.EvaluateScript($"void(a2c['{kvp.Key}'])"); } catch { /* ignore */ }
+            try {
+                js.EvaluateScript($"void(a2c['{kvp.Key}'])");
+            }
+            catch {
+                /* ignore */
+            }
+
             warmed++;
         }
         if (warmed < limit) {
@@ -700,15 +837,21 @@ new __CsHandlers_Global()
                     if (warmed >= limit) {
                         break;
                     }
+
                     var def = skvp.Value;
                     var lang = def.ScriptTags?.FirstOrDefault() ?? JavaScript;
+
                     if (!ScriptEngineKinds.JavaScriptAliases.Contains(lang, StringComparer.OrdinalIgnoreCase)) {
                         continue;
                     }
+
                     try {
                         js.EvaluateScript($"void(a2c.workspaces['{wsName}']['{skvp.Key}'])");
                     }
-                    catch { /* ignore */ }
+                    catch {
+                        /* ignore */
+                    }
+
                     warmed++;
                 }
             }
@@ -718,7 +861,11 @@ new __CsHandlers_Global()
     private static string ResolveCSharpTypeToken(string? typeName) {
         // Keep strict: require valid C# keywords or fully-qualified .NET type names.
         // Only handle array suffix; otherwise return the token unchanged.
-        if (string.IsNullOrWhiteSpace(typeName)) { return "string"; }
+        if (string.IsNullOrWhiteSpace(typeName)) {
+
+            return "string";
+
+        }
         var t = typeName!.Trim();
         if (t.EndsWith("[]", StringComparison.Ordinal)) {
             var elem = t.Substring(0, t.Length - 2);
@@ -729,12 +876,16 @@ new __CsHandlers_Global()
 
     // Minimal, strict conversions for wrapper arguments based on declared type tokens
     private static object?[] ConvertArgsForWrapper(object?[] args, CsWrapperDef def) {
-        if (args.Length == 0 || def.Args.Count == 0) { return args; }
+        if (args.Length == 0 || def.Args.Count == 0) {
+            return args;
+        }
         var converted = (object?[]) args.Clone();
         int offset = def.HasWorkspace ? 1 : 0; // first arg is the workspace for workspace-scoped wrappers
         for (int i = 0; i < def.Args.Count; i++) {
             int argIndex = offset + i;
-            if (argIndex >= converted.Length) { break; }
+            if (argIndex >= converted.Length) {
+                break;
+            }
             var (typeToken, _) = def.Args[i];
             converted[argIndex] = ConvertSingleArg(converted[argIndex], typeToken);
         }
@@ -742,8 +893,12 @@ new __CsHandlers_Global()
     }
 
     private static object? ConvertSingleArg(object? value, string typeToken) {
-        if (value is null) { return null; }
+        if (value is null) {
+            return null;
+        }
+
         var tkn = typeToken?.Trim() ?? string.Empty;
+
         // Arrays from JSON string, e.g., Int32[]
         if (tkn.EndsWith("[]", StringComparison.Ordinal)) {
             if (value is string s) {
@@ -751,12 +906,15 @@ new __CsHandlers_Global()
                 if (IsInt32(elemToken)) {
                     return System.Text.Json.JsonSerializer.Deserialize<int[]>(s);
                 }
+
                 if (IsString(elemToken)) {
                     return System.Text.Json.JsonSerializer.Deserialize<string[]>(s);
                 }
+
                 if (IsDouble(elemToken)) {
                     return System.Text.Json.JsonSerializer.Deserialize<double[]>(s);
                 }
+
                 // Unknown element type: return as-is and let Roslyn complain
                 return value;
             }
@@ -769,18 +927,30 @@ new __CsHandlers_Global()
                 var opts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 return System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, object?>>(json, opts);
             }
+
             return value;
         }
 
         // Guid, DateTime, Uri, Enum from string
         if (value is string str) {
-            if (IsGuid(tkn)) { return Guid.Parse(str); }
-            if (IsDateTime(tkn)) { return DateTime.Parse(str, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind); }
-            if (IsUri(tkn)) { return new Uri(str, UriKind.RelativeOrAbsolute); }
+            if (IsGuid(tkn)) {
+                return Guid.Parse(str);
+            }
+
+            if (IsDateTime(tkn)) {
+                return DateTime.Parse(str, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind);
+            }
+
+            if (IsUri(tkn)) {
+                return new Uri(str, UriKind.RelativeOrAbsolute);
+            }
+
             var enumType = TryGetType(tkn);
+
             if (enumType?.IsEnum == true) {
                 return Enum.Parse(enumType, str, ignoreCase: true);
             }
+
             // Leave other strings as-is
             return value;
         }
@@ -795,7 +965,9 @@ new __CsHandlers_Global()
                     return Enum.ToObject(enumT, num!);
                 }
             }
-            catch { /* fall through */ }
+            catch {
+                /* fall through */
+            }
         }
 
         // No conversion
@@ -815,12 +987,24 @@ new __CsHandlers_Global()
             || n.Equals("Dictionary<string,object>", StringComparison.OrdinalIgnoreCase);
     }
     private static Type? TryGetType(string typeName) {
-        if (string.IsNullOrWhiteSpace(typeName)) { return null; }
+        if (string.IsNullOrWhiteSpace(typeName)) {
+            return null;
+        }
+
         // Try direct lookup first
         var t = Type.GetType(typeName, throwOnError: false, ignoreCase: true);
-        if (t != null) { return t; }
+
+        if (t != null) {
+            return t;
+        }
+
         // Fall back to mscorlib/System.Private.CoreLib for BCL types when short names are used
-        try { return Type.GetType($"System.{typeName}", throwOnError: false, ignoreCase: true); } catch { return null; }
+        try {
+            return Type.GetType($"System.{typeName}", throwOnError: false, ignoreCase: true);
+        }
+        catch {
+            return null;
+        }
     }
 
     // Removed legacy normalization; ResolveCSharpTypeToken handles only [] arrays and otherwise passes through.
@@ -854,10 +1038,21 @@ new __CsHandlers_Global()
 
     // New: workspace-level C# scriptInit execution (base-first)
     private void ExecuteWorkspaceCSharpScriptInitRecursive(string wsName, WorkspaceDefinition ws, HashSet<string> visiting, HashSet<string> visited) {
-        if (visited.Contains(wsName)) { return; }
+        if (visited.Contains(wsName)) {
+
+            return;
+
+        }
         if (!visiting.Add(wsName)) {
             // cycle detected; log and bail from this branch
-            if (IsScriptDebugEnabled()) { try { System.Console.Error.WriteLine($"[CS:init] Cycle detected in workspace inheritance at '{wsName}'. Skipping remaining init chain."); } catch { } }
+            if (IsScriptDebugEnabled()) {
+                try {
+                    System.Console.Error.WriteLine($"[CS:init] Cycle detected in workspace inheritance at '{wsName}'. Skipping remaining init chain.");
+                }
+                catch {
+                    System.Console.Error.WriteLine($"[CS:init] Error occurred while logging cycle detection for workspace '{wsName}'.");
+                }
+            }
             return;
         }
         // Execute base first if present
@@ -866,7 +1061,14 @@ new __CsHandlers_Global()
         }
         if (ws.ScriptInit is not null && !string.IsNullOrWhiteSpace(ws.ScriptInit.CSharp)) {
             var cs = _engineFactory.GetEngine(CSharp);
-            if (IsScriptDebugEnabled()) { try { System.Console.Error.WriteLine($"[CS:init] Running init for workspace '{wsName}'"); } catch { } }
+            if (IsScriptDebugEnabled()) {
+                try {
+                    System.Console.Error.WriteLine($"[CS:init] Running init for workspace '{wsName}'");
+                }
+                catch {
+                    System.Console.Error.WriteLine($"[CS:init] Error occurred while logging init for workspace '{wsName}'.");
+                }
+            }
             cs.ExecuteInitScript(ws.ScriptInit.CSharp);
         }
         visiting.Remove(wsName);
@@ -876,28 +1078,54 @@ new __CsHandlers_Global()
     private void ExecuteAllWorkspaceCSharpScriptInits() {
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (IsScriptDebugEnabled()) { try { System.Console.Error.WriteLine("[CS:init] ExecuteAllWorkspaceCSharpScriptInits begin"); } catch { } }
+        if (IsScriptDebugEnabled()) {
+            try {
+                System.Console.Error.WriteLine("[CS:init] ExecuteAllWorkspaceCSharpScriptInits begin");
+            }
+            catch {
+                System.Console.Error.WriteLine("[CS:init] Error occurred while logging ExecuteAllWorkspaceCSharpScriptInits begin.");
+            }
+        }
         foreach (var kvp in _workspaceService.BaseConfig.Workspaces) {
             ExecuteWorkspaceCSharpScriptInitRecursive(kvp.Key, kvp.Value, visiting, visited);
         }
-        if (IsScriptDebugEnabled()) { try { System.Console.Error.WriteLine("[CS:init] ExecuteAllWorkspaceCSharpScriptInits end"); } catch { } }
+        if (IsScriptDebugEnabled()) {
+            try {
+                System.Console.Error.WriteLine("[CS:init] ExecuteAllWorkspaceCSharpScriptInits end");
+            }
+            catch {
+                System.Console.Error.WriteLine("[CS:init] Error occurred while logging ExecuteAllWorkspaceCSharpScriptInits end.");
+            }
+        }
     }
 
     // Legacy path: baseConfig.InitScript and per-workspace ws.InitScript; now deferred to activation
     private void TryExecuteLegacyWorkspaceCSharpInit(string workspaceName) {
-        if (!_needCs) { return; }
+        if (!_needCs) {
+            return;
+        }
         var bc = _workspaceService.BaseConfig;
-        if (bc.ScriptInit is not null) { return; } // grouped path handles its own
-        if (!bc.Workspaces.TryGetValue(workspaceName, out var ws) || ws is null) { return; }
+
+        if (bc.ScriptInit is not null) {
+            return; // grouped path handles its own
+        }
+
+        if (!bc.Workspaces.TryGetValue(workspaceName, out var ws) || ws is null) {
+
+            return;
+
+        }
 
         lock (_csBuildLock) {
             EnsureCSharpEngineInitialized();
             var cs = _engineFactory.GetEngine(CSharp);
+
             if (!_csLegacyInitRan) {
                 // Global legacy init
                 cs.ExecuteInitScript(bc.InitScript);
                 _csLegacyInitRan = true;
             }
+
             // Per-workspace legacy init, respecting base chain order using existing recursive method
             ExecuteWorkspaceCSharpInitRecursive(cs, workspaceName, ws);
         }
@@ -909,9 +1137,11 @@ new __CsHandlers_Global()
         ws = null;
         req = null;
         var bc = _workspaceService.BaseConfig;
+
         if (!bc.Workspaces.TryGetValue(workspaceName, out ws) || ws is null) {
             return false;
         }
+
         return ws.Requests.TryGetValue(requestName, out req);
     }
 
@@ -945,11 +1175,17 @@ partial class WorkspaceScriptingOrchestrator {
         // Remove whole-line // comments
         var lines = noBlock.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
         var sb = new System.Text.StringBuilder();
+
         foreach (var line in lines) {
             var t = line.TrimStart();
-            if (t.StartsWith("//")) { continue; }
+
+            if (t.StartsWith("//")) {
+                continue;
+            }
+
             sb.AppendLine(line);
         }
+
         var noComments = sb.ToString().Trim();
 
         if (string.IsNullOrWhiteSpace(noComments)) {
@@ -974,8 +1210,12 @@ partial class WorkspaceScriptingOrchestrator {
     // Roslyn requires non-dynamic arguments when invoking base members; rewrite base.* calls
     // to cast dynamic parameters to object to satisfy the compiler.
     private static string FixBaseCalls(string body) {
-        if (string.IsNullOrWhiteSpace(body)) { return body; }
+        if (string.IsNullOrWhiteSpace(body)) {
+            return body;
+        }
+
         string b = body;
+
         b = b.Replace(
             "base.PreRequest(workspace, request, Headers, Parameters, PayloadBox, Cookies, ExtraArgs)",
             "base.PreRequest((object)workspace, (object)request, (System.Collections.Generic.IDictionary<string,string>)Headers, (System.Collections.Generic.IList<string>)Parameters, (object)PayloadBox, (System.Collections.Generic.IDictionary<string,string>)Cookies, (object?[])ExtraArgs)");
@@ -985,21 +1225,37 @@ partial class WorkspaceScriptingOrchestrator {
         return b;
     }
     private static string Sanitize(string name) {
-        if (string.IsNullOrEmpty(name)) { return "_"; }
+        if (string.IsNullOrEmpty(name)) {
+            return "_";
+        }
+
         var sb = new System.Text.StringBuilder(name.Length);
+
         for (int i = 0; i < name.Length; i++) {
             char c = name[i];
-            if (char.IsLetterOrDigit(c) || c == '_') { sb.Append(c); }
-            else { sb.Append('_'); }
+            if (char.IsLetterOrDigit(c) || c == '_') {
+                sb.Append(c);
+            }
+            else {
+                sb.Append('_');
+            }
         }
-        if (char.IsDigit(sb[0])) { sb.Insert(0, '_'); }
+
+        if (char.IsDigit(sb[0])) {
+            sb.Insert(0, '_');
+        }
+
         return sb.ToString();
     }
 
     // Escape a .NET string for safe embedding inside a JavaScript single-quoted string literal
     private static string JsEscape(string? value) {
-        if (string.IsNullOrEmpty(value)) { return string.Empty; }
+        if (string.IsNullOrEmpty(value)) {
+            return string.Empty;
+        }
+
         var s = value!;
+
         return s
             .Replace("\\", "\\\\")  // backslashes first
             .Replace("'", "\\'")        // single quotes
@@ -1032,12 +1288,20 @@ new __CsHandlers_Global()
         var gHandler = cs.EvaluateScript(globalCode);
         cs.SetValue("__cs_pre__global", (Action<dynamic, dynamic, IDictionary<string, string>, IList<string>, dynamic, IDictionary<string, string>, object?[]>) ((workspace, request, Headers, Parameters, PayloadBox, Cookies, ExtraArgs) => {
             var h = gHandler; // capture
-            if (h == null) { return; }
+
+            if (h == null) {
+                return;
+            }
+
             ((dynamic) h).PreRequest(workspace, request, Headers, Parameters, PayloadBox, Cookies, ExtraArgs);
         }));
         cs.SetValue("__cs_post__global", (Func<dynamic, dynamic, int, HttpResponseHeaders, string, object?[], object>) ((workspace, request, StatusCode, ResponseHeaders, ResponseContent, ExtraArgs) => {
             var h = gHandler;
-            if (h == null) { return ResponseContent; }
+
+            if (h == null) {
+                return ResponseContent;
+            }
+
             return ((dynamic) h).PostResponse(workspace, request, StatusCode, ResponseHeaders, ResponseContent, ExtraArgs) ?? ResponseContent;
         }));
 
@@ -1049,6 +1313,7 @@ new __CsHandlers_Global()
 
     private void BuildWorkspaceHandlerRecursive(IApi2CliScriptEngine cs, string wsName, WorkspaceDefinition ws) {
         string baseClass = "__CsHandlers_Global";
+
         if (!string.IsNullOrEmpty(ws.Extend) && _workspaceService.BaseConfig.Workspaces.TryGetValue(ws.Extend, out var baseWs)) {
             // Ensure base workspace class exists first
             BuildWorkspaceHandlerRecursive(cs, ws.Extend, baseWs);
@@ -1079,12 +1344,20 @@ new __CsHandlers_{safeWs}()
         var wsHandler = cs.EvaluateScript(wsCode);
         cs.SetValue($"__cs_pre__{safeWs}", (Action<dynamic, dynamic, IDictionary<string, string>, IList<string>, dynamic, IDictionary<string, string>, object?[]>) ((workspace, request, Headers, Parameters, PayloadBox, Cookies, ExtraArgs) => {
             var h = wsHandler;
-            if (h == null) { return; }
+
+            if (h == null) {
+                return;
+            }
+
             ((dynamic) h).PreRequest(workspace, request, Headers, Parameters, PayloadBox, Cookies, ExtraArgs);
         }));
         cs.SetValue($"__cs_post__{safeWs}", (Func<dynamic, dynamic, int, HttpResponseHeaders, string, object?[], object>) ((workspace, request, StatusCode, ResponseHeaders, ResponseContent, ExtraArgs) => {
             var h = wsHandler;
-            if (h == null) { return ResponseContent; }
+
+            if (h == null) {
+                return ResponseContent;
+            }
+
             return ((dynamic) h).PostResponse(workspace, request, StatusCode, ResponseHeaders, ResponseContent, ExtraArgs) ?? ResponseContent;
         }));
 
@@ -1114,12 +1387,20 @@ new __CsHandlers_{safeWs}__{safeReq}()
             var reqHandler = cs.EvaluateScript(reqCode);
             cs.SetValue($"__cs_pre__{safeWs}__{safeReq}", (Action<dynamic, dynamic, IDictionary<string, string>, IList<string>, dynamic, IDictionary<string, string>, object?[]>) ((workspace, request, Headers, Parameters, PayloadBox, Cookies, ExtraArgs) => {
                 var h = reqHandler;
-                if (h == null) { return; }
+
+                if (h == null) {
+                    return;
+                }
+
                 ((dynamic) h).PreRequest(workspace, request, Headers, Parameters, PayloadBox, Cookies, ExtraArgs);
             }));
             cs.SetValue($"__cs_post__{safeWs}__{safeReq}", (Func<dynamic, dynamic, int, HttpResponseHeaders, string, object?[], object>) ((workspace, request, StatusCode, ResponseHeaders, ResponseContent, ExtraArgs) => {
                 var h = reqHandler;
-                if (h == null) { return ResponseContent; }
+
+                if (h == null) {
+                    return ResponseContent;
+                }
+
                 return ((dynamic) h).PostResponse(workspace, request, StatusCode, ResponseHeaders, ResponseContent, ExtraArgs) ?? ResponseContent;
             }));
         }
@@ -1129,10 +1410,19 @@ new __CsHandlers_{safeWs}__{safeReq}()
 // --- Lazy C# engine helper ---
 partial class WorkspaceScriptingOrchestrator {
     private void EnsureCSharpEngineInitialized() {
-        if (_csEngineInitialized) { return; }
-        if (!_needCs) { return; }
+        if (_csEngineInitialized) {
+            return;
+        }
+
+        if (!_needCs) {
+            return;
+        }
+
         lock (_csEngineInitLock) {
-            if (_csEngineInitialized) { return; }
+            if (_csEngineInitialized) {
+                return;
+            }
+
             var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
             var mirrorTimings = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
@@ -1140,10 +1430,22 @@ partial class WorkspaceScriptingOrchestrator {
             var sw = timingsEnabled ? System.Diagnostics.Stopwatch.StartNew() : null;
             var cs = _engineFactory.GetEngine(CSharp);
             cs.InitializeScriptEnvironment();
+
             if (timingsEnabled && sw is not null) {
                 var line = $"A2C_TIMINGS: scriptingInit.csEngine={sw.Elapsed.TotalMilliseconds:F1} ms";
-                try { System.Console.WriteLine(line); } catch { }
-                if (mirrorTimings) { try { System.Console.Error.WriteLine(line); } catch { } }
+                try {
+                    System.Console.WriteLine(line);
+                }
+                catch {
+                }
+
+                if (mirrorTimings) {
+                    try {
+                        System.Console.Error.WriteLine(line);
+                    }
+                    catch {
+                    }
+                }
             }
             _csEngineInitialized = true;
         }

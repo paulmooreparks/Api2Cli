@@ -121,11 +121,22 @@ internal class Program {
         ClifferEventHandler.OnExit += () => {
             try {
                 if (__a2cTimings && !__a2cTimingsPrinted) {
-                    if (__a2cRunSw.IsRunning) { __a2cRunSw.Stop(); }
-                    if (__a2cOverallSw.IsRunning) { __a2cOverallSw.Stop(); }
+
+                    if (__a2cRunSw.IsRunning) {
+                        __a2cRunSw.Stop();
+                    }
+
+                    if (__a2cOverallSw.IsRunning) {
+                        __a2cOverallSw.Stop();
+                    }
+
                     var timingLine = $"A2C_TIMINGS: overall={__a2cOverallSw.Elapsed.TotalMilliseconds:F1} ms, build={__a2cBuildSw.Elapsed.TotalMilliseconds:F1} ms, configureWorkspaces={__a2cConfigWsSw.Elapsed.TotalMilliseconds:F1} ms, run={__a2cRunSw.Elapsed.TotalMilliseconds:F1} ms";
                     Console.WriteLine(timingLine);
-                    if (__mirrorTimings) { Console.Error.WriteLine(timingLine); }
+
+                    if (__mirrorTimings) {
+                        Console.Error.WriteLine(timingLine);
+                    }
+
                     __a2cTimingsPrinted = true;
                 }
             } catch { /* best-effort; never block exit */ }

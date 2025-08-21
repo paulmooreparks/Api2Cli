@@ -37,8 +37,9 @@ public partial class App : Application
             Constants.Api2CliDirectoryName,
             Constants.StoreFileName
         );
-        if (!System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(databasePath)))
+        if (!System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(databasePath))) {
             System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(databasePath)!);
+        }
         services.AddApi2CliDataStore(databasePath);
 
         Services = services.BuildServiceProvider();

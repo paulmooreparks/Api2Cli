@@ -66,21 +66,66 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
         var assemblies = new List<Assembly>();
         var packageAssemblies = _packageService.GetInstalledPackagePaths();
 
-        foreach (var assemblyPath in packageAssemblies) {
+        // De-dupe by simple name to avoid attempting to load multiple copies of the same assembly
+        var byName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in packageAssemblies) {
             try {
+                var an = AssemblyName.GetAssemblyName(path);
+                if (string.IsNullOrEmpty(an?.Name)) {
+                    continue;
+                }
+                if (!byName.ContainsKey(an.Name!)) {
+                    byName[an.Name!] = path;
+                }
+            }
+            catch {
+                // If metadata read fails, fall back to file name without extension
+                var simple = Path.GetFileNameWithoutExtension(path);
+                if (!string.IsNullOrEmpty(simple) && !byName.ContainsKey(simple)) {
+                    byName[simple] = path;
+                }
+            }
+        }
+
+        foreach (var kvp in byName) {
+            var simpleName = kvp.Key;
+            var assemblyPath = kvp.Value;
+            try {
+                // If an assembly with the same simple name is already loaded into the Default ALC, reuse it
+                var existing = AppDomain.CurrentDomain
+                    .GetAssemblies()
+                    .FirstOrDefault(a => string.Equals(a.GetName().Name, simpleName, StringComparison.OrdinalIgnoreCase));
+
+                if (existing is not null) {
+                    assemblies.Add(existing);
+                    continue;
+                }
+
+                // Otherwise load from the package path
                 var assembly = Assembly.LoadFrom(assemblyPath);
-                if (assembly != null) {
-                    var name = assembly.GetName().Name;
+
+                if (assembly is not null) {
                     assemblies.Add(assembly);
                 }
+            }
+            catch (FileLoadException fle) {
+                // If load failed (often due to different load context or same-name conflict), try to reuse already-loaded assembly
+                var fallback = AppDomain.CurrentDomain
+                    .GetAssemblies()
+                    .FirstOrDefault(a => string.Equals(a.GetName().Name, simpleName, StringComparison.OrdinalIgnoreCase));
+
+                if (fallback is not null) {
+                    assemblies.Add(fallback);
+                    continue;
+                }
+
+                throw new Exception($"{Constants.ErrorChar} Failed to load package assembly {assemblyPath}: {fle.Message}", fle);
             }
             catch (Exception ex) {
                 throw new Exception($"{Constants.ErrorChar} Failed to load package assembly {assemblyPath}: {ex.Message}", ex);
             }
         }
 
-        // var langAssembly = Assembly.Load("ParksComputing.Api2Cli.Lang");
-        // assemblies.Add(langAssembly);
         return assemblies;
     }
 
@@ -88,6 +133,7 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
         var assemblies = new List<Assembly>();
         try {
             var names = _workspaceService?.BaseConfig?.Assemblies;
+
             if (names is null || names.Length == 0) {
                 return assemblies;
             }
@@ -98,13 +144,16 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
             foreach (var name in names) {
                 try {
                     var path = name;
+
                     if (!Path.IsPathRooted(path) && !string.IsNullOrEmpty(pluginDir)) {
                         path = Path.Combine(pluginDir!, name);
                     }
+
                     if (!File.Exists(path)) {
                         _diags.Emit(nameof(ClearScriptEngine), new { Message = $"Workspace assembly not found: {path}" });
                         continue;
                     }
+
                     var asm = Assembly.LoadFrom(path);
                     assemblies.Add(asm);
                 }
@@ -145,6 +194,7 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
         if (_isInitialized) {
             return;
         }
+
         // Timing gates
         var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
@@ -153,26 +203,47 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
         var mirrorTimings = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
         void EmitTiming(string label, double ms) {
-            if (!timingsEnabled || !timingsDetail) { return; }
+            if (!timingsEnabled || !timingsDetail) {
+                return;
+            }
+
             var line = $"A2C_TIMINGS: {label}={ms:F1} ms";
-            try { Console.WriteLine(line); } catch { }
-            if (mirrorTimings) { try { Console.Error.WriteLine(line); } catch { } }
+
+            Console.WriteLine(line);
+
+            if (mirrorTimings) {
+                Console.Error.WriteLine(line);
+            }
         }
 
         // Create the V8 engine lazily with flags per environment
         System.Diagnostics.Stopwatch? swCreate = timingsEnabled && timingsDetail ? System.Diagnostics.Stopwatch.StartNew() : null;
         _engine ??= CreateV8Engine();
-        if (swCreate is not null) { swCreate.Stop(); EmitTiming("jsEngine.create", swCreate.Elapsed.TotalMilliseconds); }
+
+        if (swCreate is not null) {
+            swCreate.Stop();
+            EmitTiming("jsEngine.create", swCreate.Elapsed.TotalMilliseconds);
+        }
 
         // Load assemblies from packages and configured plugin paths
         var swLoadPkgs = timingsEnabled && timingsDetail ? System.Diagnostics.Stopwatch.StartNew() : null;
         var assemblies = LoadPackageAssemblies().ToList();
-        if (swLoadPkgs is not null) { swLoadPkgs.Stop(); EmitTiming("jsEngine.loadPackages", swLoadPkgs.Elapsed.TotalMilliseconds); }
+
+        if (swLoadPkgs is not null) {
+            swLoadPkgs.Stop();
+            EmitTiming("jsEngine.loadPackages", swLoadPkgs.Elapsed.TotalMilliseconds);
+        }
+
         var swLoadCfg = timingsEnabled && timingsDetail ? System.Diagnostics.Stopwatch.StartNew() : null;
         assemblies.AddRange(LoadConfiguredAssemblies());
-        if (swLoadCfg is not null) { swLoadCfg.Stop(); EmitTiming("jsEngine.loadConfigured", swLoadCfg.Elapsed.TotalMilliseconds); }
+
+        if (swLoadCfg is not null) {
+            swLoadCfg.Stop();
+            EmitTiming("jsEngine.loadConfigured", swLoadCfg.Elapsed.TotalMilliseconds);
+        }
+
         if (ScriptDebug) {
-            try { Console.Error.WriteLine("[JS:init] Begin InitializeScriptEnvironment"); } catch { }
+            Console.Error.WriteLine("[JS:init] Begin InitializeScriptEnvironment");
         }
 
         // _engine = new Engine(options => options.AllowClr(assemblies.ToArray()));
@@ -184,21 +255,26 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
         var hostAssemblyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
             "mscorlib", "System", "System.Core", "ParksComputing.Api2Cli.Workspace"
         };
+
         foreach (var asm in assemblies) {
-            try {
-                var simple = asm.GetName().Name;
-                if (!string.IsNullOrEmpty(simple)) {
-                    hostAssemblyNames.Add(simple);
-                }
+            var simple = asm.GetName().Name;
+
+            if (!string.IsNullOrEmpty(simple)) {
+                hostAssemblyNames.Add(simple);
             }
-            catch { /* ignore */ }
         }
+
         var swHostTypes = timingsEnabled && timingsDetail ? System.Diagnostics.Stopwatch.StartNew() : null;
         var typeCollection = new HostTypeCollection(hostAssemblyNames.ToArray());
+
         // Do not predeclare a global named 'clr' to avoid collisions with user scripts (e.g., `let clr = ...`).
         // Instead, expose only a fallback collection as 'defaultClr' and assign 'clr' later if missing.
         Engine.AddHostObject("defaultClr", typeCollection);
-        if (swHostTypes is not null) { swHostTypes.Stop(); EmitTiming("jsEngine.hostTypes", swHostTypes.Elapsed.TotalMilliseconds); }
+
+        if (swHostTypes is not null) {
+            swHostTypes.Stop();
+            EmitTiming("jsEngine.hostTypes", swHostTypes.Elapsed.TotalMilliseconds);
+        }
 
         Engine.AddHostType("Console", typeof(Console));
         Engine.AddHostType("Task", typeof(Task));
@@ -209,7 +285,12 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
         Engine.AddHostObject("atob", new Func<string, string>(s => System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(s))));
 
         Engine.AddHostObject("a2c", _a2c);
-        if (swHostObjs is not null) { swHostObjs.Stop(); EmitTiming("jsEngine.addHostObjects", swHostObjs.Elapsed.TotalMilliseconds); }
+
+        if (swHostObjs is not null) {
+            swHostObjs.Stop();
+            EmitTiming("jsEngine.addHostObjects", swHostObjs.Elapsed.TotalMilliseconds);
+        }
+
         dynamic da2c = _a2c;
 
         if (_workspaceService is not null && _workspaceService.BaseConfig is not null && _workspaceService?.BaseConfig.Workspaces is not null) {
@@ -256,7 +337,10 @@ function __postResponse(workspace, request) {{
             catch (ScriptEngineException ex) {
                 Console.Error.WriteLine(ex.ErrorDetails);
             }
-            if (swDefineGlobals is not null) { swDefineGlobals.Stop(); EmitTiming("jsEngine.defineGlobals", swDefineGlobals.Elapsed.TotalMilliseconds); }
+            if (swDefineGlobals is not null) {
+                swDefineGlobals.Stop();
+                EmitTiming("jsEngine.defineGlobals", swDefineGlobals.Elapsed.TotalMilliseconds);
+            }
 
             // Optional timing for JS projection phase
             Stopwatch? swProject = null;
@@ -288,12 +372,21 @@ function __postResponse(workspace, request) {{
 
             // Accumulate all request execute/exec shims across workspaces and execute once at the end
             var shimGlobalBuilder = new StringBuilder();
-            if (_workspaceService?.BaseConfig is null) { return; }
+            if (_workspaceService?.BaseConfig is null) {
+                return;
+            }
             var bc = _workspaceService.BaseConfig;
             foreach (var workspaceKvp in bc.Workspaces) {
                 // When lazy, skip all projections until an active workspace is known; then allow only the active + base chain
-                if (allowed.Count == 0) { continue; }
-                if (!allowed.Contains(workspaceKvp.Key)) { continue; }
+                if (allowed.Count == 0) {
+                    continue;
+                }
+                if (!allowed.Contains(workspaceKvp.Key))
+                {
+
+                    continue;
+
+                }
                 var workspaceName = workspaceKvp.Key;
                 var workspace = workspaceKvp.Value;
 
@@ -362,9 +455,17 @@ function __postResponse(workspace, request) {{
             throw new Error('a2cRequestInvoke not available');
         }};
     }}
-    if (typeof req.exec !== 'function') {{ req.exec = req.execute; }}
+    if (typeof req.exec !== 'function') {{
+
+        req.exec = req.execute;
+
+    }}
     // Expose the request object on the workspace for script access: workspace.requestName.execute()
-    if (typeof ws['{reqEsc}'] === 'undefined') {{ ws['{reqEsc}'] = req; }}
+    if (typeof ws['{reqEsc}'] === 'undefined') {{
+
+        ws['{reqEsc}'] = req;
+
+    }}
 }})();");
                 }
 
@@ -389,7 +490,12 @@ function __postResponse(workspace, request) {{
             if (_workspaceService?.BaseConfig is not null) {
                 var hasNewScriptInit = _workspaceService.BaseConfig.ScriptInit is not null;
                 if (!hasNewScriptInit) {
-                    if (ScriptDebug) { try { Console.Error.WriteLine("[JS:init] Legacy global init path"); } catch { } }
+                    if (ScriptDebug) {
+                        try {
+                            Console.Error.WriteLine("[JS:init] Legacy global init path");
+                        }
+                        catch { }
+                    }
                     var swLegacyGlobal = timingsEnabled && timingsDetail ? Stopwatch.StartNew() : null;
                     var jsInit = GetJsScriptBody(_workspaceService.BaseConfig.InitScript);
                     if (!string.IsNullOrWhiteSpace(jsInit)) {
@@ -399,7 +505,9 @@ function __postResponse(workspace, request) {{
                             var activeName = _a2c.CurrentWorkspaceName;
                             if (wsDict != null && !string.IsNullOrEmpty(activeName) && wsDict.ContainsKey(activeName)) {
                                 var active = wsDict[activeName];
-                                if (active != null) { Engine.Script.workspace = active; }
+                                if (active != null) {
+                                    Engine.Script.workspace = active;
+                                }
                             }
                         }
                         catch { /* best-effort only for binding workspace */ }
@@ -408,11 +516,19 @@ function __postResponse(workspace, request) {{
                         if (!string.IsNullOrWhiteSpace(code)) {
                             // Provide a writable identifier so scripts can reference `workspace` directly.
                             try { Engine.Execute("try { var workspace = this.workspace; } catch (e) {}"); } catch { /* ignore */ }
-                            if (ScriptDebug) { try { Console.Error.WriteLine("[JS:init] Executing legacy global init"); } catch { } }
+                            if (ScriptDebug) {
+                                try {
+                                    Console.Error.WriteLine("[JS:init] Executing legacy global init");
+                                }
+                                catch { }
+                            }
                             Engine.Execute(code);
                         }
                     }
-                    if (swLegacyGlobal is not null) { swLegacyGlobal.Stop(); EmitTiming("jsEngine.legacyGlobalInit", swLegacyGlobal.Elapsed.TotalMilliseconds); }
+                    if (swLegacyGlobal is not null) {
+                        swLegacyGlobal.Stop();
+                        EmitTiming("jsEngine.legacyGlobalInit", swLegacyGlobal.Elapsed.TotalMilliseconds);
+                    }
                     // For legacy global init (no grouped scriptInit), execute per-workspace inits now (base-first, cycle-safe)
                     var swLegacyWsInit = timingsEnabled && timingsDetail ? Stopwatch.StartNew() : null;
                     foreach (var wsInit in _workspaceService.BaseConfig.Workspaces) {
@@ -421,44 +537,77 @@ function __postResponse(workspace, request) {{
                         // Respect lazy behavior: if no active workspace is known yet, defer all legacy inits
 
                         var active = _workspaceService.BaseConfig.ActiveWorkspace;
-                        if (string.IsNullOrWhiteSpace(active)) { continue; }
+                        if (string.IsNullOrWhiteSpace(active))
+                        {
+
+                            continue;
+
+                        }
                         // only init active + base chain
                         bool ok = string.Equals(wsName, active, StringComparison.OrdinalIgnoreCase) || allowed.Contains(wsName);
-                        if (!ok) { continue; }
+                        if (!ok) {
+                            continue;
+                        }
 
                         if (_workspaceCache.TryGetValue(wsName, out var wsObj)) {
-                            if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Execute per-workspace init (legacy) -> {wsName}"); } catch { } }
+                            if (ScriptDebug) {
+                                try {
+                                    Console.Error.WriteLine($"[JS:init] Execute per-workspace init (legacy) -> {wsName}");
+                                }
+                                catch { }
+                            }
                             ExecuteWorkspaceInitChain(wsName, wsDef, wsObj);
                         }
                     }
-                    if (swLegacyWsInit is not null) { swLegacyWsInit.Stop(); EmitTiming("jsEngine.legacyWorkspaceInit", swLegacyWsInit.Elapsed.TotalMilliseconds); }
+                    if (swLegacyWsInit is not null) {
+                        swLegacyWsInit.Stop();
+                        EmitTiming("jsEngine.legacyWorkspaceInit", swLegacyWsInit.Elapsed.TotalMilliseconds);
+                    }
                 }
                 // When grouped scriptInit is present, defer per-workspace init; orchestrator will run it after global init
             }
 
             // Ensure default JS 'clr' bridge exists if user didn't provide one in init
             try {
-                Engine.Execute("if (typeof clr === 'undefined') { clr = defaultClr; }");
+                Engine.Execute(@"if (typeof clr === 'undefined') {
+
+    clr = defaultClr;
+
+}");
             }
             catch (ScriptEngineException ex) {
                 Console.Error.WriteLine(ex.ErrorDetails);
             }
 
             _isInitialized = true;
-            if (ScriptDebug) { try { Console.Error.WriteLine("[JS:init] InitializeScriptEnvironment complete"); } catch { } }
+            if (ScriptDebug) {
+                try {
+                    Console.Error.WriteLine("[JS:init] InitializeScriptEnvironment complete");
+                }
+                catch { }
+            }
         }
     }
 
     // Invoked by orchestrator when grouped scriptInit is present to ensure workspace JS init runs
     public void ExecuteAllWorkspaceInitScripts() {
-        if (_workspaceService?.BaseConfig is null) { return; }
-        if (ScriptDebug) { try { Console.Error.WriteLine("[JS:init] ExecuteAllWorkspaceInitScripts begin"); } catch { } }
+        if (_workspaceService?.BaseConfig is null) {
+            return;
+        }
+        if (ScriptDebug) {
+            try {
+                Console.Error.WriteLine("[JS:init] ExecuteAllWorkspaceInitScripts begin");
+            }
+            catch { }
+        }
         var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
         var timingsDetail = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_DETAIL"), "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_DETAIL"), "1", StringComparison.OrdinalIgnoreCase);
         Stopwatch? swWsInit = null;
-        if (timingsEnabled) { swWsInit = Stopwatch.StartNew(); }
+        if (timingsEnabled) {
+            swWsInit = Stopwatch.StartNew();
+        }
         // Always lazy: limit per-workspace JS init to the active workspace and its base chain
 
         var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -488,25 +637,51 @@ function __postResponse(workspace, request) {{
         }
         int count = 0;
         var bc = _workspaceService!.BaseConfig;
-        if (bc?.Workspaces is null) { return; }
+        if (bc?.Workspaces is null) {
+            return;
+        }
         foreach (var wsInit in bc.Workspaces) {
             var wsName = wsInit.Key;
             var wsDef = wsInit.Value;
-            if (allowed.Count == 0) { continue; }
-            if (!allowed.Contains(wsName)) { continue; }
+            if (allowed.Count == 0) {
+                continue;
+            }
+            if (!allowed.Contains(wsName))
+            {
+
+                continue;
+
+            }
             if (_workspaceCache.TryGetValue(wsName, out var wsObj)) {
-                if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Execute per-workspace init (grouped) -> {wsName}"); } catch { } }
+                if (ScriptDebug) {
+                    try {
+                        Console.Error.WriteLine($"[JS:init] Execute per-workspace init (grouped) -> {wsName}");
+                    }
+                    catch { }
+                }
                 ExecuteWorkspaceInitChain(wsName, wsDef, wsObj);
-                if (++count >= limit) { break; }
+                if (++count >= limit) {
+                    break;
+                }
             }
         }
-        if (ScriptDebug) { try { Console.Error.WriteLine("[JS:init] ExecuteAllWorkspaceInitScripts end"); } catch { } }
+        if (ScriptDebug) {
+            try {
+                Console.Error.WriteLine("[JS:init] ExecuteAllWorkspaceInitScripts end");
+            }
+            catch { }
+        }
         if (timingsEnabled && timingsDetail && swWsInit is not null) {
             var line = $"A2C_TIMINGS: jsWorkspaceInit={swWsInit.Elapsed.TotalMilliseconds:F1} ms";
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
             try { Console.WriteLine(line); } catch { }
-            if (mirror) { try { Console.Error.WriteLine(line); } catch { } }
+            if (mirror) {
+                try {
+                    Console.Error.WriteLine(line);
+                }
+                catch { }
+            }
         }
     }
 
@@ -542,17 +717,32 @@ function __postResponse(workspace, request) {{
                     // If script is workspace-agnostic (doesn't reference 'workspace' or 'request'), execute only once globally
                     if (!IsWorkspaceDependent(scriptCode)) {
                         if (_executedGlobalInits.Contains(workspaceKey)) {
-                            if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Skipping redundant global init for '{workspaceKey}'"); } catch { } }
+                            if (ScriptDebug) {
+                                try {
+                                    Console.Error.WriteLine($"[JS:init] Skipping redundant global init for '{workspaceKey}'");
+                                }
+                                catch { }
+                            }
                             return;
                         }
-                        if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Running global init once for '{workspaceKey}'"); } catch { } }
+                        if (ScriptDebug) {
+                            try {
+                                Console.Error.WriteLine($"[JS:init] Running global init once for '{workspaceKey}'");
+                            }
+                            catch { }
+                        }
                         Engine.Execute(_compiledWorkspaceInitScripts[workspaceKey]);
                         _executedGlobalInits.Add(workspaceKey);
                     }
                     else {
                         // Bind the target workspace object and execute compiled script.
                         try { Engine.Script.workspace = workspaceObj; } catch { }
-                        if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Running init for workspace '{workspaceKey}'"); } catch { } }
+                        if (ScriptDebug) {
+                            try {
+                                Console.Error.WriteLine($"[JS:init] Running init for workspace '{workspaceKey}'");
+                            }
+                            catch { }
+                        }
                         Engine.Execute(_compiledWorkspaceInitScripts[workspaceKey]);
                     }
                 }
@@ -574,7 +764,12 @@ function __postResponse(workspace, request) {{
             if (!visited.Add(currentKey)) {
                 // Cycle detected in workspace inheritance; emit and break to avoid infinite loop
                 try { _diags.Emit(nameof(ClearScriptEngine), new { Message = $"Cycle detected in workspace inheritance starting at '{workspaceKey}'. Halting init chain at '{currentKey}'." }); } catch { }
-                if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Cycle detected: start={workspaceKey}, at={currentKey}. Aborting chain."); } catch { } }
+                if (ScriptDebug) {
+                    try {
+                        Console.Error.WriteLine($"[JS:init] Cycle detected: start={workspaceKey}, at={currentKey}. Aborting chain.");
+                    }
+                    catch { }
+                }
                 break;
             }
             chain.Push((currentKey, current));
@@ -590,7 +785,12 @@ function __postResponse(workspace, request) {{
         // Unwind base-first
         while (chain.Count > 0) {
             var (k, def) = chain.Pop();
-            if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] DefineInitScript -> {k}"); } catch { } }
+            if (ScriptDebug) {
+                try {
+                    Console.Error.WriteLine($"[JS:init] DefineInitScript -> {k}");
+                }
+                catch { }
+            }
             DefineInitScript(k, def, workspaceObj);
         }
     }
@@ -609,7 +809,15 @@ function __postResponse(workspace, request) {{
         var workspaceName = args[0] as string ?? string.Empty;
         var requestName = args[1] as string ?? string.Empty;
 
-        var workspace = _workspaceCache[workspaceName];
+        // Ensure the workspace is projected into the JS engine before accessing cache
+        if (!_workspaceCache.TryGetValue(workspaceName, out var workspace)) {
+            EnsureWorkspaceProjected(workspaceName);
+            if (!_workspaceCache.TryGetValue(workspaceName, out workspace)) {
+                // Nothing to do if we still can't find it
+                return;
+            }
+        }
+
         var requests = workspace.requests as IDictionary<string, object>;
         var request = requests?[requestName] as dynamic;
 
@@ -676,7 +884,12 @@ function __postResponse(workspace, request) {{
             var exists = false;
             try { exists = (bool) (Engine.Evaluate($"typeof __preRequest__{workspaceName}__{requestName} === 'function'") ?? false); } catch { exists = false; }
             if (!exists) {
-                if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:req] Missing __preRequest__{workspaceName}__{requestName}; falling back to __preRequest__{workspaceName}"); } catch { } }
+                if (ScriptDebug) {
+                    try {
+                        Console.Error.WriteLine($"[JS:req] Missing __preRequest__{workspaceName}__{requestName}; falling back to __preRequest__{workspaceName}");
+                    }
+                    catch { }
+                }
                 Engine.Invoke($"__preRequest__{workspaceName}", invokeArgs.ToArray());
             }
             else {
@@ -732,14 +945,15 @@ function __postResponse(workspace, request) {{
         extraArgs = args[5]
         */
 
-        var workspaceName = args[0] as string ?? string.Empty;
+    var workspaceName = args[0] as string ?? string.Empty;
         var requestName = args[1] as string ?? string.Empty;
         var statusCode = args[2] as int? ?? 0;
         var headers = args[3] as HttpResponseHeaders;
         var responseContent = args[4] as string ?? string.Empty;
         var extraArgs = args[5] as IEnumerable<object>;
 
-        var workspace = _workspaceCache[workspaceName];
+    EnsureWorkspaceProjected(workspaceName);
+    var workspace = _workspaceCache[workspaceName];
         var requests = workspace.requests as IDictionary<string, object>;
 
         if (requests is null) {
@@ -778,7 +992,12 @@ function __postResponse(workspace, request) {{
             var exists = false;
             try { exists = (bool) (Engine.Evaluate($"typeof __postResponse__{workspaceName}__{requestName} === 'function'") ?? false); } catch { exists = false; }
             if (!exists) {
-                if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:req] Missing __postResponse__{workspaceName}__{requestName}; falling back to __postResponse__{workspaceName}"); } catch { } }
+                if (ScriptDebug) {
+                    try {
+                        Console.Error.WriteLine($"[JS:req] Missing __postResponse__{workspaceName}__{requestName}; falling back to __postResponse__{workspaceName}");
+                    }
+                    catch { }
+                }
                 return Engine.Invoke($"__postResponse__{workspaceName}", invokeArgs.ToArray());
             }
             else {
@@ -882,7 +1101,9 @@ function __postResponse(workspace, request) {{
     }
 
     private static string GetJsScriptBody(XferKeyedValue? kv) {
-        if (kv is null) { return string.Empty; }
+        if (kv is null) {
+            return string.Empty;
+        }
         return IsJavaScript(kv) ? (kv.PayloadAsString ?? string.Empty) : string.Empty;
     }
 
@@ -897,6 +1118,14 @@ function __postResponse(workspace, request) {{
             argsBuilder.Append($", {arg.Key}");
         }
         var extraArgs = argsBuilder.ToString();
+
+        // Ensure base chain wrappers (workspace-level and request-level) exist before defining current wrappers
+        try {
+            EnsureRequestWrappersChain(workspaceName, workspace, requestName, extraArgs);
+        }
+        catch {
+            // Best-effort; any missing base wrappers will surface during invocation
+        }
 
         try {
             Engine.Execute($@"
@@ -917,7 +1146,98 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
 }}
 
 ");
-            if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:req] Defined wrappers for {workspaceName}.{requestName}"); } catch { } }
+            if (ScriptDebug) {
+                try {
+                    Console.Error.WriteLine($"[JS:req] Defined wrappers for {workspaceName}.{requestName}");
+                }
+                catch { }
+            }
+            _definedRequestWrappers.Add(key);
+        }
+        catch (ScriptEngineException ex) {
+            Console.Error.WriteLine(ex.ErrorDetails);
+        }
+    }
+
+    // Recursively ensure base chain workspace and request wrappers exist (base-first) for a given request.
+    private void EnsureRequestWrappersChain(string workspaceName, WorkspaceDefinition workspace, string requestName, string extraArgsForShim) {
+        if (string.IsNullOrEmpty(workspace.Extend))
+        {
+
+            return;
+
+        }
+        var bc = _workspaceService?.BaseConfig;
+        if (bc?.Workspaces is null)
+        {
+
+            return;
+
+        }
+        var parentName = workspace.Extend;
+        if (!bc.Workspaces.TryGetValue(parentName, out var parentWs) || parentWs is null)
+        {
+
+            return;
+
+        }
+
+        // Ensure further ancestors first
+        EnsureRequestWrappersChain(parentName, parentWs, requestName, extraArgsForShim);
+
+        // Ensure workspace-level wrappers for the parent
+        try { EnsureWorkspaceWrappers(parentName, parentWs); } catch { }
+
+        // Ensure request-level wrappers for the parent (either concrete or shim)
+        try {
+            RequestDefinition? parentReqDef = null;
+            if (parentWs.Requests is not null) {
+                parentWs.Requests.TryGetValue(requestName, out parentReqDef);
+            }
+            var parentKey = ReqKey(parentName, requestName);
+            var exists = _definedRequestWrappers.Contains(parentKey);
+            if (!exists) {
+                if (parentReqDef is not null) {
+                    EnsureRequestWrappers(parentName, parentWs, requestName, parentReqDef);
+                }
+                else {
+                    EnsureRequestWrapperShim(parentName, parentWs, requestName, extraArgsForShim);
+                }
+            }
+        }
+        catch { }
+    }
+
+    // Define minimal request-level wrappers that delegate to the workspace-level handlers, using provided arg list.
+    private void EnsureRequestWrapperShim(string workspaceName, WorkspaceDefinition workspace, string requestName, string extraArgs) {
+        var key = ReqKey(workspaceName, requestName);
+        if (_definedRequestWrappers.Contains(key))
+        {
+
+            return;
+
+        }
+        var code = $@"
+function __preRequest__{workspaceName}__{requestName} (workspace, request{extraArgs}) {{
+    try {{ this.workspace = workspace; this.request = request; }} catch (e) {{}}
+    let nextHandler = function() {{ __preRequest__{workspaceName}(workspace, request); }};
+    let baseHandler = function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? ";" : $"__preRequest__{workspace.Extend}__{requestName}(workspace, request{extraArgs});")} }};
+    let base = {{ preRequest: function() {{ baseHandler(); }}, postResponse: function() {{ return {(string.IsNullOrEmpty(workspace.Extend) ? "null" : $"__postResponse__{workspace.Extend}__{requestName}(workspace, request{extraArgs})")}; }} }};
+    __preRequest__{workspaceName}(workspace, request);
+}}
+function __postResponse__{workspaceName}__{requestName} (workspace, request{extraArgs}) {{
+    try {{ this.workspace = workspace; this.request = request; }} catch (e) {{}}
+    let nextHandler = function() {{ return __postResponse__{workspaceName}(workspace, request); }};
+    let baseHandler = function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? "return null;" : $"return __postResponse__{workspace.Extend}__{requestName}(workspace, request{extraArgs});")} }};
+    let base = {{ preRequest: function() {{ {(string.IsNullOrEmpty(workspace.Extend) ? ";" : $"__preRequest__{workspace.Extend}__{requestName}(workspace, request{extraArgs});")} }}, postResponse: function() {{ return baseHandler(); }} }};
+    return __postResponse__{workspaceName}(workspace, request);
+}}
+";
+        try {
+            Engine.Execute(code);
+            if (ScriptDebug) {
+                try { Console.Error.WriteLine($"[JS:req] Defined shim wrappers for {workspaceName}.{requestName}"); } catch { }
+            }
             _definedRequestWrappers.Add(key);
         }
         catch (ScriptEngineException ex) {
@@ -948,7 +1268,12 @@ function __postResponse__{workspaceName}(workspace, request) {{
 }};
 
 ");
-            if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:req] Defined workspace wrappers for {workspaceName}"); } catch { } }
+            if (ScriptDebug) {
+                try {
+                    Console.Error.WriteLine($"[JS:req] Defined workspace wrappers for {workspaceName}");
+                }
+                catch { }
+            }
             _definedWorkspaceWrappers.Add(workspaceName);
         }
         catch (ScriptEngineException ex) {
@@ -957,22 +1282,52 @@ function __postResponse__{workspaceName}(workspace, request) {{
     }
 
     private static bool IsWorkspaceDependent(string? scriptCode) {
-        if (string.IsNullOrWhiteSpace(scriptCode)) { return false; }
+        if (string.IsNullOrWhiteSpace(scriptCode))
+        {
+
+            return false;
+
+        }
         return scriptCode.IndexOf("workspace", StringComparison.OrdinalIgnoreCase) >= 0
             || scriptCode.IndexOf("request", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     // Project a single workspace object and its request shims into the JS engine on demand.
     public void EnsureWorkspaceProjected(string workspaceName) {
-        if (string.IsNullOrWhiteSpace(workspaceName)) { return; }
-        if (_workspaceCache.ContainsKey(workspaceName)) { return; }
-        if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Projecting workspace on-demand -> {workspaceName}"); } catch { } }
+        if (string.IsNullOrWhiteSpace(workspaceName))
+        {
+
+            return;
+
+        }
+        if (_workspaceCache.ContainsKey(workspaceName))
+        {
+
+            return;
+
+        }
+        if (ScriptDebug) {
+            try {
+                Console.Error.WriteLine($"[JS:init] Projecting workspace on-demand -> {workspaceName}");
+            }
+            catch { }
+        }
         var bc = _workspaceService?.BaseConfig;
-        if (bc?.Workspaces is null) { return; }
-        if (!bc.Workspaces.TryGetValue(workspaceName, out var workspace) || workspace is null) { return; }
+        if (bc?.Workspaces is null)
+        {
+
+            return;
+
+        }
+        if (!bc.Workspaces.TryGetValue(workspaceName, out var workspace) || workspace is null)
+        {
+
+            return;
+
+        }
 
         // Link base definition if available
-        if (!string.IsNullOrEmpty(workspace.Extend) && bc.Workspaces.TryGetValue(workspace.Extend, out var baseWorkspace)) {
+    if (!string.IsNullOrEmpty(workspace.Extend) && bc.Workspaces.TryGetValue(workspace.Extend, out var baseWorkspace)) {
             workspace.Base = baseWorkspace;
         }
 
@@ -1000,7 +1355,8 @@ function __postResponse__{workspaceName}(workspace, request) {{
         _a2c[workspaceName] = workspaceObj;
 
         // Define lightweight execute/exec shims for requests under this workspace
-        if (workspace.Requests is not null && workspace.Requests.Count > 0) {
+        if (workspace.Requests is not null && workspace.Requests.Count > 0)
+        {
             var wsEscaped = JsEscape(workspaceName);
             var shimBuilder = new StringBuilder();
             shimBuilder.Append($"(function(){{ var ws = a2c.workspaces && a2c.workspaces['{wsEscaped}']; if (!ws) return; ");
@@ -1009,7 +1365,11 @@ function __postResponse__{workspaceName}(workspace, request) {{
                 shimBuilder.Append($@"(function(){{
     if (!ws.requests) ws.requests = {{}};
     var r = ws.requests['{reqEsc}'];
-    if (!r) {{ r = {{}}; ws.requests['{reqEsc}'] = r; if (typeof ws['{reqEsc}'] === 'undefined') ws['{reqEsc}'] = r; }}
+    if (!r) {{
+        r = {{}};
+        ws.requests['{reqEsc}'] = r;
+        if (typeof ws['{reqEsc}'] === 'undefined') ws['{reqEsc}'] = r;
+    }}
     if (typeof r.execute !== 'function') {{
         r.execute = function() {{
             var args = Array.prototype.slice.call(arguments);
@@ -1017,7 +1377,9 @@ function __postResponse__{workspaceName}(workspace, request) {{
             throw new Error('a2cRequestInvoke not available');
         }};
     }}
-    if (typeof r.exec !== 'function') {{ r.exec = r.execute; }}
+    if (typeof r.exec !== 'function') {{
+        r.exec = r.execute;
+    }}
 }})();");
             }
             shimBuilder.Append("})();");
@@ -1028,16 +1390,41 @@ function __postResponse__{workspaceName}(workspace, request) {{
 
     // Execute init scripts for a single workspace (base-first), compiling as needed.
     public void ExecuteWorkspaceInitFor(string workspaceName) {
-        if (string.IsNullOrWhiteSpace(workspaceName)) { return; }
+        if (string.IsNullOrWhiteSpace(workspaceName))
+        {
+
+            return;
+
+        }
         var bc = _workspaceService?.BaseConfig;
-        if (bc?.Workspaces is null) { return; }
-        if (!bc.Workspaces.TryGetValue(workspaceName, out var wsDef) || wsDef is null) { return; }
+        if (bc?.Workspaces is null)
+        {
+
+            return;
+
+        }
+        if (!bc.Workspaces.TryGetValue(workspaceName, out var wsDef) || wsDef is null)
+        {
+
+            return;
+
+        }
         if (!_workspaceCache.TryGetValue(workspaceName, out var wsObj)) {
             // Project on demand if not present yet
             EnsureWorkspaceProjected(workspaceName);
-            if (!_workspaceCache.TryGetValue(workspaceName, out wsObj)) { return; }
+            if (!_workspaceCache.TryGetValue(workspaceName, out wsObj))
+            {
+
+                return;
+
+            }
         }
-        if (ScriptDebug) { try { Console.Error.WriteLine($"[JS:init] Running workspace init on-demand -> {workspaceName}"); } catch { } }
+        if (ScriptDebug) {
+            try {
+                Console.Error.WriteLine($"[JS:init] Running workspace init on-demand -> {workspaceName}");
+            }
+            catch { }
+        }
         ExecuteWorkspaceInitChain(workspaceName, wsDef, wsObj);
     }
 }

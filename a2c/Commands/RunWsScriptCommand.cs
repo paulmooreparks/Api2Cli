@@ -320,15 +320,29 @@ internal class RunWsScriptCommand {
 
         if (string.IsNullOrEmpty(workspaceName)) {
             var cacheKey = $"js:root:{scriptName}";
-            if (_jsFuncCache.ContainsKey(cacheKey)) { return; }
+
+            if (_jsFuncCache.ContainsKey(cacheKey)) {
+                return;
+            }
+
             object? func = _scriptEngine.EvaluateScript($"a2c['{JsEscape(scriptName)}']");
-            if (func is Microsoft.ClearScript.ScriptObject so) { _jsFuncCache.TryAdd(cacheKey, so); }
+
+            if (func is Microsoft.ClearScript.ScriptObject so) {
+                _jsFuncCache.TryAdd(cacheKey, so);
+            }
         }
         else {
             var cacheKey = $"js:ws:{workspaceName}:{scriptName}";
-            if (_jsFuncCache.ContainsKey(cacheKey)) { return; }
+
+            if (_jsFuncCache.ContainsKey(cacheKey)) {
+                return;
+            }
+
             object? func = _scriptEngine.EvaluateScript($"(a2c.workspaces && a2c.workspaces['{JsEscape(workspaceName)}']) ? a2c.workspaces['{JsEscape(workspaceName)}']['{JsEscape(scriptName)}'] : undefined");
-            if (func is Microsoft.ClearScript.ScriptObject so) { _jsFuncCache.TryAdd(cacheKey, so); }
+
+            if (func is Microsoft.ClearScript.ScriptObject so) {
+                _jsFuncCache.TryAdd(cacheKey, so);
+            }
         }
     }
 
@@ -365,11 +379,14 @@ internal class RunWsScriptCommand {
             if (a2cAvailable) {
                 if (string.IsNullOrEmpty(workspaceName)) {
                     var cacheKey = $"js:root:{scriptName}";
+
                     if (_jsFuncCache.TryGetValue(cacheKey, out var cachedFunc)) {
                         location = "root:a2c";
                         return true;
                     }
+
                     object? func = _scriptEngine.EvaluateScript($"a2c['{JsEscape(scriptName)}']");
+
                     if (func is Microsoft.ClearScript.ScriptObject so) {
                         _jsFuncCache.TryAdd(cacheKey, so);
                         location = "root:a2c";
@@ -378,11 +395,14 @@ internal class RunWsScriptCommand {
                 }
                 else {
                     var cacheKey = $"js:ws:{workspaceName}:{scriptName}";
+
                     if (_jsFuncCache.TryGetValue(cacheKey, out var cachedFunc)) {
                         location = "workspace:a2c";
                         return true;
                     }
+
                     object? func = _scriptEngine.EvaluateScript($"(a2c.workspaces && a2c.workspaces['{JsEscape(workspaceName)}']) ? a2c.workspaces['{JsEscape(workspaceName)}']['{JsEscape(scriptName)}'] : undefined");
+
                     if (func is Microsoft.ClearScript.ScriptObject so) {
                         _jsFuncCache.TryAdd(cacheKey, so);
                         location = "workspace:a2c";
@@ -396,12 +416,20 @@ internal class RunWsScriptCommand {
         if (string.IsNullOrEmpty(workspaceName)) {
             var test = _scriptEngine.EvaluateScript($"typeof __script__{scriptName} === 'function'");
             var isFunc = test is bool tb && tb;
-            if (isFunc) { location = "root:__script__"; return true; }
+
+            if (isFunc) {
+                location = "root:__script__";
+                return true;
+            }
         }
         else {
             var test = _scriptEngine.EvaluateScript($"typeof __script__{workspaceName}__{scriptName} === 'function'");
             var isFunc = test is bool tb && tb;
-            if (isFunc) { location = "workspace:__script__"; return true; }
+
+            if (isFunc) {
+                location = "workspace:__script__";
+                return true;
+            }
         }
 
         return false;

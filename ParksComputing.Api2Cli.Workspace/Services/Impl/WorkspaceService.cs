@@ -91,7 +91,15 @@ internal class WorkspaceService : IWorkspaceService {
                 else if (BaseConfig.Workspaces.TryGetValue(workspaceName, out WorkspaceDefinition? value)) {
                     ActiveWorkspace = value;
                     BaseConfig.ActiveWorkspace = workspaceName;
-                    try { ActiveWorkspaceChanged?.Invoke(workspaceName); } catch { /* listener errors should not break SetActiveWorkspace */ }
+
+                    try {
+                        ActiveWorkspaceChanged?.Invoke(workspaceName);
+                    }
+
+                    catch {
+                        /* listener errors should not break SetActiveWorkspace */
+                    }
+
                 }
             }
         }
@@ -188,8 +196,12 @@ internal class WorkspaceService : IWorkspaceService {
             var line = $"A2C_TIMINGS: configParse={sw.Elapsed.TotalMilliseconds:F1} ms";
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
-            try { Console.WriteLine(line); } catch { }
-            if (mirror) { try { Console.Error.WriteLine(line); } catch { } }
+            Console.WriteLine(line);
+
+            if (mirror) {
+                Console.Error.WriteLine(line);
+            }
+
         }
 
         return baseConfig;

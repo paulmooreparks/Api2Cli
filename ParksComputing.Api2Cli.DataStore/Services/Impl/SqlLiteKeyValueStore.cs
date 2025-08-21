@@ -6,9 +6,9 @@ using System.Data;
 
 using Microsoft.Data.Sqlite;
 
-using Newtonsoft.Json;
-
 using ParksComputing.Api2Cli.DataStore.Services;
+using ParksComputing.Xfer.Lang;
+using ParksComputing.Xfer.Lang.Converters;
 
 namespace ParksComputing.Api2Cli.DataStore.Services.Impl;
 
@@ -83,8 +83,13 @@ public class SqliteKeyValueStore : IKeyValueStore {
 
         using var reader = command.ExecuteReader();
         if (reader.Read()) {
-            var json = reader.GetString(0);
-            value = JsonConvert.DeserializeObject<object?>(json);
+            if (reader.IsDBNull(0)) {
+                value = null;
+            }
+            else {
+                // Store returns plain string; do not parse here to keep JS interop predictable
+                value = reader.GetString(0);
+            }
             return true;
         }
 
@@ -99,7 +104,17 @@ public class SqliteKeyValueStore : IKeyValueStore {
         using var command = connection.CreateCommand();
         command.CommandText = "INSERT INTO kv (key, value) VALUES ($key, $value) ON CONFLICT(key) DO UPDATE SET value = excluded.value;";
         command.Parameters.AddWithValue("$key", key);
-        command.Parameters.AddWithValue("$value", JsonConvert.SerializeObject(value));
+        // Persist as TEXT; if value is not a string, serialize via XferLang for readability/stability
+        if (value is null) {
+            command.Parameters.AddWithValue("$value", DBNull.Value);
+        }
+        else if (value is string s) {
+            command.Parameters.AddWithValue("$value", s);
+        }
+        else {
+            var serialized = XferConvert.Serialize(value, Formatting.None);
+            command.Parameters.AddWithValue("$value", serialized);
+        }
         command.ExecuteNonQuery();
     }
 
@@ -130,8 +145,13 @@ public class SqliteKeyValueStore : IKeyValueStore {
         using var reader = command.ExecuteReader();
         while (reader.Read()) {
             var key = reader.GetString(0);
-            var json = reader.GetString(1);
-            yield return new KeyValuePair<string, object?>(key, JsonConvert.DeserializeObject<object?>(json));
+            if (reader.IsDBNull(1)) {
+                yield return new KeyValuePair<string, object?>(key, null);
+            }
+            else {
+                var text = reader.GetString(1);
+                yield return new KeyValuePair<string, object?>(key, text);
+            }
         }
     }
 

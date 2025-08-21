@@ -93,9 +93,15 @@ internal class A2CRootCommand {
         }
         var doWarm = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "1", StringComparison.OrdinalIgnoreCase);
         int limit = 25;
-        if (int.TryParse(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP_LIMIT"), out var parsed) && parsed > 0) { limit = parsed; }
+        if (int.TryParse(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP_LIMIT"), out var parsed) && parsed > 0) {
+            limit = parsed;
+        }
         var debug = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
-        if (timingsEnabled) { swWarm = System.Diagnostics.Stopwatch.StartNew(); }
+
+        if (timingsEnabled) {
+            swWarm = System.Diagnostics.Stopwatch.StartNew();
+        }
+
         orchestrator.Warmup(limit, doWarm, debug);
 
         if (timingsEnabled && swWarm is not null) {
@@ -104,7 +110,10 @@ internal class A2CRootCommand {
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
             Console.WriteLine(line);
-            if (mirror) { Console.Error.WriteLine(line); }
+
+            if (mirror) {
+                Console.Error.WriteLine(line);
+            }
         }
 
         if (timingsEnabled && swScripting is not null) {
@@ -113,7 +122,11 @@ internal class A2CRootCommand {
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
             Console.WriteLine(line);
-            if (mirror) { Console.Error.WriteLine(line); }
+
+            if (mirror) {
+                Console.Error.WriteLine(line);
+            }
+
         }
 
         // Register a single request executor bridge once; avoid per-request registration which causes O(N^2) wiring

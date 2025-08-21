@@ -31,6 +31,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
         private ScriptState<object?>? _state;
         private readonly Dictionary<string, object?> _globals = new();
         private dynamic _scriptGlobals = new ExpandoObject();
+    private bool _globalInitExecuted = false;
 
     // Strongly-typed globals object so C# scripts can reference members like 'a2c'
     private ScriptGlobals _typedGlobals;
@@ -373,6 +374,32 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                 return string.Empty;
             }
 
+            // Run deferred global C# init on first use, if configured
+            if (!_globalInitExecuted)
+            {
+                try
+                {
+                    var init = _workspaceService?.BaseConfig?.ScriptInit?.CSharp;
+                    if (!string.IsNullOrWhiteSpace(init))
+                    {
+                        _globalInitExecuted = true;
+                        // Execute without replacing the upcoming user script; set up state first
+                        if (_state is null)
+                        {
+                            _state = CSharpScript.RunAsync(init, _options, _typedGlobals, typeof(ScriptGlobals)).GetAwaiter().GetResult();
+                        }
+                        else
+                        {
+                            _state = _state.ContinueWithAsync(init, _options).GetAwaiter().GetResult();
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _diags.Emit(nameof(CSharpScriptEngine), new { Message = $"Global C# init failed: {ex.Message}" });
+                }
+            }
+
             // Execute the script synchronously; chain onto existing state so top-level defs persist
             if (_state is null)
             {
@@ -388,6 +415,31 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
         public object? EvaluateScript(string? script) {
             if (string.IsNullOrWhiteSpace(script)) {
                 return null;
+            }
+
+            // Run deferred global C# init on first use, if configured
+            if (!_globalInitExecuted)
+            {
+                try
+                {
+                    var init = _workspaceService?.BaseConfig?.ScriptInit?.CSharp;
+                    if (!string.IsNullOrWhiteSpace(init))
+                    {
+                        _globalInitExecuted = true;
+                        if (_state is null)
+                        {
+                            _state = CSharpScript.RunAsync(init, _options, _typedGlobals, typeof(ScriptGlobals)).GetAwaiter().GetResult();
+                        }
+                        else
+                        {
+                            _state = _state.ContinueWithAsync(init, _options).GetAwaiter().GetResult();
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _diags.Emit(nameof(CSharpScriptEngine), new { Message = $"Global C# init failed: {ex.Message}" });
+                }
             }
 
             // Evaluate the script synchronously; chain onto existing state so earlier defs are visible
@@ -452,14 +504,24 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
         }
 
         public void ExecuteInitScript(string? script) {
-            if (string.IsNullOrWhiteSpace(script)) { return; }
+            if (string.IsNullOrWhiteSpace(script))
+            {
+
+                return;
+
+            }
             ExecuteScript(script);
         }
 
         // Overload for keyed value scenarios (initScript on workspace/baseConfig)
     public void ExecuteInitScript(XferKeyedValue? script) {
             var body = GetInitBodyForLanguage(script, ScriptEngineKinds.CSharp);
-            if (string.IsNullOrWhiteSpace(body)) { return; }
+            if (string.IsNullOrWhiteSpace(body))
+            {
+
+                return;
+
+            }
             ExecuteScript(body);
         }
 
