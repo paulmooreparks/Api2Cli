@@ -261,4 +261,31 @@ internal class WorkspaceService : IWorkspaceService {
             throw new Exception($"Error saving workspace file '{WorkspaceFilePath}': {ex.Message}", ex);
         }
     }
+
+    /// <summary>
+    /// Re-reads the workspace configuration file and refreshes the active workspace and loaded assemblies.
+    /// </summary>
+    public void ReloadConfig()
+    {
+        // Remember the current active workspace name before reloading
+        var previousWorkspace = CurrentWorkspaceName;
+
+        // Re-parse the config file
+        BaseConfig = LoadWorkspace();
+        // Reload any configured assemblies
+        LoadConfiguredAssemblies();
+        // Re-apply the active workspace, preserving the prior selection when available.
+        var target = !string.IsNullOrWhiteSpace(previousWorkspace)
+            ? previousWorkspace
+            : (BaseConfig.ActiveWorkspace ?? string.Empty);
+
+        // Fallback: if no explicit selection, prefer the first defined workspace if any
+        if (string.IsNullOrWhiteSpace(target) && BaseConfig.Workspaces is not null && BaseConfig.Workspaces.Count > 0) {
+            target = BaseConfig.Workspaces.Keys.First();
+        }
+
+        if (!string.IsNullOrWhiteSpace(target)) {
+            SetActiveWorkspace(target);
+        }
+    }
 }

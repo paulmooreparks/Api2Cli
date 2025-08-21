@@ -56,7 +56,6 @@ internal class A2CRootCommand {
         _workspaceService = workspaceService;
         _rootCommand = rootCommand;
         _scriptEngineFactory = scriptEngineFactory;
-        // _scriptEngine = _scriptEngineFactory.GetEngine("javascript");
         _a2c = Api2CliApi;
         _recursionOption = recursionOption;
         _replContext = new A2CReplContext(_rootCommand, _serviceProvider, _workspaceService, splitter, _recursionOption);

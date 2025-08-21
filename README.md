@@ -58,7 +58,7 @@
 Download the latest release from [GitHub Releases](https://github.com/paulmooreparks/Api2Cli/releases) for your platform:
 
 ##### Installers (Automatic PATH Setup)
-- **Windows**: `a2c-VERSION-installer-win-x64.exe` - Windows Installer
+- **Windows**: `Api2Cli-VERSION-installer-win-x64.exe` - Windows Installer
 - **Linux**: `Api2Cli-vVERSION-installer-linux-x64.deb` - Debian Package (`sudo dpkg -i`)
 - **macOS**: `Api2Cli-vVERSION-installer-osx-x64.pkg` - macOS Installer Package
 
@@ -103,6 +103,23 @@ Workspaces are defined using the XferLang configuration language. Here's a reali
     // Global initialization script with .NET CLR integration
     initScript <'
         let clr = host.lib('mscorlib', 'System', 'System.Core');
+## Workspace import and warm reload
+
+Quickly scaffold a workspace from an API description, then warm-reload the CLI to activate it.
+
+- OpenAPI JSON import (YAML not yet supported):
+    - a2c workspace import --name pets --openapi ./openapi.json [--baseurl https://api.example.com] [--force]
+
+- Simple list import (text file with one request per line like "GET /pets"):
+    - a2c workspace import-list --name sample --spec ./spec.txt [--baseurl https://api.example.com] [--force]
+
+After generating the workspace, reload configuration without restarting your shell:
+
+- a2c reload
+
+Notes:
+- If the workspace name already exists, use --force to overwrite.
+- The OpenAPI importer will use servers[0].url as the base URL when --baseurl isn't provided.
         let Environment = clr.System.Environment;
         let Dns = clr.System.Net.Dns;
         let AddressFamily = clr.System.Net.Sockets.AddressFamily;

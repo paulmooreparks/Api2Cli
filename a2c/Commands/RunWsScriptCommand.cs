@@ -16,6 +16,8 @@ using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
 using ParksComputing.Api2Cli.Orchestration.Services;
 using ParksComputing.Api2Cli.Cli.Services;
+using ParksComputing.Xfer.Lang;
+using System.Globalization;
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
 
@@ -145,28 +147,52 @@ internal class RunWsScriptCommand {
             if (value is null) {
                 return null;
             }
-            var kind = ScriptArgTypeHelper.GetArgKind(typeToken);
-            // Preserve already-typed values
+            // Preserve already-typed values (including objects parsed upstream)
             if (value is not string s) {
                 return value;
             }
-            return kind switch {
-                ScriptArgKind.Number => Convert.ToDouble(s),
-                ScriptArgKind.Boolean => Convert.ToBoolean(s),
-                // String/object/custom -> pass string through
-                _ => s
-            };
+
+            // If no type provided, pass through
+            var tkn = (typeToken ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(tkn)) {
+                return s;
+            }
+
+            // Arrays: token like "<T>[]"
+            if (tkn.EndsWith("[]", StringComparison.Ordinal)) {
+                var elemToken = tkn.Substring(0, tkn.Length - 2);
+                return CoerceArrayArg(s, elemToken);
+            }
+
+            // Dictionary<string, object>
+            if (IsDictionaryStringObject(tkn)) {
+                return CoerceDictionaryArg(s);
+            }
+
+            // Scalar types and enums
+            return CoerceScalarArg(s, tkn);
         }
 
         static object? CoerceDefault(object? defVal, string? typeToken) {
-            var kind = ScriptArgTypeHelper.GetArgKind(typeToken);
-            return kind switch {
-                ScriptArgKind.String => defVal?.ToString(),
-                ScriptArgKind.Number => defVal is null ? null : Convert.ToDouble(defVal),
-                ScriptArgKind.Boolean => defVal is null ? null : Convert.ToBoolean(defVal),
-                // Object/custom -> keep as-is
-                _ => defVal
-            };
+            if (defVal is null) {
+                return null;
+            }
+            var tkn = (typeToken ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(tkn)) {
+                return defVal;
+            }
+            // If already not a string, keep as-is
+            if (defVal is not string s) {
+                return defVal;
+            }
+            if (tkn.EndsWith("[]", StringComparison.Ordinal)) {
+                var elem = tkn.Substring(0, tkn.Length - 2);
+                return CoerceArrayArg(s, elem);
+            }
+            if (IsDictionaryStringObject(tkn)) {
+                return CoerceDictionaryArg(s);
+            }
+            return CoerceScalarArg(s, tkn);
         }
 
         if (tokenArguments is not null && tokenArguments.Any()) {
@@ -310,6 +336,122 @@ internal class RunWsScriptCommand {
             }
         }
         return Result.Success;
+    }
+
+    // === Typed CLI conversion helpers ===
+    private static bool IsDictionaryStringObject(string t) {
+        var n = new string((t ?? string.Empty).Where(c => !char.IsWhiteSpace(c)).ToArray());
+        return n.Equals("System.Collections.Generic.Dictionary<string,object>", StringComparison.OrdinalIgnoreCase)
+            || n.Equals("Dictionary<string,object>", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static object? CoerceScalarArg(string s, string typeToken) {
+        try {
+            switch (typeToken.Trim()) {
+                case "string" or "System.String":
+                    return s;
+                case "bool" or "Boolean" or "System.Boolean":
+                    return Convert.ToBoolean(s, CultureInfo.InvariantCulture);
+                case "int" or "Int32" or "System.Int32":
+                    return Convert.ToInt32(s, CultureInfo.InvariantCulture);
+                case "long" or "Int64" or "System.Int64":
+                    return Convert.ToInt64(s, CultureInfo.InvariantCulture);
+                case "double" or "Double" or "System.Double" or "number":
+                    return Convert.ToDouble(s, CultureInfo.InvariantCulture);
+                case "float" or "Single" or "System.Single":
+                    return Convert.ToSingle(s, CultureInfo.InvariantCulture);
+                case "decimal" or "System.Decimal":
+                    return Convert.ToDecimal(s, CultureInfo.InvariantCulture);
+                case "Guid" or "System.Guid":
+                    return Guid.Parse(s);
+                case "DateTime" or "System.DateTime":
+                    return DateTime.Parse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+                case "Uri" or "System.Uri":
+                    return new Uri(s, UriKind.RelativeOrAbsolute);
+                default:
+                    {
+                        var t = TryGetType(typeToken);
+                        if (t?.IsEnum == true) {
+                            // Allow numeric or name
+                            if (long.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var num)) {
+                                var underlying = Enum.GetUnderlyingType(t);
+                                var val = Convert.ChangeType(num, underlying, CultureInfo.InvariantCulture);
+                                return Enum.ToObject(t, val!);
+                            }
+                            return Enum.Parse(t, s, ignoreCase: true);
+                        }
+                        // Unknown custom: pass string
+                        return s;
+                    }
+            }
+        }
+        catch (Exception ex) {
+            Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Argument conversion failed for value '{s}' -> {typeToken}: {ex.Message}");
+            throw;
+        }
+    }
+
+    private static object? CoerceArrayArg(string s, string elemToken) {
+        // @file.xfer or inline Xfer [ ... ]
+        try {
+            string content = s;
+            if (s.StartsWith("@", StringComparison.Ordinal)) {
+                var path = s.Substring(1);
+                content = File.ReadAllText(path);
+            }
+            if (content.TrimStart().StartsWith("[")) {
+                // Try parse via Xfer first; falls back to simple split
+                try {
+                    var x = XferParser.Parse(content);
+                    var arr = ParksComputing.Xfer.Lang.XferConvert.Deserialize<List<object?>>(x);
+                    if (arr is null) {
+                        return Array.Empty<object?>();
+                    }
+                    return arr.Select(v => v is string sv ? CoerceScalarArg(sv, elemToken) : v).ToArray();
+                }
+                catch { /* fall back below */ }
+            }
+            // Comma-separated fallback
+            var parts = content.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return parts.Select(p => CoerceScalarArg(p, elemToken)).ToArray();
+        }
+        catch (Exception ex) {
+            Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Array argument conversion failed: {ex.Message}");
+            throw;
+        }
+    }
+
+    private static object? CoerceDictionaryArg(string s) {
+        try {
+            string content = s;
+            if (s.StartsWith("@", StringComparison.Ordinal)) {
+                var path = s.Substring(1);
+                content = File.ReadAllText(path);
+            }
+            if (content.TrimStart().StartsWith("{")) {
+                var x = XferParser.Parse(content);
+                var dict = ParksComputing.Xfer.Lang.XferConvert.Deserialize<Dictionary<string, object?>>(x);
+                return dict;
+            }
+            // If not Xfer object, pass through as string; orchestration/JS can still handle native objects
+            return s;
+        }
+        catch {
+            // Be forgiving: if it's not valid Xfer, just return the original string and let downstream handle it
+            return s;
+        }
+    }
+
+    private static Type? TryGetType(string typeName) {
+        if (string.IsNullOrWhiteSpace(typeName)) {
+            return null;
+        }
+        var t = Type.GetType(typeName, throwOnError: false, ignoreCase: true);
+        if (t != null) {
+            return t;
+        }
+        try { return Type.GetType($"System.{typeName}", throwOnError: false, ignoreCase: true); }
+        catch { return null; }
     }
 
     // After a successful fallback invocation, try to resolve the canonical a2c.* reference and cache it.

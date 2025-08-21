@@ -16,4 +16,9 @@ public interface IWorkspaceService {
     // Listeners (e.g., scripting orchestrator) can lazily initialize per-workspace processing here.
     event Action<string>? ActiveWorkspaceChanged;
     void SetActiveWorkspace(string workspaceName);
+    void SaveConfig();
+    /// <summary>
+    /// Re-reads the workspace configuration file and refreshes the active workspace and loaded assemblies.
+    /// </summary>
+    void ReloadConfig();
 }
