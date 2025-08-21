@@ -11,9 +11,10 @@ using ParksComputing.Api2Cli.Workspace.Models;
 using System.Net.Http.Headers;
 using System.ComponentModel;
 using System.Globalization;
-using System.Text.Json;
+using System.Linq.Expressions;
+using Microsoft.CSharp.RuntimeBinder;
+using System.Runtime.CompilerServices;
 using static ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds;
-// Note: Do not depend on CLI layer here.
 
 namespace ParksComputing.Api2Cli.Orchestration.Services.Impl;
 
@@ -21,8 +22,6 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
     private readonly IApi2CliScriptEngineFactory _engineFactory;
     private readonly IWorkspaceService _workspaceService;
     private Func<string, string, object?[]?, object?>? _requestExecutor;
-    // Removed host-side type conversion to streamline startup; no param signature caching
-    // Lazy C# handler-chain state
     private bool _needCs = false;
     private bool _hasAnyCSharpHandlers = false;
     private bool _csGlobalBuilt = false;
@@ -89,6 +88,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         bool mirrorTimings = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
         Action<string>? emitTiming = null;
+
         if (timingsEnabled) {
             emitTiming = (line) => {
                 Console.WriteLine(line);
@@ -100,6 +100,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
 
         Stopwatch? swJsEngine = timingsEnabled ? Stopwatch.StartNew() : null;
         js.InitializeScriptEnvironment();
+
         if (timingsEnabled && swJsEngine is not null) {
             emitTiming!("A2C_TIMINGS: scriptingInit.jsEngine=" + swJsEngine.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
         }
@@ -129,15 +130,18 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 // Ensure global C# init has run on first C# use
                 EnsureGlobalCSharpInit();
                 var csRef = _engineFactory.GetEngine(CSharp);
+
                 object?[] argsArray = argsObj switch {
                     null => Array.Empty<object?>(),
                     object?[] arr => arr,
                     System.Collections.IEnumerable e when argsObj is not string => e.Cast<object?>().ToArray(),
                     _ => new object?[] { argsObj }
                 };
+
                 if (!_csCompiledWrappers.Contains(fname)) {
                     CompileCSharpWrapper(csRef, fname);
                 }
+
                 // Perform minimal, strict conversions for declared typed arguments
                 if (_csWrappers.TryGetValue(fname, out var def)) {
                     try {
@@ -148,6 +152,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                         throw new InvalidOperationException($"Failed to convert arguments for '{fname}': {ex.Message}", ex);
                     }
                 }
+
                 return csRef.Invoke(fname, argsArray);
             }));
             js.EvaluateScript("a2c.csharpInvoke = function(name, args) { return a2cCsharpInvoke(name, args); };");
@@ -155,20 +160,24 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
 
         // Execute new global scriptInit if present: C# first, then JavaScript
         if (baseConfig.ScriptInit is not null) {
+
             // Defer global C# ScriptInit until first C# use; only JS init runs eagerly
             if (!string.IsNullOrWhiteSpace(baseConfig.ScriptInit.JavaScript)) {
                 Stopwatch? swJsGlobalInit = timingsEnabled ? Stopwatch.StartNew() : null;
                 js.ExecuteInitScript(baseConfig.ScriptInit.JavaScript);
+
                 if (timingsEnabled && swJsGlobalInit is not null) {
                     emitTiming!("A2C_TIMINGS: scriptingInit.globalInit.js=" + swJsGlobalInit.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
                 }
             }
+
             // Now that global init ran, execute per-workspace JavaScript init (base-first) via JS engine helper.
             // This runs only for the new grouped ScriptInit path; legacy per-workspace init is handled inside ClearScriptEngine.
             try {
                 var jsImpl = _engineFactory.GetEngine(JavaScript);
                 Stopwatch? swJsWsInit = timingsEnabled ? Stopwatch.StartNew() : null;
                 jsImpl.ExecuteAllWorkspaceInitScripts();
+
                 if (timingsEnabled && swJsWsInit is not null) {
                     emitTiming!("A2C_TIMINGS: scriptingInit.wsInit.js=" + swJsWsInit.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
                 }
@@ -184,6 +193,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         // Register scripts using lightweight stubs and lazy compilation.
         // Expose a host-side dictionary of JS bodies and helpers to compile them on first use.
         bool dbg = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
+
         if (dbg) {
             try {
                 System.Console.Error.WriteLine("[Orch] Register scripts (lazy) begin");
@@ -199,6 +209,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
             var name = script.Key;
             var def = script.Value;
             var (lang, body) = def.ResolveLanguageAndBody();
+
             if (string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) {
                 if (!string.IsNullOrEmpty(body)) {
                     jsBodies[$"__root__::{name}"] = body!;
@@ -217,10 +228,13 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 jsRootStubs.Append($"a2c['{JsEscape(name)}'] = (...args) => a2c.__callScript(null, '{JsEscape(name)}', args);\n");
             }
         }
+
         double evalRootStubsMs = 0;
+
         if (jsRootStubs.Length > 0) {
             Stopwatch? swEvalRoot = timingsEnabled ? Stopwatch.StartNew() : null;
             js.EvaluateScript(jsRootStubs.ToString());
+
             if (timingsEnabled && swEvalRoot is not null) {
                 evalRootStubsMs += swEvalRoot.Elapsed.TotalMilliseconds;
             }
@@ -237,6 +251,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                         System.Collections.IEnumerable e when argsObj is not string => e.Cast<object?>().ToArray(),
                         _ => new object?[] { argsObj }
                     };
+
                     return _requestExecutor!(w, r, argsArray);
                 }));
             }
@@ -249,11 +264,14 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         if (projectActiveOnly) {
             var bc = _workspaceService.BaseConfig;
             var active = bc.ActiveWorkspace;
+
             if (!string.IsNullOrWhiteSpace(active) && bc.Workspaces.TryGetValue(active!, out var activeWs)) {
                 string cur = active!;
                 WorkspaceDefinition? curDef = activeWs;
+
                 while (!string.IsNullOrEmpty(cur) && curDef is not null) {
                     allowed.Add(cur);
+
                     if (!string.IsNullOrWhiteSpace(curDef.Extend) && bc.Workspaces.TryGetValue(curDef.Extend, out var baseWs)) {
                         cur = curDef.Extend;
                         curDef = baseWs;
@@ -270,18 +288,22 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 continue;
 
             }
+
             var wsName = wkvp.Key;
             var ws = wkvp.Value;
+
             if (dbg) {
                 try {
                     System.Console.Error.WriteLine($"[Orch] Workspace '{wsName}': scripts={ws.Scripts.Count}, requests={ws.Requests.Count}");
                 }
                 catch { }
             }
+
             foreach (var script in ws.Scripts) {
                 var name = script.Key;
                 var def = script.Value;
                 var (lang, body) = def.ResolveLanguageAndBody();
+
                 if (string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) {
                     if (!string.IsNullOrEmpty(body)) {
                         jsBodies[$"{wsName}::{name}"] = body!;
@@ -344,16 +366,16 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                     var bc = _workspaceService.BaseConfig;
                     if (bc.Workspaces.TryGetValue(curWs, out var wsDef)) {
                         var baseKey = wsDef.Extend;
+
                         while (!string.IsNullOrWhiteSpace(baseKey)) {
                             var k2 = $"{baseKey}::{name}";
                             if (jsBodies.TryGetValue(k2, out var baseBody) && !string.IsNullOrWhiteSpace(baseBody)) {
-
                                 return baseBody;
-
                             }
                             if (!bc.Workspaces.TryGetValue(baseKey, out var baseDef)) {
                                 break;
                             }
+
                             baseKey = baseDef.Extend;
                         }
                     }
@@ -371,7 +393,8 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
             var code = $"(function(){{ var ws = a2c.workspaces['{JsEscape(wsName)}']; var fn = (function(workspace) {{ return function(...args) {{\n{bodyText}\n}}; }})(ws); fn._compiled=true; a2c.workspaces['{JsEscape(wsName)}']['{JsEscape(name)}']=fn; }})()";
             js.EvaluateScript(code);
         }));
-        js.AddHostObject("a2cCompileJsRootScript", new Action<string>((name) => {
+
+            js.AddHostObject("a2cCompileJsRootScript", new Action<string>((name) => {
             var key = $"__root__::{name}";
 
             if (!jsBodies.TryGetValue(key, out var bodyText) || string.IsNullOrWhiteSpace(bodyText)) {
@@ -422,9 +445,11 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
             if (evalRootStubsMs > 0) {
                 emitTiming!("A2C_TIMINGS: scriptingInit.jsEval.rootStubs=" + evalRootStubsMs.ToString("F1") + " ms");
             }
+
             if (evalProxyMs > 0) {
                 emitTiming!("A2C_TIMINGS: scriptingInit.jsEval.proxyWrap=" + evalProxyMs.ToString("F1") + " ms");
             }
+
             if (evalInvokerMs > 0) {
                 emitTiming!("A2C_TIMINGS: scriptingInit.jsEval.invoker=" + evalInvokerMs.ToString("F1") + " ms");
             }
@@ -458,11 +483,14 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         // Ensure the active workspace and its base chain objects are wrapped with Proxies lazily
         var bcWrap = _workspaceService.BaseConfig;
         var toWrap = new List<string>();
+
         if (bcWrap.Workspaces.TryGetValue(workspaceName, out var wsWrap)) {
             string? cur = workspaceName;
             WorkspaceDefinition? curDef = wsWrap;
+
             while (!string.IsNullOrWhiteSpace(cur) && curDef is not null) {
                 toWrap.Add(cur);
+
                 if (!string.IsNullOrWhiteSpace(curDef.Extend) && bcWrap.Workspaces.TryGetValue(curDef.Extend, out var baseWs)) {
                     cur = curDef.Extend;
                     curDef = baseWs;
@@ -475,9 +503,11 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         if (toWrap.Count > 0) {
             var sbWrap = new System.Text.StringBuilder();
             sbWrap.Append("(function(){ if (typeof a2c.__wrapWorkspaceProxy==='function'){ ");
+
             foreach (var w in toWrap) {
                 sbWrap.Append($"a2c.__wrapWorkspaceProxy('{JsEscape(w)}'); ");
             }
+
             sbWrap.Append("}})()");
             js.EvaluateScript(sbWrap.ToString());
         }
@@ -493,11 +523,13 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 var sb = new System.Text.StringBuilder();
                 // Also bind the global 'workspace' variable to the active workspace object
                 sb.Append($"(function(){{ try {{ globalThis.workspace = a2c.workspaces['{JsEscape(workspaceName)}']; }} catch (e) {{ }} ");
+
                 foreach (var skvp in wsDef.Scripts) {
                     var sName = skvp.Key;
                     // Define/overwrite a global function that routes to this workspace's script
                     sb.Append($"globalThis['{JsEscape(sName)}'] = function(){{ return a2c.__callScript('{JsEscape(workspaceName)}', '{JsEscape(sName)}', Array.prototype.slice.call(arguments)); }}; ");
                 }
+
                 sb.Append("})();");
                 js.EvaluateScript(sb.ToString());
             }
@@ -512,54 +544,55 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         if (_csGlobalInitRan) {
             return;
         }
+
         if (!_needCs) {
             _csGlobalInitRan = true;
             return;
         }
+
         var baseConfig = _workspaceService.BaseConfig;
         var body = baseConfig?.ScriptInit?.CSharp;
-        if (string.IsNullOrWhiteSpace(body)) {
 
+        if (string.IsNullOrWhiteSpace(body)) {
             _csGlobalInitRan = true;
             return;
-
         }
+
         lock (_csInitLock) {
             if (_csGlobalInitRan) {
                 return;
             }
+
             var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
             var mirrorTimings = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
             System.Diagnostics.Stopwatch? sw = timingsEnabled ? System.Diagnostics.Stopwatch.StartNew() : null;
+
             if (IsScriptDebugEnabled()) {
                 try {
                     System.Console.Error.WriteLine("[CS:init] Global C# scriptInit begin (deferred)");
                 }
                 catch { }
             }
+
             EnsureCSharpEngineInitialized();
             var cs = _engineFactory.GetEngine(CSharp);
             cs.ExecuteInitScript(body);
+
             if (timingsEnabled && sw is not null) {
                 var line = $"A2C_TIMINGS: scriptingInit.globalInit.cs={sw.Elapsed.TotalMilliseconds:F1} ms";
-                try {
-                    System.Console.WriteLine(line);
-                }
-                catch { }
-                if (mirrorTimings) {
-                    try {
-                        System.Console.Error.WriteLine(line);
-                    }
-                    catch { }
-                }
-            }
-            if (IsScriptDebugEnabled()) {
-                try { System.Console.Error.WriteLine("[CS:init] Global C# scriptInit end (deferred)"); }
-                catch { }
+                System.Console.WriteLine(line);
 
+                if (mirrorTimings) {
+                    System.Console.Error.WriteLine(line);
+                }
             }
+            
+            if (IsScriptDebugEnabled()) {
+                System.Console.Error.WriteLine("[CS:init] Global C# scriptInit end (deferred)");
+            }
+
             _csGlobalInitRan = true;
         }
     }
@@ -888,6 +921,29 @@ new __CsHandlers_Global()
             }
             var (typeToken, _) = def.Args[i];
             converted[argIndex] = ConvertSingleArg(converted[argIndex], typeToken);
+            // If Dictionary<string,object> is requested and value is a ClearScript object, convert reflectively
+            if (IsDictionaryStringObject(typeToken)) {
+                var v = converted[argIndex];
+                if (v != null && v.GetType().FullName?.Contains("V8ScriptObject", StringComparison.Ordinal) == true) {
+                    if (TryToDictionaryFromScriptObject(v, out var dictFromSo)) {
+                        converted[argIndex] = dictFromSo;
+                    }
+                }
+                else if (v is System.Collections.IDictionary id) {
+                    var dict = new System.Collections.Generic.Dictionary<string, object?>(System.StringComparer.OrdinalIgnoreCase);
+                    int added = 0;
+            foreach (System.Collections.DictionaryEntry de in id) {
+                        var sk = System.Convert.ToString(de.Key, System.Globalization.CultureInfo.InvariantCulture);
+                        if (!string.IsNullOrEmpty(sk)) {
+                dict[sk] = NormalizeJsValue(de.Value);
+                            added++;
+                        }
+                    }
+                    if (added > 0) {
+                        converted[argIndex] = dict;
+                    }
+                }
+            }
         }
         return converted;
     }
@@ -899,35 +955,47 @@ new __CsHandlers_Global()
 
         var tkn = typeToken?.Trim() ?? string.Empty;
 
-        // Arrays from JSON string, e.g., Int32[]
+        // Arrays: prefer native JS arrays (marshaled as IEnumerable/object[]). No JSON parsing.
         if (tkn.EndsWith("[]", StringComparison.Ordinal)) {
-            if (value is string s) {
-                var elemToken = tkn.Substring(0, tkn.Length - 2);
+            var elemToken = tkn.Substring(0, tkn.Length - 2);
+            if (value is System.Collections.IEnumerable seq && value is not string) {
+                var list = new System.Collections.Generic.List<object?>();
+                foreach (var item in seq) {
+                    list.Add(ConvertSingleArg(item, elemToken));
+                }
                 if (IsInt32(elemToken)) {
-                    return System.Text.Json.JsonSerializer.Deserialize<int[]>(s);
+                    return list.Select(v => Convert.ToInt32(v, CultureInfo.InvariantCulture)).ToArray();
                 }
-
-                if (IsString(elemToken)) {
-                    return System.Text.Json.JsonSerializer.Deserialize<string[]>(s);
-                }
-
                 if (IsDouble(elemToken)) {
-                    return System.Text.Json.JsonSerializer.Deserialize<double[]>(s);
+                    return list.Select(v => Convert.ToDouble(v, CultureInfo.InvariantCulture)).ToArray();
                 }
-
-                // Unknown element type: return as-is and let Roslyn complain
-                return value;
+                if (IsString(elemToken)) {
+                    return list.Select(v => v?.ToString() ?? string.Empty).ToArray();
+                }
+                // Fallback: return object[] with converted elements
+                return list.ToArray();
             }
+            // If not an enumerable, leave as-is and let Roslyn type checker surface issues
             return value;
         }
 
-        // Dictionary<string, object> from JSON string
+        // Dictionary<string, object>: prefer native JS objects (marshaled as IDictionary<string,object>)
         if (IsDictionaryStringObject(tkn)) {
-            if (value is string json) {
-                var opts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                return System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, object?>>(json, opts);
+            if (value is System.Collections.IDictionary id) {
+                var dict = new System.Collections.Generic.Dictionary<string, object?>(System.StringComparer.OrdinalIgnoreCase);
+                foreach (System.Collections.DictionaryEntry de in id) {
+                    if (de.Key is string sk) {
+                        dict[sk] = NormalizeJsValue(de.Value);
+                    }
+                }
+                return dict;
             }
-
+            // If coming from ClearScript, we may have a ScriptObject; convert reflectively to avoid direct dependency
+            if (value.GetType().FullName?.Contains("V8ScriptObject", StringComparison.Ordinal) == true) {
+                if (TryToDictionaryFromScriptObject(value, out var dictFromSo2)) {
+                    return dictFromSo2;
+                }
+            }
             return value;
         }
 
@@ -972,6 +1040,105 @@ new __CsHandlers_Global()
 
         // No conversion
         return value;
+    }
+
+    // Dynamically fetches a member value by name from a dynamic object (e.g., ClearScript V8ScriptObject)
+    private static bool TryGetDynamicMember(object target, string name, out object? value) {
+        try {
+            var binder = Binder.GetMember(CSharpBinderFlags.None, name, typeof(WorkspaceScriptingOrchestrator), new[] {
+                CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null)
+            });
+            var site = CallSite<Func<CallSite, object, object>>.Create(binder);
+            value = site.Target(site, target);
+            return true;
+        } catch {
+            value = null;
+            return false;
+        }
+    }
+
+    // Try to extract properties from a ClearScript ScriptObject via reflection without a build-time dependency
+    private static bool TryToDictionaryFromScriptObject(object scriptObject, out Dictionary<string, object?> dict) {
+        dict = new System.Collections.Generic.Dictionary<string, object?>(System.StringComparer.OrdinalIgnoreCase);
+        try {
+            var type = scriptObject.GetType();
+            // PropertyNames (IEnumerable<string>)
+            var propNamesProp = type.GetProperty("PropertyNames");
+            var namesObj = propNamesProp?.GetValue(scriptObject);
+            System.Collections.Generic.IEnumerable<string>? names = null;
+            if (namesObj is System.Collections.Generic.IEnumerable<string> strong) {
+                names = strong;
+            } else if (namesObj is System.Collections.IEnumerable weakEnum) {
+                names = weakEnum.Cast<object?>().Select(o => o?.ToString()!).Where(s => !string.IsNullOrEmpty(s))!;
+            }
+
+            if (names is null) {
+                // Fallback to dynamic meta names
+                if (scriptObject is System.Dynamic.IDynamicMetaObjectProvider dmo) {
+                    names = dmo.GetMetaObject(Expression.Constant(scriptObject)).GetDynamicMemberNames();
+                }
+            }
+
+            if (names is null) {
+                return false;
+            }
+
+            int added = 0;
+            foreach (var name in names) {
+                if (string.IsNullOrWhiteSpace(name)) {
+                    continue;
+                }
+                if (TryGetScriptObjectProperty(scriptObject, name, out var val) || TryGetDynamicMember(scriptObject, name, out val)) {
+                    dict[name] = NormalizeJsValue(val);
+                    added++;
+                }
+            }
+            return added > 0;
+        } catch { return false; }
+    }
+
+    private static bool TryGetScriptObjectProperty(object scriptObject, string name, out object? value) {
+        try {
+            var type = scriptObject.GetType();
+            // Try GetProperty(string)
+            var m1 = type.GetMethod("GetProperty", new Type[] { typeof(string) });
+            if (m1 != null) {
+                value = m1.Invoke(scriptObject, new object?[] { name });
+                return true;
+            }
+            // Try GetProperty(string, <enum>)
+            var m2 = type.GetMethods().FirstOrDefault(m => string.Equals(m.Name, "GetProperty", StringComparison.Ordinal) && m.GetParameters().Length == 2 && m.GetParameters()[0].ParameterType == typeof(string));
+            if (m2 != null) {
+                var p2Type = m2.GetParameters()[1].ParameterType;
+                object p2 = p2Type.IsEnum ? Enum.ToObject(p2Type, 0) : (p2Type.IsValueType ? Activator.CreateInstance(p2Type)! : null!);
+                value = m2.Invoke(scriptObject, new object?[] { name, p2 });
+                return true;
+            }
+        } catch { /* ignore */ }
+        value = null;
+        return false;
+    }
+
+    // Coerce ClearScript primitives to .NET primitives (string/number/bool) to avoid undefined/null surprises
+    private static object? NormalizeJsValue(object? v) {
+        if (v is null) {
+            return null;
+        }
+        // Pass through common CLR primitives
+        if (v is string || v is int || v is long || v is double || v is float || v is decimal || v is bool) {
+            return v;
+        }
+        var full = v.GetType().FullName ?? string.Empty;
+        var ns = v.GetType().Namespace ?? string.Empty;
+        // If it's a ClearScript script object, keep as object for nested objects
+        if (full.Contains("V8ScriptObject", StringComparison.Ordinal)) {
+            return v;
+        }
+        if (ns.StartsWith("Microsoft.ClearScript", StringComparison.Ordinal)) {
+            // Best-effort: convert to string representation
+            try { return System.Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture); } catch { /* ignore */ }
+        }
+        return v;
     }
 
     private static bool IsInt32(string t) => string.Equals(t, "int", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "Int32", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "System.Int32", StringComparison.OrdinalIgnoreCase);

@@ -60,11 +60,11 @@ public class CSharpTypedArgsTests
     }
 
     [TestMethod]
-    public void Int32_Array_From_Json_String()
+    public void Int32_Array_From_Native_Js_Array()
     {
         var factory = _sp.GetRequiredService<IApi2CliScriptEngineFactory>();
         var js = factory.GetEngine("javascript");
-        var result = js.EvaluateScript("a2c.cs_array_sum('[1,2,3,4]')");
+        var result = js.EvaluateScript("a2c.cs_array_sum([1,2,3,4])");
         Assert.AreEqual(10d, Convert.ToDouble(result));
     }
 
@@ -78,11 +78,11 @@ public class CSharpTypedArgsTests
     }
 
     [TestMethod]
-    public void Json_To_Dictionary_String_Object()
+    public void Native_Object_To_Dictionary_String_Object()
     {
         var factory = _sp.GetRequiredService<IApi2CliScriptEngineFactory>();
         var js = factory.GetEngine("javascript");
-        var result = js.EvaluateScript("a2c.cs_json_dict_name('{\"name\":\"Ada\", \"age\": 42}')");
+        var result = js.EvaluateScript("a2c.cs_json_dict_name({ name: 'Ada', age: 42 })");
         Assert.AreEqual("Ada", Convert.ToString(result));
     }
 }
