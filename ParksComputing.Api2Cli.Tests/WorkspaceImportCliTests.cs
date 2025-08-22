@@ -53,12 +53,13 @@ public class WorkspaceImportCliTests
         var tempDir = Directory.CreateTempSubdirectory();
         try
         {
-            var configPath = Path.Combine(tempDir.FullName, "workspaces.xfer");
+            // With directory-root semantics, --config points to a folder that contains config.xfer and workspaces/
+            var configRoot = tempDir.FullName;
             var listPath = Path.Combine(tempDir.FullName, "spec.txt");
             File.WriteAllText(listPath, "GET /pets\nPOST /pets\nPUT /pets/{id}\n# comment\n");
 
             var (code, stdout, stderr) = RunCli(
-                "--config", configPath,
+                "--config", configRoot,
                 "workspace", "import-list",
                 "--name", "imported",
                 "--spec", listPath,
@@ -67,8 +68,9 @@ public class WorkspaceImportCliTests
             );
 
             Assert.AreEqual(0, code, $"CLI failed: {stderr}\n{stdout}");
-            Assert.IsTrue(File.Exists(configPath), "Config file should have been created");
-            var content = File.ReadAllText(configPath);
+            var configFile = Path.Combine(configRoot, "config.xfer");
+            Assert.IsTrue(File.Exists(configFile), "Config file should have been created");
+            var content = File.ReadAllText(configFile);
             StringAssert.Contains(content, "workspaces");
             StringAssert.Contains(content, "imported");
             // Request names are generated like get_pets, post_pets, put_pets__id_
@@ -87,7 +89,8 @@ public class WorkspaceImportCliTests
         var tempDir = Directory.CreateTempSubdirectory();
         try
         {
-            var configPath = Path.Combine(tempDir.FullName, "workspaces.xfer");
+            // With directory-root semantics, --config points to a folder that contains config.xfer and workspaces/
+            var configRoot = tempDir.FullName;
             var specPath = Path.Combine(tempDir.FullName, "openapi.json");
             var json = """
             {
@@ -104,7 +107,7 @@ public class WorkspaceImportCliTests
             File.WriteAllText(specPath, json);
 
             var (code, stdout, stderr) = RunCli(
-                "--config", configPath,
+                "--config", configRoot,
                 "workspace", "import",
                 "--name", "pets",
                 "--openapi", specPath,
@@ -112,7 +115,8 @@ public class WorkspaceImportCliTests
             );
 
             Assert.AreEqual(0, code, $"CLI failed: {stderr}\n{stdout}");
-            var content = File.ReadAllText(configPath);
+            var configFile = Path.Combine(configRoot, "config.xfer");
+            var content = File.ReadAllText(configFile);
             StringAssert.Contains(content, "pets");
             // Should include operationId name and generated name
             StringAssert.Contains(content, "listPets");

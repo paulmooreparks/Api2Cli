@@ -9,7 +9,7 @@ namespace ParksComputing.Api2Cli.Workspace;
 public static class Constants {
     public const string Api2CliDiagnosticsName = "Api2Cli";
     public const string Api2CliDirectoryName = ".a2c";
-    public const string WorkspacesFileName = "workspaces.xfer";
+    public const string WorkspacesFileName = "config.xfer";
     public const string StoreFileName = "store.sqlite";
     public const string EnvironmentFileName = ".env";
     public const string PackageDirName = "packages";

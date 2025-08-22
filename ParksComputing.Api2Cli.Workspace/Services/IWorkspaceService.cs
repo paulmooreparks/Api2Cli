@@ -12,6 +12,7 @@ public interface IWorkspaceService {
     IEnumerable<string> WorkspaceList { get; }
     WorkspaceDefinition ActiveWorkspace { get; }
     string CurrentWorkspaceName { get; }
+    string WorkspaceFilePath { get; }
     // Raised after the active workspace is updated to a non-empty, known workspace name.
     // Listeners (e.g., scripting orchestrator) can lazily initialize per-workspace processing here.
     event Action<string>? ActiveWorkspaceChanged;

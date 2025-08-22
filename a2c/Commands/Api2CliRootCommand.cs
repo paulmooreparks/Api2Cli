@@ -21,7 +21,7 @@ using static ParksComputing.Api2Cli.Orchestration.Services.ScriptArgTypeHelper;
 namespace ParksComputing.Api2Cli.Cli.Commands;
 
 [RootCommand("Api2Cli Application")]
-[Option(typeof(string), "--config", "Path to an alternate workspaces.xfer configuration file.", new[] { "-c" }, IsRequired = false)]
+[Option(typeof(string), "--config", "Path to the configuration root directory (contains config.xfer and workspaces/).", new[] { "-c" }, IsRequired = false)]
 [Option(typeof(string), "--packages", "Path to the packages directory to use instead of the default (~/.a2c/packages).", new[] { "-P" }, IsRequired = false)]
 [Option(typeof(string), "--baseurl", "The base URL of the API to send HTTP requests to.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(bool), "--version", "Display the version information.", new[] { "-v" }, IsRequired = false)]
@@ -379,10 +379,6 @@ internal class A2CRootCommand {
         Command command,
         InvocationContext context
         ) {
-        // Note: The --config override is applied early in Program.Main via env var
-        // A2C_WORKSPACE_CONFIG so services (SettingsService/WorkspaceService) pick it up
-        // before initialization. Keeping it here ensures help/usage shows the option.
-        // Similarly, --packages is early-parsed and stored in A2C_PACKAGES_DIR.
         if (showVersion) {
             Assembly assembly = Assembly.GetExecutingAssembly();
             Version? version = assembly.GetName().Version;

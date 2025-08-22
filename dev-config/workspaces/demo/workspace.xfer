@@ -1,0 +1,12 @@
+{
+    description "Public JSONPlaceholder"
+    baseUrl "https://jsonplaceholder.typicode.com/"
+
+    requests {
+        posts {
+            endpoint "/posts"
+            method "GET"
+            headers { Accept "application/json" }
+        }
+    }
+}

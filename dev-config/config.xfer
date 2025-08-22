@@ -1,0 +1,26 @@
+{
+    </ Minimal dev config for Phase 1A–1C work />
+    </ Uses global scriptInit and three sample workspaces />
+
+    scriptInit {
+        javascript <'
+            // Global JS init for dev config (inside script; JS comments are fine here)
+            function add(a,b){ return a+b; }
+        '>
+    }
+
+    workspaces {
+        base { dir "workspaces/base" }
+        child { dir "workspaces/child" }
+        demo { dir "workspaces/demo" }
+        </ dynamic { dir '<|DYNAMIC_DIR|>' } />
+
+        oldstyle {
+            description "Defined in config.xfer"
+            baseUrl "https://jsonplaceholder.typicode.com/"
+            requests {
+                posts { endpoint "/posts" method "GET" }
+            }
+        }
+    }
+}

@@ -18,7 +18,7 @@ internal class SubcommandReplContext : Cliffer.DefaultReplContext {
         Command currentCommand,
         IWorkspaceService workspaceService,
         ICommandSplitter commandSplitter
-        ) : base( currentCommand ) 
+        ) : base( currentCommand )
     {
         _workspaceService = workspaceService;
         _commandSplitter = commandSplitter;

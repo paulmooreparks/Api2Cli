@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>ParksComputing.Api2Cli.Cli</RootNamespace>
     <AssemblyName>a2c</AssemblyName>
-    <Version>0.7.0</Version>
+    <Version>0.8.0</Version>
     <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
 
     <!-- Application Icon Configuration -->
@@ -19,8 +19,8 @@
     <AssemblyCompany>Parks Computing</AssemblyCompany>
     <AssemblyProduct>Api2Cli</AssemblyProduct>
     <AssemblyCopyright>Copyright © 2025 Paul Moore Parks</AssemblyCopyright>
-    <AssemblyVersion>0.7.0.0</AssemblyVersion>
-    <FileVersion>0.7.0.0</FileVersion>
+    <AssemblyVersion>0.8.0.0</AssemblyVersion>
+    <FileVersion>0.8.0.0</FileVersion>
   </PropertyGroup>
 
   <!-- Include icon files as embedded resources for cross-platform use -->

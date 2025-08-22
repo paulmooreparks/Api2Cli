@@ -189,6 +189,9 @@ internal class PackageService : IPackageService {
     }
 
     public IEnumerable<string> GetInstalledPackagePaths() {
+        if (!Directory.Exists(_packageDirectory)) {
+            return Enumerable.Empty<string>();
+        }
         return Directory.EnumerateFiles(_packageDirectory, "*.dll", SearchOption.AllDirectories).ToList();
     }
 }

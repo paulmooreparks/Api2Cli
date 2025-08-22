@@ -8,6 +8,7 @@ using ParksComputing.Api2Cli.Orchestration;
 // using ParksComputing.Api2Cli.Cli.Services;
 // using ParksComputing.Api2Cli.Cli.Services.Impl;
 using ParksComputing.Api2Cli.DataStore;
+using ParksComputing.Api2Cli.Workspace.Models;
 
 namespace ParksComputing.Api2Cli.Tests;
 
@@ -15,13 +16,22 @@ public static class TestSetup
 {
     public static IServiceProvider ConfigureServices()
     {
-        var services = new ServiceCollection();
+    var services = new ServiceCollection();
 
     // Ensure tests use the bundled Xfer config so init scripts execute as expected
     // Resolve ..\\..\\..\\TestConfigs\\tests.xfer relative to the test assembly output dir
     var baseDir = AppContext.BaseDirectory;
-    var testConfigPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "TestConfigs", "tests.xfer"));
-    Environment.SetEnvironmentVariable("A2C_WORKSPACE_CONFIG", testConfigPath);
+    var testXferPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "TestConfigs", "tests.xfer"));
+
+    // Create an isolated config root for tests and place tests.xfer as config.xfer
+    var tempRoot = Path.Combine(Path.GetTempPath(), "a2c-tests-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(tempRoot);
+    var configPath = Path.Combine(tempRoot, "config.xfer");
+    File.Copy(testXferPath, configPath, overwrite: true);
+    Directory.CreateDirectory(Path.Combine(tempRoot, "workspaces"));
+
+    // Provide options to workspace services (no environment variables)
+    services.AddSingleton(new WorkspaceRuntimeOptions { ConfigRoot = tempRoot });
 
         services.AddApi2CliWorkspaceServices();
         services.AddApi2CliHttpServices();
@@ -31,11 +41,8 @@ public static class TestSetup
         // services.AddSingleton<ICommandSplitter, CommandSplitter>();
         // services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();
 
-        string databasePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            Constants.Api2CliDirectoryName,
-            Constants.StoreFileName
-        );
+    // Align the test data store path with the test config root
+    string databasePath = Path.Combine(tempRoot, Constants.StoreFileName);
 
         if (!Directory.Exists(Path.GetDirectoryName(databasePath)))
         {
