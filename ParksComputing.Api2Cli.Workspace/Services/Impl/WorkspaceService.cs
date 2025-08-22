@@ -167,42 +167,51 @@ internal class WorkspaceService : IWorkspaceService {
         }
 
         baseConfig.Workspaces ??= new Dictionary<string, WorkspaceDefinition>();
-        // Discover per-workspace files with case-insensitive slug uniqueness
-        var wsDir = Path.Combine(ConfigRoot, "workspaces");
-        if (Directory.Exists(wsDir)) {
-            var slugMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var dir in Directory.GetDirectories(wsDir)) {
-                var slug = Path.GetFileName(dir);
-                if (string.IsNullOrWhiteSpace(slug)) { continue; }
-                // Fail fast on case-insensitive collisions (e.g., Foo vs foo)
-                if (slugMap.TryGetValue(slug, out var existingPath)) {
-                    throw new Exception($"Workspace slug collision (case-insensitive) detected: '{slug}' conflicts with '{Path.GetFileName(existingPath)}'. Folders: '{existingPath}' and '{dir}'. Rename one folder to resolve.");
-                }
-                slugMap[slug] = dir;
+        // Build mapping ONLY from explicit 'dir' properties. No implicit directory discovery.
+        var workspaceDirMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kvp in baseConfig.Workspaces.ToList()) {
+            var logicalName = kvp.Key;
+            var def = kvp.Value;
+            if (string.IsNullOrWhiteSpace(def.Dir)) { continue; }
+
+            var rel = def.Dir.Trim();
+            if (rel.StartsWith("./")) { rel = rel[2..]; }
+            // Environment variable substitution: <|VAR|> and ${VAR}
+            rel = Regex.Replace(rel, @"<\|([A-Z0-9_]+)\|>", m => Environment.GetEnvironmentVariable(m.Groups[1].Value) ?? m.Value, RegexOptions.IgnoreCase);
+            rel = Regex.Replace(rel, @"\$\{([A-Z0-9_]+)\}", m => Environment.GetEnvironmentVariable(m.Groups[1].Value) ?? m.Value, RegexOptions.IgnoreCase);
+            var abs = Path.GetFullPath(Path.Combine(ConfigRoot, rel));
+            workspaceDirMap[logicalName] = abs;
+        }
+
+        // Ensure uniqueness of directory targets (prevent two names pointing to same physical path)
+        var pathUniq = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kvp in workspaceDirMap) {
+            if (pathUniq.TryGetValue(kvp.Value, out var existingName)) {
+                throw new Exception($"Multiple workspace names ('{existingName}', '{kvp.Key}') reference the same directory '{kvp.Value}'. Only one mapping may target a given folder.");
             }
+            pathUniq[kvp.Value] = kvp.Key;
+        }
 
-            foreach (var (slug, dir) in slugMap) {
-                var wsFile = Path.Combine(dir, "workspace.xfer");
-                if (!File.Exists(wsFile)) { continue; }
-
-                try {
-                    var wsText = File.ReadAllText(wsFile, Encoding.UTF8);
-                    var wsDoc = XferParser.Parse(wsText);
-                    if (wsDoc?.Root is ObjectElement wsObj) {
-                        var wsDef = XferConvert.Deserialize<WorkspaceDefinition>(wsObj);
-                        if (wsDef is not null) {
-                            wsDef.Name = slug;
-                            // Insert or merge with any same-named workspace in config.xfer
-                            if (baseConfig.Workspaces.TryGetValue(slug, out var existing)) {
-                                wsDef.Merge(existing);
-                            }
-                            baseConfig.Workspaces[slug] = wsDef;
+        // Load external workspace.xfer for each mapped directory; external file overrides inline
+        foreach (var (logicalName, dir) in workspaceDirMap) {
+            var wsFile = Path.Combine(dir, "workspace.xfer");
+            if (!File.Exists(wsFile)) { continue; }
+            try {
+                var wsText = File.ReadAllText(wsFile, Encoding.UTF8);
+                var wsDoc = XferParser.Parse(wsText);
+                if (wsDoc?.Root is ObjectElement wsObj) {
+                    var externalDef = XferConvert.Deserialize<WorkspaceDefinition>(wsObj);
+                    if (externalDef is not null) {
+                        externalDef.Name = logicalName;
+                        if (baseConfig.Workspaces.TryGetValue(logicalName, out var inlineDef)) {
+                            externalDef.Merge(inlineDef);
                         }
+                        baseConfig.Workspaces[logicalName] = externalDef;
                     }
                 }
-                catch (Exception ex) {
-                    throw new Exception($"Error parsing workspace file '{wsFile}': {ex.Message}", ex);
-                }
+            }
+            catch (Exception ex) {
+                throw new Exception($"Error parsing workspace file '{wsFile}': {ex.Message}", ex);
             }
         }
 
@@ -210,20 +219,28 @@ internal class WorkspaceService : IWorkspaceService {
             // baseConfig.activeWorkspace = "default";
         }
 
-    foreach (var workspaceKvp in baseConfig.Workspaces) {
+        foreach (var workspaceKvp in baseConfig.Workspaces) {
             var workspace = workspaceKvp.Value;
+            if (workspace is null) { continue; }
 
-            if (workspace is not null) {
-                workspace.Name = workspaceKvp.Key;
+            workspace.Name = workspaceKvp.Key;
 
-                foreach (var reqKvp in workspace.Requests) {
-                    reqKvp.Value.Name = reqKvp.Key;
+            foreach (var reqKvp in workspace.Requests) {
+                reqKvp.Value.Name = reqKvp.Key;
+            }
+
+            if (!string.IsNullOrWhiteSpace(workspace.Extend)) {
+                if (baseConfig.Workspaces.TryGetValue(workspace.Extend, out var parentWorkspace)) {
+                    workspace.Merge(parentWorkspace);
                 }
-
-                if (workspace.Extend is not null) {
-                    if (baseConfig.Workspaces.TryGetValue(workspace.Extend, out var parentWorkspace)) {
-                        workspace.Merge(parentWorkspace);
-                    }
+                else {
+                    try {
+                        _diags.Emit(nameof(IWorkspaceService), new {
+                            Message = $"Workspace '{workspace.Name}' extends missing workspace '{workspace.Extend}'. Inheritance skipped.",
+                            Workspace = workspace.Name,
+                            MissingParent = workspace.Extend
+                        });
+                    } catch { }
                 }
             }
         }

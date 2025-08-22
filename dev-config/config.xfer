@@ -10,13 +10,10 @@
     }
 
     workspaces {
-        </
-        base dir "workspaces/base"
-        child dir "workspaces/child"
-        demo dir "workspaces/demo"
-
-        dynamic dir '<|DYNAMIC_DIR|>'
-        />
+        base { dir "workspaces/base" }
+        child { dir "workspaces/child" }
+        demo { dir "workspaces/demo" }
+        </ dynamic { dir '<|DYNAMIC_DIR|>' } />
 
         oldstyle {
             description "Defined in config.xfer"
