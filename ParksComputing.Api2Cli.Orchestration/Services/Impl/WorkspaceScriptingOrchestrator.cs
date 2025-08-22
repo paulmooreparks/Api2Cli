@@ -202,6 +202,9 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         }
         Stopwatch? swRegisterScripts = timingsEnabled ? Stopwatch.StartNew() : null;
         var jsBodies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // Track declared argument names (in insertion order) for each script so we can compile
+        // JS with a proper formal parameter list instead of forcing users to access args[0].
+        var jsArgNames = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
         // Root scripts: record JS bodies, record C# wrappers, define tiny stubs
         var jsRootStubs = new System.Text.StringBuilder();
@@ -307,6 +310,10 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 if (string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) {
                     if (!string.IsNullOrEmpty(body)) {
                         jsBodies[$"{wsName}::{name}"] = body!;
+                        // Capture ordered argument names (Dictionary preserves insertion order in .NET)
+                        if (def.Arguments.Count > 0) {
+                            jsArgNames[$"{wsName}::{name}"] = def.Arguments.Select(a => a.Key).ToArray();
+                        }
                     }
                 }
                 else if (needCs && string.Equals(lang, CSharp, StringComparison.OrdinalIgnoreCase)) {
@@ -390,17 +397,28 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 return;
 
             }
-            var code = $"(function(){{ var ws = a2c.workspaces['{JsEscape(wsName)}']; var fn = (function(workspace) {{ return function(...args) {{\n{bodyText}\n}}; }})(ws); fn._compiled=true; a2c.workspaces['{JsEscape(wsName)}']['{JsEscape(name)}']=fn; }})()";
+            // Build a formal parameter list if we have declared args; otherwise keep a rest param for legacy access.
+            string BuildParamList() {
+                var key = $"{wsName}::{name}";
+                if (jsArgNames.TryGetValue(key, out var arr) && arr.Length > 0) {
+                    // Sanitize identifiers (very minimal – assume config supplies valid JS identifiers)
+                    return string.Join(", ", arr.Select(a => a.Replace("`", "").Replace(" ", "_")));
+                }
+                return "...args"; // fallback
+            }
+            var paramList = BuildParamList();
+            var code = $"(function(){{ var ws = a2c.workspaces['{JsEscape(wsName)}']; var fn = (function(workspace) {{ return function({paramList}) {{\n{bodyText}\n}}; }})(ws); fn._compiled=true; a2c.workspaces['{JsEscape(wsName)}']['{JsEscape(name)}']=fn; }})()";
             js.EvaluateScript(code);
         }));
 
-            js.AddHostObject("a2cCompileJsRootScript", new Action<string>((name) => {
+        js.AddHostObject("a2cCompileJsRootScript", new Action<string>((name) => {
             var key = $"__root__::{name}";
 
             if (!jsBodies.TryGetValue(key, out var bodyText) || string.IsNullOrWhiteSpace(bodyText)) {
                 return;
             }
 
+            // Root scripts currently don't have argument metadata; retain rest param pattern.
             var code = $"(function(){{ var fn = function(...args) {{\n{bodyText}\n}}; fn._compiled=true; a2c['{JsEscape(name)}']=fn; }})()";
             js.EvaluateScript(code);
         }));
@@ -588,7 +606,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                     System.Console.Error.WriteLine(line);
                 }
             }
-            
+
             if (IsScriptDebugEnabled()) {
                 System.Console.Error.WriteLine("[CS:init] Global C# scriptInit end (deferred)");
             }
@@ -674,8 +692,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         ref string? payload,
         IDictionary<string, string> cookies,
         object?[] extraArgs
-        )
-    {
+        ) {
         var baseConfig = _workspaceService.BaseConfig;
         var js = _engineFactory.GetEngine(JavaScript);
 
@@ -716,8 +733,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         System.Net.Http.Headers.HttpResponseHeaders headers,
         string responseContent,
         object?[] extraArgs
-        )
-    {
+        ) {
         var js = _engineFactory.GetEngine(JavaScript);
         object? lastCsResult = null;
 
@@ -932,10 +948,10 @@ new __CsHandlers_Global()
                 else if (v is System.Collections.IDictionary id) {
                     var dict = new System.Collections.Generic.Dictionary<string, object?>(System.StringComparer.OrdinalIgnoreCase);
                     int added = 0;
-            foreach (System.Collections.DictionaryEntry de in id) {
+                    foreach (System.Collections.DictionaryEntry de in id) {
                         var sk = System.Convert.ToString(de.Key, System.Globalization.CultureInfo.InvariantCulture);
                         if (!string.IsNullOrEmpty(sk)) {
-                dict[sk] = NormalizeJsValue(de.Value);
+                            dict[sk] = NormalizeJsValue(de.Value);
                             added++;
                         }
                     }
@@ -1051,7 +1067,8 @@ new __CsHandlers_Global()
             var site = CallSite<Func<CallSite, object, object>>.Create(binder);
             value = site.Target(site, target);
             return true;
-        } catch {
+        }
+        catch {
             value = null;
             return false;
         }
@@ -1068,7 +1085,8 @@ new __CsHandlers_Global()
             System.Collections.Generic.IEnumerable<string>? names = null;
             if (namesObj is System.Collections.Generic.IEnumerable<string> strong) {
                 names = strong;
-            } else if (namesObj is System.Collections.IEnumerable weakEnum) {
+            }
+            else if (namesObj is System.Collections.IEnumerable weakEnum) {
                 names = weakEnum.Cast<object?>().Select(o => o?.ToString()!).Where(s => !string.IsNullOrEmpty(s))!;
             }
 
@@ -1094,7 +1112,8 @@ new __CsHandlers_Global()
                 }
             }
             return added > 0;
-        } catch { return false; }
+        }
+        catch { return false; }
     }
 
     private static bool TryGetScriptObjectProperty(object scriptObject, string name, out object? value) {
@@ -1114,7 +1133,8 @@ new __CsHandlers_Global()
                 value = m2.Invoke(scriptObject, new object?[] { name, p2 });
                 return true;
             }
-        } catch { /* ignore */ }
+        }
+        catch { /* ignore */ }
         value = null;
         return false;
     }
