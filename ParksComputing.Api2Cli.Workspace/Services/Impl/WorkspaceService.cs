@@ -128,11 +128,7 @@ internal class WorkspaceService : IWorkspaceService {
                 throw new Exception($"Error creating config file '{WorkspaceFilePath}': {ex.Message}", ex);
             }
         }
-        // Ensure workspaces directory exists
-        var wsDir = Path.Combine(ConfigRoot, "workspaces");
-        if (!Directory.Exists(wsDir)) {
-            Directory.CreateDirectory(wsDir);
-        }
+    // Do NOT auto-create a 'workspaces' directory anymore; workspaces can live anywhere via explicit dir mappings.
     }
 
     /// <summary>

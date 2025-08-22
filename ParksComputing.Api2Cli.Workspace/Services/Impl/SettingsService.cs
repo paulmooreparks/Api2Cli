@@ -46,14 +46,12 @@ internal class SettingsService : ISettingsService {
             : Path.Combine(configRoot, Constants.PackageDirName);
         var environmentFilePath = Path.Combine(configRoot, Constants.EnvironmentFileName);
 
-        // Validate packages directory: allow existing directories; reject files; create when missing
+        // Validate packages directory: allow existing directories; reject files. Do not auto-create (lazy creation elsewhere when needed).
         if (File.Exists(pluginDirectory) || Directory.Exists(pluginDirectory)) {
             var pAttr = File.GetAttributes(pluginDirectory);
             if (!pAttr.HasFlag(FileAttributes.Directory)) {
                 throw new InvalidOperationException($"--packages must be a directory, but a file path was provided: '{pluginDirectory}'.");
             }
-        } else {
-            Directory.CreateDirectory(pluginDirectory);
         }
 
         Api2CliSettingsDirectory = configRoot;
