@@ -25,6 +25,7 @@ internal class WorkspaceService : IWorkspaceService {
     public BaseConfig BaseConfig { get; protected set; }
     public WorkspaceDefinition ActiveWorkspace { get; protected set; }
     public string WorkspaceFilePath { get; protected set; }
+    private string ConfigRoot => Path.GetDirectoryName(WorkspaceFilePath) ?? _settingsService.Api2CliSettingsDirectory ?? string.Empty;
     public string CurrentWorkspaceName => BaseConfig?.ActiveWorkspace ?? string.Empty;
 
     private readonly string _packageDirectory;
@@ -52,8 +53,8 @@ internal class WorkspaceService : IWorkspaceService {
         WorkspaceFilePath = _settingsService.ConfigFilePath;
         _packageDirectory = _settingsService.PluginDirectory ?? string.Empty;
 
-        EnsureWorkspaceFileExists();
-        BaseConfig = LoadWorkspace();
+    EnsureConfigScaffold();
+    BaseConfig = LoadWorkspace();
         LoadConfiguredAssemblies();
         SetActiveWorkspace(BaseConfig.ActiveWorkspace ?? string.Empty);
 
@@ -89,15 +90,24 @@ internal class WorkspaceService : IWorkspaceService {
                     BaseConfig.ActiveWorkspace = string.Empty;
                 }
                 else if (BaseConfig.Workspaces.TryGetValue(workspaceName, out WorkspaceDefinition? value)) {
+                    if (value.IsHidden) {
+                        throw new InvalidOperationException($"Workspace '{workspaceName}' is hidden and cannot be activated.");
+                    }
                     ActiveWorkspace = value;
                     BaseConfig.ActiveWorkspace = workspaceName;
 
                     try {
                         ActiveWorkspaceChanged?.Invoke(workspaceName);
                     }
-
-                    catch {
-                        /* listener errors should not break SetActiveWorkspace */
+                    catch (Exception ex) {
+                        // Surface but don't crash the selection change; listeners are user code
+                        _diags.Emit(
+                            nameof(IWorkspaceService),
+                            new {
+                                Message = $"ActiveWorkspaceChanged listener threw: {ex.Message}",
+                                ex
+                            }
+                        );
                     }
 
                 }
@@ -106,36 +116,27 @@ internal class WorkspaceService : IWorkspaceService {
     }
     public event Action<string>? ActiveWorkspaceChanged;
 
-    private void EnsureWorkspaceFileExists() {
+    private void EnsureConfigScaffold() {
+        // Create minimal config.xfer if missing; do not populate workspaces by default
         if (!File.Exists(WorkspaceFilePath)) {
-            var xferDocument = new XferDocument();
-
-            var dict = new Dictionary<string, WorkspaceDefinition>();
-
-            var defaultConfig = new WorkspaceDefinition {
-                Name = "default",
-                BaseUrl = string.Empty,
-            };
-
-            dict.Add("default", defaultConfig);
-
-            var baseConfig = new BaseConfig {
-                Workspaces = dict
-            };
-
+            var baseConfig = new BaseConfig { Workspaces = new Dictionary<string, WorkspaceDefinition>() };
             var xfer = XferConvert.Serialize(baseConfig, Formatting.Indented | Formatting.Spaced);
-
             try {
                 File.WriteAllText(WorkspaceFilePath, xfer, Encoding.UTF8);
             }
             catch (Exception ex) {
-                throw new Exception($"Error creating workspace file '{WorkspaceFilePath}': {ex.Message}", ex);
+                throw new Exception($"Error creating config file '{WorkspaceFilePath}': {ex.Message}", ex);
             }
+        }
+        // Ensure workspaces directory exists
+        var wsDir = Path.Combine(ConfigRoot, "workspaces");
+        if (!Directory.Exists(wsDir)) {
+            Directory.CreateDirectory(wsDir);
         }
     }
 
     /// <summary>
-    /// Loads configuration from the file.
+    /// Loads configuration from <root>/config.xfer and merges per-workspace files under <root>/workspaces/*/workspace.xfer.
     /// </summary>
     private BaseConfig LoadWorkspace() {
         var baseConfig = new BaseConfig();
@@ -147,9 +148,8 @@ internal class WorkspaceService : IWorkspaceService {
             sw = Stopwatch.StartNew();
         }
 
-        var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
-
-        var document = XferParser.Parse(xfer);
+    var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
+    var document = XferParser.Parse(xfer);
 
         if (document is null) {
             throw new Exception($"Error parsing workspace file '{WorkspaceFilePath}'.");
@@ -166,8 +166,44 @@ internal class WorkspaceService : IWorkspaceService {
             throw new Exception($"Error parsing workspace file '{WorkspaceFilePath}'.");
         }
 
-        if (baseConfig.Workspaces is null) {
-            baseConfig.Workspaces = new Dictionary<string, WorkspaceDefinition>();
+        baseConfig.Workspaces ??= new Dictionary<string, WorkspaceDefinition>();
+        // Discover per-workspace files with case-insensitive slug uniqueness
+        var wsDir = Path.Combine(ConfigRoot, "workspaces");
+        if (Directory.Exists(wsDir)) {
+            var slugMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var dir in Directory.GetDirectories(wsDir)) {
+                var slug = Path.GetFileName(dir);
+                if (string.IsNullOrWhiteSpace(slug)) { continue; }
+                // Fail fast on case-insensitive collisions (e.g., Foo vs foo)
+                if (slugMap.TryGetValue(slug, out var existingPath)) {
+                    throw new Exception($"Workspace slug collision (case-insensitive) detected: '{slug}' conflicts with '{Path.GetFileName(existingPath)}'. Folders: '{existingPath}' and '{dir}'. Rename one folder to resolve.");
+                }
+                slugMap[slug] = dir;
+            }
+
+            foreach (var (slug, dir) in slugMap) {
+                var wsFile = Path.Combine(dir, "workspace.xfer");
+                if (!File.Exists(wsFile)) { continue; }
+
+                try {
+                    var wsText = File.ReadAllText(wsFile, Encoding.UTF8);
+                    var wsDoc = XferParser.Parse(wsText);
+                    if (wsDoc?.Root is ObjectElement wsObj) {
+                        var wsDef = XferConvert.Deserialize<WorkspaceDefinition>(wsObj);
+                        if (wsDef is not null) {
+                            wsDef.Name = slug;
+                            // Insert or merge with any same-named workspace in config.xfer
+                            if (baseConfig.Workspaces.TryGetValue(slug, out var existing)) {
+                                wsDef.Merge(existing);
+                            }
+                            baseConfig.Workspaces[slug] = wsDef;
+                        }
+                    }
+                }
+                catch (Exception ex) {
+                    throw new Exception($"Error parsing workspace file '{wsFile}': {ex.Message}", ex);
+                }
+            }
         }
 
         if (baseConfig.ActiveWorkspace is null) {

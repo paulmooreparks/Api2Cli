@@ -14,11 +14,13 @@ using ParksComputing.Api2Cli.Cli.Services.Impl;
 using ParksComputing.Api2Cli.Cli;
 using System.Diagnostics;
 using System.Reflection;
+using System.IO;
 using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Api2Cli.Cli.Commands;
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.DataStore;
 using ParksComputing.Api2Cli.Orchestration;
+using ParksComputing.Api2Cli.Workspace.Models;
 
 namespace ParksComputing.Api2Cli.Cli;
 
@@ -57,31 +59,60 @@ internal class Program {
     // REPL mode: if no command is provided, Cliffer will enter interactive mode.
     // Keep fast --version path above and allow option-only invocations to still reach REPL.
 
-        // Early parse: capture --config/-c before services initialize so we can override the workspace file path.
+        // Early parse: capture --config/-c and --packages/-P before services initialize; pass via options, not env vars.
+        string? __configRootOpt = null;
+        string? __packagesDirOpt = null;
         for (int i = 0; i < args.Length; i++) {
             if (string.Equals(args[i], "--config", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-c", StringComparison.OrdinalIgnoreCase)) {
                 var next = (i + 1) < args.Length ? args[i + 1] : null;
-                if (!string.IsNullOrWhiteSpace(next)) {
-                    Environment.SetEnvironmentVariable("A2C_WORKSPACE_CONFIG", next);
-                }
+                if (!string.IsNullOrWhiteSpace(next)) { __configRootOpt = next; }
+                break;
+            }
+        }
+        for (int i = 0; i < args.Length; i++) {
+            if (string.Equals(args[i], "--packages", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-P", StringComparison.OrdinalIgnoreCase)) {
+                var next = (i + 1) < args.Length ? args[i + 1] : null;
+                if (!string.IsNullOrWhiteSpace(next)) { __packagesDirOpt = next; }
                 break;
             }
         }
 
-        // Early parse: capture --packages/-P before services initialize so we can override the packages directory.
-        for (int i = 0; i < args.Length; i++) {
-            if (string.Equals(args[i], "--packages", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-P", StringComparison.OrdinalIgnoreCase)) {
-                var next = (i + 1) < args.Length ? args[i + 1] : null;
-                if (!string.IsNullOrWhiteSpace(next)) {
-                    Environment.SetEnvironmentVariable("A2C_PACKAGES_DIR", next);
+        // Validate --config when provided: if the path exists and is a file, fail fast with a clear message.
+        if (!string.IsNullOrWhiteSpace(__configRootOpt)) {
+            var p = __configRootOpt!;
+            if (File.Exists(p) || Directory.Exists(p)) {
+                var attr = File.GetAttributes(p);
+                if (!attr.HasFlag(FileAttributes.Directory)) {
+                    var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    var suggested = Path.GetDirectoryName(p) ?? Path.Combine(home, Constants.Api2CliDirectoryName);
+                    Console.Error.WriteLine($"--config must be a directory, but a file path was provided: '{p}'. Use '--config '{suggested}' instead.");
+                    return 2;
                 }
-                break;
+            }
+        }
+
+        // Validate --packages when provided: if the path exists and is a file, fail fast with a clear message.
+        if (!string.IsNullOrWhiteSpace(__packagesDirOpt)) {
+            var q = __packagesDirOpt!;
+            if (File.Exists(q) || Directory.Exists(q)) {
+                var attr = File.GetAttributes(q);
+                if (!attr.HasFlag(FileAttributes.Directory)) {
+                    Console.Error.WriteLine($"--packages must be a directory, but a file path was provided: '{q}'.");
+                    return 2;
+                }
             }
         }
 
     __a2cBuildSw.Start();
+    var wsOptions = new WorkspaceRuntimeOptions {
+        ConfigRoot = __configRootOpt,
+        PackagesDir = __packagesDirOpt
+    };
+
     var cli = new ClifferBuilder()
                 .ConfigureServices(services => {
+                    // Provide runtime options to workspace services
+                    services.AddSingleton(wsOptions);
                     services.AddApi2CliWorkspaceServices();
                     services.AddApi2CliHttpServices();
                     services.AddApi2CliScriptingServices();
@@ -90,11 +121,10 @@ internal class Program {
                     services.AddSingleton<ICommandSplitter, CommandSplitter>();
                     services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();
 
-                    string databasePath = Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                        Constants.Api2CliDirectoryName,
-                        Constants.StoreFileName
-                    );
+                    // Align data store path to the selected config root
+                    string defaultRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Constants.Api2CliDirectoryName);
+                    string configRoot = string.IsNullOrWhiteSpace(wsOptions.ConfigRoot) ? defaultRoot : wsOptions.ConfigRoot!;
+                    string databasePath = Path.Combine(configRoot, Constants.StoreFileName);
 
                     if (!Directory.Exists(Path.GetDirectoryName(databasePath))) {
                         Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
@@ -139,7 +169,9 @@ internal class Program {
 
                     __a2cTimingsPrinted = true;
                 }
-            } catch { /* best-effort; never block exit */ }
+            } catch (Exception ex) {
+                Console.Error.WriteLine($"Error emitting A2C timings: {ex}");
+            }
         };
 
         Console.InputEncoding = Encoding.UTF8;

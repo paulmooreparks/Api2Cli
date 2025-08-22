@@ -43,7 +43,13 @@ internal class WorkspaceReplContext : DefaultReplContext
     }
 
     public override async Task<int> RunAsync(Command workspaceCommand, string[] args) {
-        return await base.RunAsync(workspaceCommand, args);    
+        // Prevent recursive invocation of the same command
+        if (args.Length > 0 && string.Equals(args[0], workspaceCommand.Name, StringComparison.OrdinalIgnoreCase)) {
+            Console.WriteLine($"Already in '{workspaceCommand.Name}' context.");
+            return Result.Success;
+        }
+
+        return await base.RunAsync(workspaceCommand, args);
     }
 
     public override string[] SplitCommandLine(string input) {

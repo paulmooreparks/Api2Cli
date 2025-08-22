@@ -1,0 +1,18 @@
+{
+    extend "base"
+    description "Child workspace overriding one request and adding another"
+
+    </ Inherit baseUrl from base; add an additional header via preRequest />
+    preRequest javascript <'
+        base.preRequest();
+        request.headers["X-Child"] = "1";
+    '>
+
+    requests {
+        </ Override: add Accept header; inherits endpoint/method from base's headers request />
+        headers { headers { Accept "application/json" } }
+
+        </ New request unique to child />
+        ip { endpoint "/ip" method "GET" }
+    }
+}

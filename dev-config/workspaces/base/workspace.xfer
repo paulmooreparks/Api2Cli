@@ -1,0 +1,17 @@
+{
+    description "Concrete base workspace for httpbin.org tests"
+    baseUrl "https://httpbin.org/"
+
+    </ Base preRequest script sets a header; child calls base.preRequest() and adds its own />
+    preRequest javascript <'
+        request.headers["X-Base"] = "1";
+    '>
+
+    requests {
+        </ Simple request that returns the request headers (overridden in child to add Accept header) />
+        headers { endpoint "/headers" method "GET" }
+
+        </ Returns a UUID (child leaves this alone to show inheritance untouched) />
+        uuid { endpoint "/uuid" method "GET" }
+    }
+}
