@@ -68,12 +68,11 @@ public class WorkspaceImportCliTests
             );
 
             Assert.AreEqual(0, code, $"CLI failed: {stderr}\n{stdout}");
-            var configFile = Path.Combine(configRoot, "config.xfer");
-            Assert.IsTrue(File.Exists(configFile), "Config file should have been created");
-            var content = File.ReadAllText(configFile);
-            StringAssert.Contains(content, "workspaces");
-            StringAssert.Contains(content, "imported");
-            // Request names are generated like get_pets, post_pets, put_pets__id_
+            var wsDir = Path.Combine(configRoot, "imported");
+            var wsFile = Path.Combine(wsDir, "workspace.xfer");
+            Assert.IsTrue(File.Exists(wsFile), "workspace.xfer should have been created");
+            var content = File.ReadAllText(wsFile);
+            StringAssert.Contains(content, "requests");
             StringAssert.Contains(content, "get_pets");
             StringAssert.Contains(content, "post_pets");
         }
@@ -115,10 +114,10 @@ public class WorkspaceImportCliTests
             );
 
             Assert.AreEqual(0, code, $"CLI failed: {stderr}\n{stdout}");
-            var configFile = Path.Combine(configRoot, "config.xfer");
-            var content = File.ReadAllText(configFile);
-            StringAssert.Contains(content, "pets");
-            // Should include operationId name and generated name
+            var wsDir = Path.Combine(configRoot, "pets");
+            var wsFile = Path.Combine(wsDir, "workspace.xfer");
+            Assert.IsTrue(File.Exists(wsFile), "workspace.xfer should have been created");
+            var content = File.ReadAllText(wsFile);
             StringAssert.Contains(content, "listPets");
             StringAssert.Contains(content, "post_pets");
             StringAssert.Contains(content, "baseUrl \"https://api.example.com\"");

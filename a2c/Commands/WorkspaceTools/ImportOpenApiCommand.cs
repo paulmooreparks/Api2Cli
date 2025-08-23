@@ -13,7 +13,7 @@ namespace ParksComputing.Api2Cli.Cli.Commands.WorkspaceTools;
 
 [Command("import", "Import an OpenAPI/Swagger document into a new workspace folder (does NOT modify config.xfer)", Parent = "workspace")]
 [Option(typeof(string), "--name", "Logical workspace name (used in guidance output)", new[] { "-n" }, IsRequired = true)]
-[Option(typeof(string), "--dir", "Target workspace directory to create (relative or absolute)", new[] { "-d" }, IsRequired = true)]
+[Option(typeof(string), "--dir", "Target workspace directory to create (relative or absolute)", new[] { "-d" }, IsRequired = false)]
 [Option(typeof(string), "--openapi", "Path or URL to an OpenAPI JSON document (YAML not yet supported)", new[] { "-o" }, IsRequired = false)]
 [Option(typeof(string), "--baseurl", "Base URL to set; defaults to first server.url or origin", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(bool), "--force", "Overwrite existing directory and workspace.xfer", new[] { "-f" }, IsRequired = false)]
@@ -23,7 +23,7 @@ internal class ImportOpenApiCommand(
 ) : WorkspaceImportCommandBase(workspaceService) {
     public async Task<int> Execute(
         [OptionParam("--name")] string name,
-        [OptionParam("--dir")] string dir,
+    [OptionParam("--dir")] string? dir,
         [OptionParam("--openapi")] string? openapi,
         [OptionParam("--baseurl")] string? baseurl,
         [OptionParam("--force")] bool force,
@@ -35,6 +35,7 @@ internal class ImportOpenApiCommand(
                 Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Please specify a source URL or file path (positional) or use --openapi.");
                 return Result.InvalidArguments;
             }
+            dir ??= name; // default directory name from workspace name
             if (!TryResolveTargetDirectory(dir, force, out var targetDir)) { return Result.InvalidArguments; }
 
             var (content, contentType, finalUri) = await LoadOpenApiAsync(effectiveSource!).ConfigureAwait(false);
@@ -179,10 +180,14 @@ internal class ImportOpenApiCommand(
             var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             return (true, body, ct);
         }
-        catch {
+        catch (Exception ex) {
+            if (IsScriptDebugEnabled()) { try { Console.Error.WriteLine($"[ImportOpenApi] GET {uri} failed :: {ex.GetType().Name}: {ex.Message}"); } catch { } }
             return (false, null, null);
         }
     }
+
+    private static bool IsScriptDebugEnabled() => string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsJsonContentType(string? ct)
         => !string.IsNullOrWhiteSpace(ct) && (ct!.Contains("json", StringComparison.OrdinalIgnoreCase) || ct!.Equals("application/vnd.oai.openapi+json", StringComparison.OrdinalIgnoreCase));

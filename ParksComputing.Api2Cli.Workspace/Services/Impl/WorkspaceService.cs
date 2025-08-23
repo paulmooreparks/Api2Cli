@@ -100,20 +100,22 @@ internal class WorkspaceService : IWorkspaceService {
                         ActiveWorkspaceChanged?.Invoke(workspaceName);
                     }
                     catch (Exception ex) {
-                        // Surface but don't crash the selection change; listeners are user code
-                        _diags.Emit(
-                            nameof(IWorkspaceService),
-                            new {
-                                Message = $"ActiveWorkspaceChanged listener threw: {ex.Message}",
-                                ex
-                            }
-                        );
+                        DebugLog($"[WorkspaceService] ActiveWorkspaceChanged listener threw: {ex.Message}", ex);
                     }
 
                 }
             }
         }
     }
+
+    private static bool IsScriptDebugEnabled() => string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
+
+    private static void DebugLog(string message, Exception? ex = null) {
+        if (!IsScriptDebugEnabled()) { return; }
+        try { System.Console.Error.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message); } catch { }
+    }
+
     public event Action<string>? ActiveWorkspaceChanged;
 
     private void EnsureConfigScaffold() {
@@ -236,7 +238,7 @@ internal class WorkspaceService : IWorkspaceService {
                             Workspace = workspace.Name,
                             MissingParent = workspace.Extend
                         });
-                    } catch { }
+                    } catch (Exception ex) { DebugLog($"[WorkspaceService] Emit missing parent warning failed for '{workspace.Name}'", ex); }
                 }
             }
         }

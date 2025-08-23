@@ -20,21 +20,21 @@ using ParksComputing.Xfer.Lang;
 
 namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
     internal class CSharpScriptEngine : IApi2CliScriptEngine {
-    private readonly IPackageService _packageService = null!;
-    private readonly IWorkspaceService _workspaceService = null!;
-    private readonly ISettingsService _settingsService = null!;
-    private readonly IAppDiagnostics<CSharpScriptEngine> _diags = null!;
-    private readonly IPropertyResolver _propertyResolver = null!;
-    private readonly A2CApi _a2c = null!;
+        private readonly IPackageService _packageService = null!;
+        private readonly IWorkspaceService _workspaceService = null!;
+        private readonly ISettingsService _settingsService = null!;
+        private readonly IAppDiagnostics<CSharpScriptEngine> _diags = null!;
+        private readonly IPropertyResolver _propertyResolver = null!;
+        private readonly A2CApi _a2c = null!;
 
-    private ScriptOptions _options = null!;
+        private ScriptOptions _options = null!;
         private ScriptState<object?>? _state;
         private readonly Dictionary<string, object?> _globals = new();
         private dynamic _scriptGlobals = new ExpandoObject();
-    private bool _globalInitExecuted = false;
+        private bool _globalInitExecuted = false;
 
-    // Strongly-typed globals object so C# scripts can reference members like 'a2c'
-    private ScriptGlobals _typedGlobals;
+        // Strongly-typed globals object so C# scripts can reference members like 'a2c'
+        private ScriptGlobals _typedGlobals;
 
         public CSharpScriptEngine(
             IPackageService packageService,
@@ -52,8 +52,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             _a2c = apiRoot ?? throw new ArgumentNullException(nameof(apiRoot));
 
             // React to NuGet package updates (install/uninstall) by refreshing script references
-            if (_packageService is not null)
-            {
+            if (_packageService is not null) {
                 _packageService.PackagesUpdated += OnPackagesUpdated;
             }
 
@@ -71,8 +70,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             AddHostObject("console", typeof(ConsoleScriptObject));
         }
 
-        private ScriptOptions CreateScriptOptions()
-        {
+        private ScriptOptions CreateScriptOptions() {
             var references = new List<MetadataReference>();
 
             // Core assemblies to include
@@ -92,18 +90,14 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             };
 
             // Try to create references from assemblies
-            foreach (var assembly in coreAssemblies)
-            {
-                try
-                {
+            foreach (var assembly in coreAssemblies) {
+                try {
                     var reference = CreateMetadataReferenceFromAssembly(assembly);
-                    if (reference != null)
-                    {
+                    if (reference != null) {
                         references.Add(reference);
                     }
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     // Log the specific assembly that failed, but continue with others
                     _diags.Emit(nameof(CSharpScriptEngine), new {
                         Message = $"Could not create reference for {assembly.FullName}: {ex.Message}",
@@ -113,24 +107,20 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             }
 
             // Add references for any installed NuGet package assemblies under .a2c/packages
-            try
-            {
+            try {
                 AddPackageAssemblyReferences(references);
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _diags.Emit(nameof(CSharpScriptEngine), new {
                     Message = $"Failed to add package assembly references: {ex.Message}",
                 });
             }
 
             // Add references for any assemblies configured in the workspace (plugins/packages)
-            try
-            {
+            try {
                 AddWorkspaceAssemblyReferences(references);
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _diags.Emit(nameof(CSharpScriptEngine), new {
                     Message = $"Failed to add workspace assembly references: {ex.Message}",
                 });
@@ -148,42 +138,33 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                 );
         }
 
-        private void AddPackageAssemblyReferences(List<MetadataReference> references)
-        {
+        private void AddPackageAssemblyReferences(List<MetadataReference> references) {
             var dllPaths = _packageService?.GetInstalledPackagePaths();
-            if (dllPaths == null)
-            {
+            if (dllPaths == null) {
                 return;
             }
 
             // Track existing file names to avoid duplicates
             var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var r in references)
-            {
-                if (r is PortableExecutableReference per && per.FilePath is string p && !string.IsNullOrEmpty(p))
-                {
+            foreach (var r in references) {
+                if (r is PortableExecutableReference per && per.FilePath is string p && !string.IsNullOrEmpty(p)) {
                     existing.Add(Path.GetFileName(p));
                 }
             }
 
-            foreach (var path in dllPaths)
-            {
-                try
-                {
-                    if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-                    {
+            foreach (var path in dllPaths) {
+                try {
+                    if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) {
                         continue;
                     }
                     var fileName = Path.GetFileName(path);
-                    if (existing.Contains(fileName))
-                    {
+                    if (existing.Contains(fileName)) {
                         continue;
                     }
                     references.Add(MetadataReference.CreateFromFile(path));
                     existing.Add(fileName);
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     _diags.Emit(nameof(CSharpScriptEngine), new {
                         Message = $"Failed to reference package assembly '{path}': {ex.Message}"
                     });
@@ -191,48 +172,39 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             }
         }
 
-        private void OnPackagesUpdated()
-        {
+        private void OnPackagesUpdated() {
             // Rebuild ScriptOptions so new/removed packages are reflected in Roslyn references
             _options = CreateScriptOptions();
         }
 
-        private void AddWorkspaceAssemblyReferences(List<MetadataReference> references)
-        {
+        private void AddWorkspaceAssemblyReferences(List<MetadataReference> references) {
             var assemblies = _workspaceService?.BaseConfig?.Assemblies;
-            if (assemblies == null || assemblies.Length == 0)
-            {
+            if (assemblies == null || assemblies.Length == 0) {
                 return;
             }
 
             // Build a set of existing reference file names to avoid duplicates
             var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var r in references)
-            {
-                if (r is PortableExecutableReference per && per.FilePath is string p && !string.IsNullOrEmpty(p))
-                {
+
+            foreach (var r in references) {
+                if (r is PortableExecutableReference per && per.FilePath is string p && !string.IsNullOrEmpty(p)) {
                     existing.Add(Path.GetFileName(p));
                 }
             }
 
-            string? pluginDir = null;
-            try { pluginDir = _settingsService?.PluginDirectory; } catch { /* ignore */ }
+            // Direct property access; exceptions are not expected here so no try/catch needed.
+            string? pluginDir = _settingsService?.PluginDirectory;
 
-            foreach (var name in assemblies)
-            {
-                try
-                {
+            foreach (var name in assemblies) {
+                try {
                     var path = name;
-                    if (!Path.IsPathRooted(path))
-                    {
-                        if (!string.IsNullOrEmpty(pluginDir))
-                        {
+                    if (!Path.IsPathRooted(path)) {
+                        if (!string.IsNullOrEmpty(pluginDir)) {
                             path = Path.Combine(pluginDir!, name);
                         }
                     }
 
-                    if (!File.Exists(path))
-                    {
+                    if (!File.Exists(path)) {
                         _diags.Emit(nameof(CSharpScriptEngine), new {
                             Message = $"Workspace assembly not found: {path}"
                         });
@@ -240,8 +212,8 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                     }
 
                     var fileName = Path.GetFileName(path);
-                    if (existing.Contains(fileName))
-                    {
+
+                    if (existing.Contains(fileName)) {
                         // Already referenced
                         continue;
                     }
@@ -250,8 +222,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                     references.Add(reference);
                     existing.Add(fileName);
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     _diags.Emit(nameof(CSharpScriptEngine), new {
                         Message = $"Failed to reference workspace assembly '{name}': {ex.Message}"
                     });
@@ -259,29 +230,23 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             }
         }
 
-        private MetadataReference? CreateMetadataReferenceFromAssembly(Assembly assembly)
-        {
-            try
-            {
+        private MetadataReference? CreateMetadataReferenceFromAssembly(Assembly assembly) {
+            try {
                 // First try the standard approach (works for non-single-file apps)
-                if (!string.IsNullOrEmpty(assembly.Location))
-                {
+                if (!string.IsNullOrEmpty(assembly.Location)) {
                     return MetadataReference.CreateFromFile(assembly.Location);
                 }
 
                 // For single-file apps, create reference from assembly image bytes
                 var assemblyBytes = GetAssemblyBytes(assembly);
-                if (assemblyBytes != null)
-                {
+                if (assemblyBytes != null) {
                     return MetadataReference.CreateFromImage(assemblyBytes);
                 }
             }
-            catch (NotSupportedException)
-            {
+            catch (NotSupportedException) {
                 // Expected for single-file applications when trying to use Assembly.Location
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _diags.Emit(nameof(CSharpScriptEngine), new {
                     Message = $"Failed to create metadata reference for {assembly.FullName}: {ex.Message}"
                 });
@@ -290,35 +255,29 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             return null;
         }
 
-        private ImmutableArray<byte>? GetAssemblyBytes(Assembly assembly)
-        {
-            try
-            {
+        private ImmutableArray<byte>? GetAssemblyBytes(Assembly assembly) {
+            try {
                 // Try to get the assembly bytes from the loaded assembly
                 // This approach works for both regular and single-file applications
                 var assemblyName = assembly.GetName();
 
                 // For system assemblies, we can often find them in the runtime directory
                 var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
-                if (!string.IsNullOrEmpty(runtimeDir))
-                {
+                if (!string.IsNullOrEmpty(runtimeDir)) {
                     var potentialPath = Path.Combine(runtimeDir, $"{assemblyName.Name}.dll");
-                    if (File.Exists(potentialPath))
-                    {
+                    if (File.Exists(potentialPath)) {
                         var bytes = File.ReadAllBytes(potentialPath);
                         return ImmutableArray.Create(bytes);
                     }
                 }
 
                 // Alternative approach: try to read from embedded location if available
-                if (!string.IsNullOrEmpty(assembly.Location) && File.Exists(assembly.Location))
-                {
+                if (!string.IsNullOrEmpty(assembly.Location) && File.Exists(assembly.Location)) {
                     var bytes = File.ReadAllBytes(assembly.Location);
                     return ImmutableArray.Create(bytes);
                 }
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _diags.Emit(nameof(CSharpScriptEngine), new {
                     Message = $"Could not read assembly bytes for {assembly.FullName}: {ex.Message}"
                 });
@@ -352,8 +311,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             _globals[name] = value;
 
             // Keep typed globals synchronized for well-known names so scripts can access them as identifiers
-            switch (name)
-            {
+            switch (name) {
                 case "a2c" when value is A2CApi a2c:
                     _typedGlobals.a2c = a2c;
                     break;
@@ -375,40 +333,35 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             }
 
             // Run deferred global C# init on first use, if configured
-            if (!_globalInitExecuted)
-            {
-                try
-                {
+            if (!_globalInitExecuted) {
+                try {
                     var init = _workspaceService?.BaseConfig?.ScriptInit?.CSharp;
-                    if (!string.IsNullOrWhiteSpace(init))
-                    {
+
+                    if (!string.IsNullOrWhiteSpace(init)) {
                         _globalInitExecuted = true;
+
                         // Execute without replacing the upcoming user script; set up state first
-                        if (_state is null)
-                        {
+                        if (_state is null) {
                             _state = CSharpScript.RunAsync(init, _options, _typedGlobals, typeof(ScriptGlobals)).GetAwaiter().GetResult();
                         }
-                        else
-                        {
+                        else {
                             _state = _state.ContinueWithAsync(init, _options).GetAwaiter().GetResult();
                         }
                     }
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     _diags.Emit(nameof(CSharpScriptEngine), new { Message = $"Global C# init failed: {ex.Message}" });
                 }
             }
 
             // Execute the script synchronously; chain onto existing state so top-level defs persist
-            if (_state is null)
-            {
+            if (_state is null) {
                 _state = CSharpScript.RunAsync(script, _options, _typedGlobals, typeof(ScriptGlobals)).GetAwaiter().GetResult();
             }
-            else
-            {
+            else {
                 _state = _state.ContinueWithAsync(script, _options).GetAwaiter().GetResult();
             }
+
             return _state?.ReturnValue?.ToString() ?? string.Empty;
         }
 
@@ -418,39 +371,33 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             }
 
             // Run deferred global C# init on first use, if configured
-            if (!_globalInitExecuted)
-            {
-                try
-                {
+            if (!_globalInitExecuted) {
+                try {
                     var init = _workspaceService?.BaseConfig?.ScriptInit?.CSharp;
-                    if (!string.IsNullOrWhiteSpace(init))
-                    {
+                    if (!string.IsNullOrWhiteSpace(init)) {
                         _globalInitExecuted = true;
-                        if (_state is null)
-                        {
+
+                        if (_state is null) {
                             _state = CSharpScript.RunAsync(init, _options, _typedGlobals, typeof(ScriptGlobals)).GetAwaiter().GetResult();
                         }
-                        else
-                        {
+                        else {
                             _state = _state.ContinueWithAsync(init, _options).GetAwaiter().GetResult();
                         }
                     }
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     _diags.Emit(nameof(CSharpScriptEngine), new { Message = $"Global C# init failed: {ex.Message}" });
                 }
             }
 
             // Evaluate the script synchronously; chain onto existing state so earlier defs are visible
-            if (_state is null)
-            {
+            if (_state is null) {
                 _state = CSharpScript.RunAsync(script, _options, _typedGlobals, typeof(ScriptGlobals)).GetAwaiter().GetResult();
             }
-            else
-            {
+            else {
                 _state = _state.ContinueWithAsync(script, _options).GetAwaiter().GetResult();
             }
+
             return _state?.ReturnValue;
         }
 
@@ -468,6 +415,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             if (((IDictionary<string, object?>) _scriptGlobals).TryGetValue("PostResponse", out var func) && func is Delegate d) {
                 return d.DynamicInvoke(args);
             }
+
             return null;
         }
 
@@ -475,12 +423,15 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             if (((IDictionary<string, object?>) _scriptGlobals).TryGetValue(script, out var func) && func is Delegate d) {
                 try {
                     var parameters = d.Method.GetParameters();
+
                     if (parameters.Length == 1 && parameters[0].ParameterType.IsArray && parameters[0].ParameterType.GetElementType() == typeof(object)) {
                         // Target delegate expects a single object[]; wrap args accordingly
                         return d.DynamicInvoke(new object?[] { args });
                     }
+
                     return d.DynamicInvoke(args);
-                } catch (Exception ex) {
+                }
+                catch (Exception ex) {
                     // Surface the inner exception (actual script failure) when present
                     var inner = ex.InnerException ?? ex;
                     var msg = $"{inner.GetType().FullName}: {inner.Message}";
@@ -496,28 +447,24 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
                 SetValue(itemName, target);
 
                 // Keep typed globals in sync for well-known members
-                if (string.Equals(itemName, "a2c", StringComparison.OrdinalIgnoreCase) && target is A2CApi a2c)
-                {
+                if (string.Equals(itemName, "a2c", StringComparison.OrdinalIgnoreCase) && target is A2CApi a2c) {
                     _typedGlobals.a2c = a2c;
                 }
             }
         }
 
         public void ExecuteInitScript(string? script) {
-            if (string.IsNullOrWhiteSpace(script))
-            {
-
+            if (string.IsNullOrWhiteSpace(script)) {
                 return;
-
             }
+
             ExecuteScript(script);
         }
 
         // Overload for keyed value scenarios (initScript on workspace/baseConfig)
-    public void ExecuteInitScript(XferKeyedValue? script) {
+        public void ExecuteInitScript(XferKeyedValue? script) {
             var body = GetInitBodyForLanguage(script, ScriptEngineKinds.CSharp);
-            if (string.IsNullOrWhiteSpace(body))
-            {
+            if (string.IsNullOrWhiteSpace(body)) {
 
                 return;
 
@@ -525,8 +472,7 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             ExecuteScript(body);
         }
 
-    private static string GetInitBodyForLanguage(XferKeyedValue? kv, string language)
-        {
+        private static string GetInitBodyForLanguage(XferKeyedValue? kv, string language) {
             // Return the script body exactly as provided in the configuration.
             // Honor keyed language (defaulting to javascript when missing) and support cs/csharp aliases.
             if (kv is null) {
@@ -548,14 +494,14 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             return matches ? body : string.Empty;
         }
 
-    // No-op for C# engine; workspace init ordering is managed by the orchestrator and JS engine
-    public void ExecuteAllWorkspaceInitScripts() { }
+        // No-op for C# engine; workspace init ordering is managed by the orchestrator and JS engine
+        public void ExecuteAllWorkspaceInitScripts() { }
 
-    // No-op for C# engine; projection is a JS concept only
-    public void EnsureWorkspaceProjected(string workspaceName) { }
+        // No-op for C# engine; projection is a JS concept only
+        public void EnsureWorkspaceProjected(string workspaceName) { }
 
-    // No-op for C# engine; the orchestrator runs C# init directly
-    public void ExecuteWorkspaceInitFor(string workspaceName) { }
+        // No-op for C# engine; the orchestrator runs C# init directly
+        public void ExecuteWorkspaceInitFor(string workspaceName) { }
 
     }
 }

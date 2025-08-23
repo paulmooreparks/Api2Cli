@@ -38,6 +38,13 @@ internal class RunWsScriptCommand {
         => string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase)
            || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
 
+    private static void DebugLog(string message, Exception? ex = null) {
+        if (!IsScriptDebugEnabled()) { return; }
+        try {
+            Console.Error.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message);
+        } catch { }
+    }
+
     public object? CommandResult { get; private set; } = null;
 
     public RunWsScriptCommand(
@@ -409,7 +416,10 @@ internal class RunWsScriptCommand {
                     }
                     return arr.Select(v => v is string sv ? CoerceScalarArg(sv, elemToken) : v).ToArray();
                 }
-                catch { /* fall back below */ }
+                catch (Exception ex) {
+                    // Fall back to CSV parsing; log only when debug enabled
+                    DebugLog($"[Run] Array Xfer parse failed, falling back to CSV (first 200 chars): '{(content.Length > 200 ? content[..200] + "…" : content)}'", ex);
+                }
             }
             // Comma-separated fallback
             var parts = content.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -436,8 +446,9 @@ internal class RunWsScriptCommand {
             // If not Xfer object, pass through as string; orchestration/JS can still handle native objects
             return s;
         }
-        catch {
+        catch (Exception ex) {
             // Be forgiving: if it's not valid Xfer, just return the original string and let downstream handle it
+            DebugLog($"[Run] Dictionary arg parse failed, passing raw string: '{(s.Length > 200 ? s[..200] + "…" : s)}'", ex);
             return s;
         }
     }
@@ -451,7 +462,7 @@ internal class RunWsScriptCommand {
             return t;
         }
         try { return Type.GetType($"System.{typeName}", throwOnError: false, ignoreCase: true); }
-        catch { return null; }
+    catch (Exception ex) { DebugLog($"[Run] TryGetType fallback failed for '{typeName}'", ex); return null; }
     }
 
     // After a successful fallback invocation, try to resolve the canonical a2c.* reference and cache it.

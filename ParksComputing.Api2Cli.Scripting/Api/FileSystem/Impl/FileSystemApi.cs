@@ -9,18 +9,20 @@ using System.IO;
 namespace ParksComputing.Api2Cli.Scripting.Api.FileSystem.Impl;
 
 public class FileSystemApi : IFileSystemApi {
+    private static bool IsScriptDebugEnabled()
+        => string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
+    private static void DebugLog(string message, Exception? ex = null) {
+        if (!IsScriptDebugEnabled()) { return; }
+        try { System.Console.Error.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message); } catch { }
+    }
     public bool Exists(string path) {
         if (string.IsNullOrWhiteSpace(path)) {
             return false;
         }
 
-        try {
-            string fullPath = Path.GetFullPath(path);
-            return File.Exists(fullPath);
-        }
-        catch {
-            return false;
-        }
+    try { string fullPath = Path.GetFullPath(path); return File.Exists(fullPath); }
+    catch (Exception ex) { DebugLog($"[FS] Exists failed for '{path}'", ex); return false; }
     }
 
     /// <summary>
@@ -42,14 +44,8 @@ public class FileSystemApi : IFileSystemApi {
             throw new FileNotFoundException($"The file '{fullPath}' does not exist.", fullPath);
         }
 
-        try {
-            return File.ReadAllText(fullPath, UTF8Encoding.UTF8);
-        }
-        catch (UnauthorizedAccessException ex) {
-            throw new IOException($"Access to file '{fullPath}' is denied.", ex);
-        }
-        catch (IOException ex) {
-            throw new IOException($"Error reading file '{fullPath}': {ex.Message}", ex);
-        }
+    try { return File.ReadAllText(fullPath, UTF8Encoding.UTF8); }
+    catch (UnauthorizedAccessException ex) { DebugLog($"[FS] Read access denied '{fullPath}'", ex); throw new IOException($"Access to file '{fullPath}' is denied.", ex); }
+    catch (IOException ex) { DebugLog($"[FS] Read IO error '{fullPath}'", ex); throw new IOException($"Error reading file '{fullPath}': {ex.Message}", ex); }
     }
 }

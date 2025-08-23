@@ -36,6 +36,8 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
     private bool _csLegacyInitRan = false;
     // Track per-workspace C# scriptInit that have been executed (deferred to activation)
     private readonly HashSet<string> _csWorkspaceInitRan = new(StringComparer.OrdinalIgnoreCase);
+    // Track per-workspace JS scriptInit that have been executed (deferred to activation)
+    private readonly HashSet<string> _jsWorkspaceInitRan = new(StringComparer.OrdinalIgnoreCase);
     // Lazy C# wrapper compilation for scripts
     private readonly HashSet<string> _csCompiledWrappers = new(StringComparer.OrdinalIgnoreCase);
     private sealed class CsWrapperDef { public string Body = string.Empty; public List<(string TypeToken, string Name)> Args = new(); public bool HasWorkspace; }
@@ -58,6 +60,21 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         var v = Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG");
         return string.Equals(v, "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(v, "1", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Centralized guarded debug logger to remove scattered try/catch logging blocks
+    private static void DebugLog(string message, Exception? ex = null) {
+        if (!IsScriptDebugEnabled()) {
+            return;
+        }
+        try {
+            if (ex is null) {
+                System.Console.Error.WriteLine(message);
+            } else {
+                System.Console.Error.WriteLine(message + " :: " + ex.GetType().Name + ": " + ex.Message);
+            }
+        }
+        catch { /* ignore logging failures */ }
     }
 
     public void RegisterRequestExecutor(Func<string, string, object?[]?, object?> executor) {
@@ -171,18 +188,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 }
             }
 
-            // Now that global init ran, execute per-workspace JavaScript init (base-first) via JS engine helper.
-            // This runs only for the new grouped ScriptInit path; legacy per-workspace init is handled inside ClearScriptEngine.
-            try {
-                var jsImpl = _engineFactory.GetEngine(JavaScript);
-                Stopwatch? swJsWsInit = timingsEnabled ? Stopwatch.StartNew() : null;
-                jsImpl.ExecuteAllWorkspaceInitScripts();
-
-                if (timingsEnabled && swJsWsInit is not null) {
-                    emitTiming!("A2C_TIMINGS: scriptingInit.wsInit.js=" + swJsWsInit.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
-                }
-            }
-            catch { /* ignore; best-effort */ }
+            // Eager per-workspace JS init removed: workspace init now occurs lazily on first ActivateWorkspace() for correct ordering and single-run semantics.
         }
 
         // Defer legacy C# init to activation/first C# use rather than eager execution
@@ -194,12 +200,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         // Expose a host-side dictionary of JS bodies and helpers to compile them on first use.
         bool dbg = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
 
-        if (dbg) {
-            try {
-                System.Console.Error.WriteLine("[Orch] Register scripts (lazy) begin");
-            }
-            catch { }
-        }
+    if (dbg) { DebugLog("[Orch] Register scripts (lazy) begin"); }
         Stopwatch? swRegisterScripts = timingsEnabled ? Stopwatch.StartNew() : null;
         var jsBodies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         // Track declared argument names (in insertion order) for each script so we can compile
@@ -258,7 +259,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                     return _requestExecutor!(w, r, argsArray);
                 }));
             }
-            catch { /* ignore duplicate add */ }
+            catch (Exception ex) { DebugLog("[Orch] a2cRequestInvoke host object already present", ex); }
         }
 
         // Always lazy: limit script registration to active workspace + base chain when known
@@ -295,12 +296,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
             var wsName = wkvp.Key;
             var ws = wkvp.Value;
 
-            if (dbg) {
-                try {
-                    System.Console.Error.WriteLine($"[Orch] Workspace '{wsName}': scripts={ws.Scripts.Count}, requests={ws.Requests.Count}");
-                }
-                catch { }
-            }
+            if (dbg) { DebugLog($"[Orch] Workspace '{wsName}': scripts={ws.Scripts.Count}, requests={ws.Requests.Count}"); }
 
             foreach (var script in ws.Scripts) {
                 var name = script.Key;
@@ -369,25 +365,20 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 }
 
                 // Walk base chain if available
-                try {
-                    var bc = _workspaceService.BaseConfig;
-                    if (bc.Workspaces.TryGetValue(curWs, out var wsDef)) {
-                        var baseKey = wsDef.Extend;
-
-                        while (!string.IsNullOrWhiteSpace(baseKey)) {
-                            var k2 = $"{baseKey}::{name}";
-                            if (jsBodies.TryGetValue(k2, out var baseBody) && !string.IsNullOrWhiteSpace(baseBody)) {
-                                return baseBody;
-                            }
-                            if (!bc.Workspaces.TryGetValue(baseKey, out var baseDef)) {
-                                break;
-                            }
-
-                            baseKey = baseDef.Extend;
+                var bc = _workspaceService.BaseConfig;
+                if (bc.Workspaces.TryGetValue(curWs, out var wsDef)) {
+                    var baseKey = wsDef.Extend;
+                    while (!string.IsNullOrWhiteSpace(baseKey)) {
+                        var k2 = $"{baseKey}::{name}";
+                        if (jsBodies.TryGetValue(k2, out var baseBody) && !string.IsNullOrWhiteSpace(baseBody)) {
+                            return baseBody;
                         }
+                        if (!bc.Workspaces.TryGetValue(baseKey, out var baseDef)) {
+                            break;
+                        }
+                        baseKey = baseDef.Extend;
                     }
                 }
-                catch { /* ignore */ }
                 return null;
             }
 
@@ -473,12 +464,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
             }
         }
 
-        if (dbg) {
-            try {
-                System.Console.Error.WriteLine("[Orch] Register scripts (lazy) end");
-            }
-            catch { }
-        }
+    if (dbg) { DebugLog("[Orch] Register scripts (lazy) end"); }
 
         // C# init already executed above to satisfy wrapper dependencies
 
@@ -495,37 +481,40 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         js.InitializeScriptEnvironment();
         // Project and init JS for this workspace (base-first)
         js.EnsureWorkspaceProjected(workspaceName);
-        // If grouped ScriptInit is present, ExecuteWorkspaceInitFor handles base-first order; else legacy was already run at init
-        js.ExecuteWorkspaceInitFor(workspaceName);
+
+        // Only run JS scriptInit for this workspace and its base chain if not already run
+        var bcWrap = _workspaceService.BaseConfig;
+        // Build base chain from root to workspaceName (base-first order)
+        var baseChain = new List<string>();
+        string? cur = workspaceName;
+        // Traverse up the chain, then reverse for base-first order
+        while (!string.IsNullOrWhiteSpace(cur) && bcWrap.Workspaces.TryGetValue(cur, out var curDef)) {
+            baseChain.Add(cur);
+            cur = curDef.Extend;
+        }
+        baseChain.Reverse();
+        // Run scriptInit for each workspace in base-first order, only if not already called
+        foreach (var w in baseChain) {
+            if (_jsWorkspaceInitRan.Contains(w)) {
+                if (IsScriptDebugEnabled()) {
+                    System.Console.Error.WriteLine($"[Orch] JS scriptInit for '{w}' already initialized, skipping.");
+                }
+                continue;
+            }
+            if (IsScriptDebugEnabled()) {
+                System.Console.Error.WriteLine($"[Orch] Running JS scriptInit for '{w}'");
+            }
+            js.ExecuteWorkspaceInitFor(w);
+            _jsWorkspaceInitRan.Add(w);
+        }
 
         // Ensure the active workspace and its base chain objects are wrapped with Proxies lazily
-        var bcWrap = _workspaceService.BaseConfig;
-        var toWrap = new List<string>();
-
-        if (bcWrap.Workspaces.TryGetValue(workspaceName, out var wsWrap)) {
-            string? cur = workspaceName;
-            WorkspaceDefinition? curDef = wsWrap;
-
-            while (!string.IsNullOrWhiteSpace(cur) && curDef is not null) {
-                toWrap.Add(cur);
-
-                if (!string.IsNullOrWhiteSpace(curDef.Extend) && bcWrap.Workspaces.TryGetValue(curDef.Extend, out var baseWs)) {
-                    cur = curDef.Extend;
-                    curDef = baseWs;
-                }
-                else {
-                    break;
-                }
-            }
-        }
-        if (toWrap.Count > 0) {
+        if (baseChain.Count > 0) {
             var sbWrap = new System.Text.StringBuilder();
             sbWrap.Append("(function(){ if (typeof a2c.__wrapWorkspaceProxy==='function'){ ");
-
-            foreach (var w in toWrap) {
+            foreach (var w in baseChain) {
                 sbWrap.Append($"a2c.__wrapWorkspaceProxy('{JsEscape(w)}'); ");
             }
-
             sbWrap.Append("}})()");
             js.EvaluateScript(sbWrap.ToString());
         }
@@ -539,20 +528,16 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         try {
             if (_workspaceService.BaseConfig.Workspaces.TryGetValue(workspaceName, out var wsDef)) {
                 var sb = new System.Text.StringBuilder();
-                // Also bind the global 'workspace' variable to the active workspace object
                 sb.Append($"(function(){{ try {{ globalThis.workspace = a2c.workspaces['{JsEscape(workspaceName)}']; }} catch (e) {{ }} ");
-
                 foreach (var skvp in wsDef.Scripts) {
                     var sName = skvp.Key;
-                    // Define/overwrite a global function that routes to this workspace's script
                     sb.Append($"globalThis['{JsEscape(sName)}'] = function(){{ return a2c.__callScript('{JsEscape(workspaceName)}', '{JsEscape(sName)}', Array.prototype.slice.call(arguments)); }}; ");
                 }
-
                 sb.Append("})();");
                 js.EvaluateScript(sb.ToString());
             }
         }
-        catch { /* best-effort exposure; don't block activation */ }
+        catch (Exception ex) { DebugLog($"[Orch] Failed exposing global stubs for workspace '{workspaceName}'", ex); }
 
         // Do not build C# handlers here; they are ensured on first actual request (pre/post) use
     }
@@ -587,12 +572,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
             System.Diagnostics.Stopwatch? sw = timingsEnabled ? System.Diagnostics.Stopwatch.StartNew() : null;
 
-            if (IsScriptDebugEnabled()) {
-                try {
-                    System.Console.Error.WriteLine("[CS:init] Global C# scriptInit begin (deferred)");
-                }
-                catch { }
-            }
+            if (IsScriptDebugEnabled()) { DebugLog("[CS:init] Global C# scriptInit begin (deferred)"); }
 
             EnsureCSharpEngineInitialized();
             var cs = _engineFactory.GetEngine(CSharp);
@@ -607,9 +587,7 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 }
             }
 
-            if (IsScriptDebugEnabled()) {
-                System.Console.Error.WriteLine("[CS:init] Global C# scriptInit end (deferred)");
-            }
+            if (IsScriptDebugEnabled()) { DebugLog("[CS:init] Global C# scriptInit end (deferred)"); }
 
             _csGlobalInitRan = true;
         }
@@ -866,12 +844,8 @@ new __CsHandlers_Global()
                 continue;
             }
 
-            try {
-                js.EvaluateScript($"void(a2c['{kvp.Key}'])");
-            }
-            catch {
-                /* ignore */
-            }
+            try { js.EvaluateScript($"void(a2c['{kvp.Key}'])"); }
+            catch (Exception ex) { DebugLog($"[Orch] Warmup root script '{kvp.Key}' failed", ex); }
 
             warmed++;
         }
@@ -894,12 +868,8 @@ new __CsHandlers_Global()
                         continue;
                     }
 
-                    try {
-                        js.EvaluateScript($"void(a2c.workspaces['{wsName}']['{skvp.Key}'])");
-                    }
-                    catch {
-                        /* ignore */
-                    }
+                    try { js.EvaluateScript($"void(a2c.workspaces['{wsName}']['{skvp.Key}'])"); }
+                    catch (Exception ex) { DebugLog($"[Orch] Warmup workspace script '{wsName}.{skvp.Key}' failed", ex); }
 
                     warmed++;
                 }
@@ -1049,9 +1019,7 @@ new __CsHandlers_Global()
                     return Enum.ToObject(enumT, num!);
                 }
             }
-            catch {
-                /* fall through */
-            }
+            catch (Exception ex) { DebugLog("[Orch] Enum numeric conversion failed", ex); }
         }
 
         // No conversion
@@ -1068,7 +1036,8 @@ new __CsHandlers_Global()
             value = site.Target(site, target);
             return true;
         }
-        catch {
+        catch (Exception ex) {
+            DebugLog("[Orch] TryGetDynamicMember failed" + (string.IsNullOrEmpty(name) ? string.Empty : $": {name}"), ex);
             value = null;
             return false;
         }
@@ -1113,7 +1082,7 @@ new __CsHandlers_Global()
             }
             return added > 0;
         }
-        catch { return false; }
+    catch (Exception ex) { DebugLog("[Orch] TryToDictionaryFromScriptObject failed", ex); return false; }
     }
 
     private static bool TryGetScriptObjectProperty(object scriptObject, string name, out object? value) {
@@ -1134,7 +1103,7 @@ new __CsHandlers_Global()
                 return true;
             }
         }
-        catch { /* ignore */ }
+    catch (Exception ex) { DebugLog("[Orch] TryGetScriptObjectProperty reflection failed", ex); }
         value = null;
         return false;
     }
@@ -1156,7 +1125,7 @@ new __CsHandlers_Global()
         }
         if (ns.StartsWith("Microsoft.ClearScript", StringComparison.Ordinal)) {
             // Best-effort: convert to string representation
-            try { return System.Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture); } catch { /* ignore */ }
+            try { return System.Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture); } catch (Exception ex) { DebugLog("[Orch] NormalizeJsValue ToString failed", ex); }
         }
         return v;
     }
@@ -1189,7 +1158,8 @@ new __CsHandlers_Global()
         try {
             return Type.GetType($"System.{typeName}", throwOnError: false, ignoreCase: true);
         }
-        catch {
+        catch (Exception ex) {
+            DebugLog($"[Orch] TryGetType fallback failed for '{typeName}'", ex);
             return null;
         }
     }
@@ -1232,14 +1202,7 @@ new __CsHandlers_Global()
         }
         if (!visiting.Add(wsName)) {
             // cycle detected; log and bail from this branch
-            if (IsScriptDebugEnabled()) {
-                try {
-                    System.Console.Error.WriteLine($"[CS:init] Cycle detected in workspace inheritance at '{wsName}'. Skipping remaining init chain.");
-                }
-                catch {
-                    System.Console.Error.WriteLine($"[CS:init] Error occurred while logging cycle detection for workspace '{wsName}'.");
-                }
-            }
+            if (IsScriptDebugEnabled()) { DebugLog($"[CS:init] Cycle detected in workspace inheritance at '{wsName}'. Skipping remaining init chain."); }
             return;
         }
         // Execute base first if present
@@ -1248,14 +1211,7 @@ new __CsHandlers_Global()
         }
         if (ws.ScriptInit is not null && !string.IsNullOrWhiteSpace(ws.ScriptInit.CSharp)) {
             var cs = _engineFactory.GetEngine(CSharp);
-            if (IsScriptDebugEnabled()) {
-                try {
-                    System.Console.Error.WriteLine($"[CS:init] Running init for workspace '{wsName}'");
-                }
-                catch {
-                    System.Console.Error.WriteLine($"[CS:init] Error occurred while logging init for workspace '{wsName}'.");
-                }
-            }
+            if (IsScriptDebugEnabled()) { DebugLog($"[CS:init] Running init for workspace '{wsName}'"); }
             cs.ExecuteInitScript(ws.ScriptInit.CSharp);
         }
         visiting.Remove(wsName);
@@ -1265,25 +1221,11 @@ new __CsHandlers_Global()
     private void ExecuteAllWorkspaceCSharpScriptInits() {
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (IsScriptDebugEnabled()) {
-            try {
-                System.Console.Error.WriteLine("[CS:init] ExecuteAllWorkspaceCSharpScriptInits begin");
-            }
-            catch {
-                System.Console.Error.WriteLine("[CS:init] Error occurred while logging ExecuteAllWorkspaceCSharpScriptInits begin.");
-            }
-        }
+    if (IsScriptDebugEnabled()) { DebugLog("[CS:init] ExecuteAllWorkspaceCSharpScriptInits begin"); }
         foreach (var kvp in _workspaceService.BaseConfig.Workspaces) {
             ExecuteWorkspaceCSharpScriptInitRecursive(kvp.Key, kvp.Value, visiting, visited);
         }
-        if (IsScriptDebugEnabled()) {
-            try {
-                System.Console.Error.WriteLine("[CS:init] ExecuteAllWorkspaceCSharpScriptInits end");
-            }
-            catch {
-                System.Console.Error.WriteLine("[CS:init] Error occurred while logging ExecuteAllWorkspaceCSharpScriptInits end.");
-            }
-        }
+    if (IsScriptDebugEnabled()) { DebugLog("[CS:init] ExecuteAllWorkspaceCSharpScriptInits end"); }
     }
 
     // Legacy path: baseConfig.InitScript and per-workspace ws.InitScript; now deferred to activation
@@ -1620,18 +1562,12 @@ partial class WorkspaceScriptingOrchestrator {
 
             if (timingsEnabled && sw is not null) {
                 var line = $"A2C_TIMINGS: scriptingInit.csEngine={sw.Elapsed.TotalMilliseconds:F1} ms";
-                try {
-                    System.Console.WriteLine(line);
-                }
-                catch {
-                }
+                try { System.Console.WriteLine(line); }
+                catch (Exception ex) { DebugLog("[Orch] timings stdout write failed", ex); }
 
                 if (mirrorTimings) {
-                    try {
-                        System.Console.Error.WriteLine(line);
-                    }
-                    catch {
-                    }
+                    try { System.Console.Error.WriteLine(line); }
+                    catch (Exception ex) { DebugLog("[Orch] timings stderr write failed", ex); }
                 }
             }
             _csEngineInitialized = true;

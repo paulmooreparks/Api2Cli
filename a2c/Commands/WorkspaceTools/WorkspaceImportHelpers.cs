@@ -4,6 +4,14 @@ using System.Linq;
 namespace ParksComputing.Api2Cli.Cli.Commands.WorkspaceTools;
 
 internal static class WorkspaceImportHelpers {
+    private static bool IsScriptDebugEnabled() => string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
+    private static void DebugLog(string message, Exception? ex = null) {
+        if (!IsScriptDebugEnabled()) { return; }
+        try {
+            System.Console.Error.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message);
+        } catch { }
+    }
     internal static string GetRelativePath(string baseDir, string target) {
         if (string.IsNullOrWhiteSpace(baseDir) || string.IsNullOrWhiteSpace(target)) {
             return target;
@@ -35,7 +43,7 @@ internal static class WorkspaceImportHelpers {
             }
             return rel;
         }
-        catch { return target; }
+    catch (Exception ex) { DebugLog($"[WorkspaceImport] GetRelativePath failed for '{target}'", ex); return target; }
     }
 
     internal static string MakeRequestName(string method, string path, string? operationId) {
