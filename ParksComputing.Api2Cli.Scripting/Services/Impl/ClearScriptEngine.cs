@@ -66,6 +66,46 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
 
     public dynamic Script => Engine.Script;
 
+    public void Reset() {
+        // Dispose existing V8 engine and clear all cached projection/init state so reload behaves like fresh start
+        try { _engine?.Dispose(); } catch { /* ignore dispose failures */ }
+        _engine = null;
+        _isInitialized = false;
+        // Clear all internal caches so that subsequent InitializeScriptEnvironment() performs a clean re-projection
+        _workspaceCache.Clear();
+        _requestCache.Clear();
+        _definedRequestWrappers.Clear();
+        _definedWorkspaceWrappers.Clear();
+        _compiledWorkspaceInitScripts.Clear();
+        _executedGlobalInits.Clear();
+        _executedWorkspaceInits.Clear();
+
+        // Clear dynamic workspace objects previously projected onto the public API root to avoid duplicate key adds
+        try {
+            if (_a2c.Workspaces is IDictionary<string, object?> wsDict) {
+                // Collect keys first to avoid modifying during enumeration
+                var keys = wsDict.Keys.ToList();
+                wsDict.Clear();
+                // Also remove any top-level dynamic properties (set to null invokes removal via indexer)
+                foreach (var k in keys) {
+                    try { _a2c[k] = null; } catch { /* ignore */ }
+                }
+            }
+            // Remove any remaining non-workspace dynamic properties (e.g., hideReplMessages) so they can be re-added
+            try {
+                var dynNames = _a2c.GetDynamicMemberNames()?.ToList();
+                if (dynNames is not null) {
+                    foreach (var name in dynNames) {
+                        try { _a2c[name] = null; } catch { /* ignore */ }
+                    }
+                }
+            } catch { /* ignore */ }
+        }
+        catch { /* non-fatal; worst case duplicate detection will log later */ }
+
+        // Any other per-run state (e.g., packages) will be reloaded lazily during InitializeScriptEnvironment()
+    }
+
     private void PackagesUpdated() {
         LoadPackageAssemblies();
     }

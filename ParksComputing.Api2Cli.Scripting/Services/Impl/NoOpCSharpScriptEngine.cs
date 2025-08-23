@@ -46,5 +46,10 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
     public void EnsureWorkspaceProjected(string workspaceName) { /* no-op */ }
 
     public void ExecuteWorkspaceInitFor(string workspaceName) { /* no-op */ }
+
+            public void Reset() {
+                // Recreate globals so any previously set variables are cleared
+                _globals = new ExpandoObject();
+            }
     }
 }

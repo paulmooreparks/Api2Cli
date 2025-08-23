@@ -92,4 +92,8 @@ public interface IApi2CliScriptEngine {
     // Lazy activation support: execute init scripts for a single workspace (base-first) on demand.
     // Engines that don't handle per-workspace init may implement this as a no-op.
     void ExecuteWorkspaceInitFor(string workspaceName);
+
+    // Reset internal engine state (dispose underlying engine, clear caches, globals, and init flags)
+    // so that subsequent InitializeScriptEnvironment / init scripts execute as on first process start.
+    void Reset();
 }

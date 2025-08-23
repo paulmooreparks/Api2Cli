@@ -96,6 +96,26 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         // No per-request JS wiring here; ClearScriptEngine defines minimal execute() shims lazily per request
     }
 
+    public void ResetForReload() {
+        // Clear orchestrator internal state so reload behaves like fresh start
+        lock (_csBuildLock) {
+            _needCs = false;
+            _hasAnyCSharpHandlers = false;
+            _csGlobalBuilt = false;
+            _csWorkspaceBuilt.Clear();
+            _csGlobalInitRan = false;
+            _csEngineInitialized = false;
+            _csLegacyInitRan = false;
+            _csWorkspaceInitRan.Clear();
+            _jsWorkspaceInitRan.Clear();
+            _csCompiledWrappers.Clear();
+        }
+
+        // Reset underlying engines (ignore errors; they will be lazily re-created)
+        try { _engineFactory.GetEngine(Scripting.Services.ScriptEngineKinds.JavaScript).Reset(); } catch { }
+        try { _engineFactory.GetEngine(Scripting.Services.ScriptEngineKinds.CSharp).Reset(); } catch { }
+    }
+
     public void Initialize() {
         var js = _engineFactory.GetEngine(JavaScript);
 

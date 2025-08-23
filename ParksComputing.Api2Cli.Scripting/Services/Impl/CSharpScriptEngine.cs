@@ -405,6 +405,22 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             return ExecuteScript(script);
         }
 
+        public void Reset() {
+            // Clear Roslyn script state so that global and per-workspace init scripts re-run after reload
+            _state = null;
+            _globalInitExecuted = false;
+            _globals.Clear();
+            _scriptGlobals = new ExpandoObject();
+            _options = CreateScriptOptions(); // Rebuild references (may have changed via reload/packages)
+            // Re-add host objects
+            AddHostObject("Console", typeof(Console));
+            AddHostObject("Task", typeof(Task));
+            AddHostObject("a2c", _a2c);
+            AddHostObject("a2cjs", new CaseInsensitiveDynamicProxy(_a2c));
+            AddHostObject("console", typeof(ConsoleScriptObject));
+            _typedGlobals = new ScriptGlobals { a2c = _a2c, a2cjs = new CaseInsensitiveDynamicProxy(_a2c) };
+        }
+
         public void InvokePreRequest(params object?[] args) {
             if (((IDictionary<string, object?>) _scriptGlobals).TryGetValue("PreRequest", out var func) && func is Delegate d) {
                 d.DynamicInvoke(args);
