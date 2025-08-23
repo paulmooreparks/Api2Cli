@@ -92,6 +92,37 @@
 			"problemMatcher": [
 				"$msCompile"
 			]
+		},
+		{
+			"label": "run a2c --version",
+			"command": "dotnet",
+			"type": "shell",
+			"args": [
+				"run",
+				"--project",
+				"a2c",
+				"--",
+				"--version"
+			],
+			"group": "test",
+			"problemMatcher": ["$msCompile"],
+			"presentation": {"reveal": "silent"}
+		},
+		{
+			"label": "run a2c --version timings",
+			"command": "dotnet",
+			"type": "shell",
+			"options": {"env": {"A2C_TIMINGS": "1"}},
+			"args": [
+				"run",
+				"--project",
+				"a2c",
+				"--",
+				"--version"
+			],
+			"group": "test",
+			"problemMatcher": ["$msCompile"],
+			"presentation": {"reveal": "silent"}
 		}
 	]
 }

@@ -45,7 +45,8 @@ internal class WorkspaceReplContext : DefaultReplContext
     public override async Task<int> RunAsync(Command workspaceCommand, string[] args) {
         // Prevent recursive invocation of the same command
         if (args.Length > 0 && string.Equals(args[0], workspaceCommand.Name, StringComparison.OrdinalIgnoreCase)) {
-            Console.WriteLine($"Already in '{workspaceCommand.Name}' context.");
+            var console = Utility.GetService<IConsoleWriter>();
+            console?.WriteLine($"Already in '{workspaceCommand.Name}' context.", category: "cli.repl", code: "context.duplicate", ctx: new Dictionary<string, object?> { ["context"] = workspaceCommand.Name });
             return Result.Success;
         }
 

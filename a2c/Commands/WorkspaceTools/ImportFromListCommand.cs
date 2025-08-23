@@ -6,6 +6,7 @@ using Cliffer;
 
 using ParksComputing.Api2Cli.Workspace;
 using ParksComputing.Api2Cli.Workspace.Services;
+using ParksComputing.Api2Cli.Cli.Services;
 
 namespace ParksComputing.Api2Cli.Cli.Commands.WorkspaceTools;
 
@@ -16,8 +17,9 @@ namespace ParksComputing.Api2Cli.Cli.Commands.WorkspaceTools;
 [Option(typeof(string), "--baseurl", "Base URL to set (e.g., https://api.example.com)", ["-b"], IsRequired = false)]
 [Option(typeof(bool), "--force", "Overwrite existing directory and workspace.xfer", ["-f"], IsRequired = false)]
 internal class ImportFromListCommand(
-    IWorkspaceService workspaceService
-) : WorkspaceImportCommandBase(workspaceService) {
+    IWorkspaceService workspaceService,
+    IConsoleWriter consoleWriter
+) : WorkspaceImportCommandBase(workspaceService, consoleWriter) {
     public async Task<int> Execute(
         [OptionParam("--name")] string name,
     [OptionParam("--dir")] string? dir,
@@ -70,7 +72,7 @@ internal class ImportFromListCommand(
             return Result.Success;
         }
         catch (Exception ex) {
-            Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Import failed: {ex.Message}");
+            ConsoleWriter.WriteError($"Import failed: {ex.Message}", category: "cli.workspace.import", code: "import.failure", ex: ex);
             return Result.Error;
         }
     }

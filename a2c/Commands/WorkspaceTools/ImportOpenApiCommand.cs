@@ -8,6 +8,8 @@ using Cliffer;
 
 using ParksComputing.Api2Cli.Workspace;
 using ParksComputing.Api2Cli.Workspace.Services;
+using ParksComputing.Api2Cli.Diagnostics.Services.Unified; // for diagnostics extension methods
+using ParksComputing.Api2Cli.Cli.Services;
 
 namespace ParksComputing.Api2Cli.Cli.Commands.WorkspaceTools;
 
@@ -19,8 +21,9 @@ namespace ParksComputing.Api2Cli.Cli.Commands.WorkspaceTools;
 [Option(typeof(bool), "--force", "Overwrite existing directory and workspace.xfer", new[] { "-f" }, IsRequired = false)]
 [Argument(typeof(string), "source", "Path or URL to an OpenAPI JSON document or a Swagger UI page to auto-discover from.", Arity = Cliffer.ArgumentArity.ZeroOrOne)]
 internal class ImportOpenApiCommand(
-    IWorkspaceService workspaceService
-) : WorkspaceImportCommandBase(workspaceService) {
+    IWorkspaceService workspaceService,
+    IConsoleWriter consoleWriter
+) : WorkspaceImportCommandBase(workspaceService, consoleWriter) {
     public async Task<int> Execute(
         [OptionParam("--name")] string name,
     [OptionParam("--dir")] string? dir,
@@ -32,7 +35,7 @@ internal class ImportOpenApiCommand(
         try {
             var effectiveSource = openapi ?? source;
             if (string.IsNullOrWhiteSpace(effectiveSource)) {
-                Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Please specify a source URL or file path (positional) or use --openapi.");
+                ConsoleWriter.WriteError("Please specify a source URL or file path (positional) or use --openapi.", category: "cli.workspace.import", code: "import.missingSource");
                 return Result.InvalidArguments;
             }
             dir ??= name; // default directory name from workspace name
@@ -42,7 +45,7 @@ internal class ImportOpenApiCommand(
 
             if (!LooksLikeJson(content)) {
                 if (IsYamlIndicated(contentType) || LooksLikeYaml(content)) {
-                    Console.Error.WriteLine("YAML OpenAPI specs are not yet supported. Please supply a JSON spec.");
+                    ConsoleWriter.WriteError("YAML OpenAPI specs are not yet supported. Please supply a JSON spec.", category: "cli.workspace.import", code: "import.yamlUnsupported");
                     return Result.InvalidArguments;
                 }
             }
@@ -68,7 +71,7 @@ internal class ImportOpenApiCommand(
             };
 
             if (!root.TryGetProperty("paths", out var paths) || paths.ValueKind != JsonValueKind.Object) {
-                Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Invalid OpenAPI document: missing 'paths'.");
+                ConsoleWriter.WriteError("Invalid OpenAPI document: missing 'paths'.", category: "cli.workspace.import", code: "import.missingPaths");
                 return Result.InvalidArguments;
             }
 
@@ -101,11 +104,11 @@ internal class ImportOpenApiCommand(
             return Result.Success;
         }
         catch (JsonException jx) {
-            Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Failed to parse OpenAPI JSON: {jx.Message}");
+            ConsoleWriter.WriteError($"Failed to parse OpenAPI JSON: {jx.Message}", category: "cli.workspace.import", code: "import.jsonParse.failure", ex: jx);
             return Result.Error;
         }
         catch (Exception ex) {
-            Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Import failed: {ex.Message}");
+            ConsoleWriter.WriteError($"Import failed: {ex.Message}", category: "cli.workspace.import", code: "import.failure", ex: ex);
             return Result.Error;
         }
     }
@@ -181,7 +184,13 @@ internal class ImportOpenApiCommand(
             return (true, body, ct);
         }
         catch (Exception ex) {
-            if (IsScriptDebugEnabled()) { try { Console.Error.WriteLine($"[ImportOpenApi] GET {uri} failed :: {ex.GetType().Name}: {ex.Message}"); } catch { } }
+            // Always surface network fetch errors immediately; no env flag required.
+            // (Multiple candidates may be tried; keep single-line concise output.)
+            var console = ParksComputing.Api2Cli.Cli.Services.Utility.GetService<ParksComputing.Api2Cli.Cli.Services.IConsoleWriter>();
+            console?.WriteError($"[ImportOpenApi] GET {uri} failed :: {ex.GetType().Name}: {ex.Message}", category: "cli.workspace.import", code: "http.fetch.failure", ex: ex,
+                ctx: new Dictionary<string, object?> { ["uri"] = uri.ToString(), ["exceptionType"] = ex.GetType().Name });
+            ParksComputing.Api2Cli.Cli.Services.Utility.GetService<ParksComputing.Api2Cli.Diagnostics.Services.Unified.IUnifiedDiagnostics>()?
+                .Error("cli.workspace.import", "http.fetch.failure", ex: ex, ctx: new Dictionary<string, object?> { ["uri"] = uri.ToString(), ["exceptionType"] = ex.GetType().Name });
             return (false, null, null);
         }
     }

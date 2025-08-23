@@ -20,6 +20,8 @@ using System.CommandLine.Parsing;
 using ParksComputing.Api2Cli.Http.Services;
 using ParksComputing.Api2Cli.Orchestration.Services;
 using System.Net.Http;
+using ParksComputing.Api2Cli.Diagnostics.Services.Unified; // unified diagnostics (legacy direct use; will be minimized)
+using ParksComputing.Api2Cli.Cli.Services; // Hybrid console + diagnostics writer
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
 
@@ -32,6 +34,7 @@ public class SendCommand {
     private readonly IWorkspaceScriptingOrchestrator _orchestrator;
     private readonly IPropertyResolver _propertyResolver;
     private readonly ISettingsService _settingsService;
+    private readonly IConsoleWriter _console;
 
     public object? CommandResult { get; private set; } = null;
 
@@ -40,9 +43,10 @@ public class SendCommand {
         A2CApi a2c,
         IWorkspaceService workspaceService,
         IApi2CliScriptEngineFactory scriptEngineFactory,
-    IWorkspaceScriptingOrchestrator orchestrator,
+        IWorkspaceScriptingOrchestrator orchestrator,
         IPropertyResolver? propertyResolver,
-        ISettingsService? settingsService
+        ISettingsService? settingsService,
+        IConsoleWriter consoleWriter
         ) {
         if (httpService is null) {
             throw new ArgumentNullException(nameof(httpService), "HTTP service cannot be null.");
@@ -64,7 +68,8 @@ public class SendCommand {
             throw new ArgumentNullException(nameof(settingsService), "Settings service cannot be null.");
         }
 
-        _settingsService = settingsService;
+    _settingsService = settingsService;
+    _console = consoleWriter ?? throw new ArgumentNullException(nameof(consoleWriter));
     }
 
     public int Handler(
@@ -97,7 +102,7 @@ public class SendCommand {
         var result = DoCommand(workspaceName, requestName, baseUrl, parameters, payload, headers, cookies, tokenArguments, objArguments);
 
         if (CommandResult is not null && !CommandResult.Equals(Undefined.Value)) {
-            Console.WriteLine(CommandResult);
+            _console.WriteLine(CommandResult.ToString() ?? string.Empty, category: "cli.send", code: "request.result");
         }
 
         return result;
@@ -115,19 +120,20 @@ public class SendCommand {
         object?[]? objArguments
         ) {
         var reqSplit = requestName.Split('.');
+    // Use IConsoleWriter for user-facing messages; it mirrors to diagnostics automatically.
 
         if (_ws == null || _ws.BaseConfig == null || _ws.BaseConfig.Workspaces == null) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Workspace name '{workspaceName}' not found in current configuration.");
+            _console.WriteError($"{Constants.ErrorChar} Workspace name '{workspaceName}' not found in current configuration.", category: "cli.send", code: "workspace.notFound", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName });
             return Result.Error;
         }
 
         if (!_ws.BaseConfig.Workspaces.TryGetValue(workspaceName, out WorkspaceDefinition? workspace)) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Workspace name '{workspaceName}' not found in current configuration.");
+            _console.WriteError($"{Constants.ErrorChar} Workspace name '{workspaceName}' not found in current configuration.", category: "cli.send", code: "workspace.notFound", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName });
             return Result.Error;
         }
 
         if (!workspace.Requests.TryGetValue(requestName, out var definition) || definition is null) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Request name '{requestName}' not found in current workspace.");
+            _console.WriteError($"{Constants.ErrorChar} Request name '{requestName}' not found in current workspace.", category: "cli.send", code: "request.notFound", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName });
             return Result.Error;
         }
 
@@ -282,7 +288,7 @@ public class SendCommand {
                 extraArgs.ToArray());
         }
         catch (Exception ex) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Error executing preRequest script: {ex.Message}");
+            _console.WriteError($"{Constants.ErrorChar} Error executing preRequest script: {ex.Message}", category: "cli.send", code: "prerequest.failure", ex: ex, ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName });
         }
 
         var finalHeaders = configHeaders
@@ -296,11 +302,11 @@ public class SendCommand {
         var result = Result.Success;
 
         switch (method) {
-            case "GET": {
-                    var getCommand = new GetCommand(_a2c);
+        case "GET": {
+            var getCommand = new GetCommand(_a2c, _console);
 
                     if (getCommand is null) {
-                        Console.Error.WriteLine($"{Constants.ErrorChar} Error: Unable to find GET command.");
+                        _console.WriteError($"{Constants.ErrorChar} Error: Unable to find GET command.", category: "cli.send", code: "get.missing", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName });
                         return Result.Error;
                     }
                     result = getCommand.Execute(endpoint, baseUrl, finalParameters, finalHeaders, finalCookies, isQuiet: true);
@@ -316,17 +322,17 @@ public class SendCommand {
                             );
                     }
                     catch (Exception ex) {
-                        Console.Error.WriteLine($"{Constants.ErrorChar} Error executing preRequest script: {ex.Message}");
+                        _console.WriteError($"{Constants.ErrorChar} Error executing postResponse script: {ex.Message}", category: "cli.send", code: "postresponse.failure", ex: ex, ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName, ["method"] = "GET" });
                     }
 
                     break;
                 }
 
-            case "POST": {
-                    var postCommand = new PostCommand(_a2c);
+        case "POST": {
+            var postCommand = new PostCommand(_a2c, _console);
 
                     if (postCommand is null) {
-                        Console.Error.WriteLine($"{Constants.ErrorChar} Error: Unable to find POST command.");
+                        _console.WriteError($"{Constants.ErrorChar} Error: Unable to find POST command.", category: "cli.send", code: "post.missing", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName });
                         return Result.Error;
                     }
 
@@ -345,14 +351,14 @@ public class SendCommand {
                             );
                     }
                     catch (Exception ex) {
-                        Console.Error.WriteLine($"{Constants.ErrorChar} Error executing preRequest script: {ex.Message}");
+                        _console.WriteError($"{Constants.ErrorChar} Error executing postResponse script: {ex.Message}", category: "cli.send", code: "postresponse.failure", ex: ex, ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName, ["method"] = "POST" });
                     }
 
                     break;
                 }
 
             default:
-                Console.Error.WriteLine($"{Constants.ErrorChar} Unknown method {method}");
+                _console.WriteError($"{Constants.ErrorChar} Unknown method {method}", category: "cli.send", code: "method.unknown", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName, ["method"] = method });
                 result = Result.Error;
                 break;
         }

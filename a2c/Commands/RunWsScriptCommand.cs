@@ -18,6 +18,7 @@ using ParksComputing.Api2Cli.Orchestration.Services;
 using ParksComputing.Api2Cli.Cli.Services;
 using ParksComputing.Xfer.Lang;
 using System.Globalization;
+using ParksComputing.Api2Cli.Diagnostics.Services.Unified; // unified diagnostics
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
 
@@ -25,6 +26,7 @@ internal class RunWsScriptCommand {
     private readonly IWorkspaceService _workspaceService;
     private readonly IApi2CliScriptEngineFactory _scriptEngineFactory;
     private readonly IApi2CliScriptEngine _scriptEngine;
+    private readonly IConsoleWriter _console;
 
     // Cache resolved JS function references to avoid repeated dynamic lookups
     private static readonly ConcurrentDictionary<string, Microsoft.ClearScript.ScriptObject> _jsFuncCache = new();
@@ -40,9 +42,8 @@ internal class RunWsScriptCommand {
 
     private static void DebugLog(string message, Exception? ex = null) {
         if (!IsScriptDebugEnabled()) { return; }
-        try {
-            Console.Error.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message);
-        } catch { }
+        var cw = Utility.GetService<IConsoleWriter>();
+        cw?.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message, category: "cli.debug", code: "debug.message");
     }
 
     public object? CommandResult { get; private set; } = null;
@@ -50,11 +51,13 @@ internal class RunWsScriptCommand {
     public RunWsScriptCommand(
         IWorkspaceService workspaceService,
         IApi2CliScriptEngineFactory scriptEngineFactory,
-        IApi2CliScriptEngine scriptEngine
+        IApi2CliScriptEngine scriptEngine,
+        IConsoleWriter consoleWriter
         ) {
         _workspaceService = workspaceService;
         _scriptEngineFactory = scriptEngineFactory;
         _scriptEngine = scriptEngine;
+        _console = consoleWriter;
     }
 
     public int Handler(
@@ -76,7 +79,7 @@ internal class RunWsScriptCommand {
         var result = DoCommand(invocationContext, scriptName, workspaceName, args, tokenArguments);
 
         if (CommandResult is not null && !CommandResult.Equals(Undefined.Value)) {
-            Console.WriteLine(CommandResult);
+            _console.WriteLine(CommandResult?.ToString() ?? string.Empty, category: "cli.run", code: "script.result");
         }
 
         return result;
@@ -90,7 +93,7 @@ internal class RunWsScriptCommand {
         IReadOnlyList<System.CommandLine.Parsing.Token>? tokenArguments
         ) {
         if (scriptName is null) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Script name is required.");
+            _console.WriteError($"{Constants.ErrorChar} Script name is required.", "cli.run", code: "script.missingName");
             return Result.Error;
         }
 
@@ -109,7 +112,7 @@ internal class RunWsScriptCommand {
         if (string.IsNullOrEmpty(workspaceName)) {
             found = _workspaceService.BaseConfig.Scripts.TryGetValue(scriptName, out scriptDefinition);
             if (!found) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} Script '{scriptName}' not found.");
+                _console.WriteError($"{Constants.ErrorChar} Script '{scriptName}' not found.", "cli.run", code: "script.notFound", ctx: new Dictionary<string, object?> { ["script"] = scriptName });
                 return Result.Error;
             }
         }
@@ -117,18 +120,18 @@ internal class RunWsScriptCommand {
             if (_workspaceService.BaseConfig.Workspaces.TryGetValue(workspaceName, out var workspace)) {
                 found = workspace.Scripts.TryGetValue(scriptName, out scriptDefinition);
                 if (!found) {
-                    Console.Error.WriteLine($"{Constants.ErrorChar} Script '{workspaceName}.{scriptName}' not found.");
+                    _console.WriteError($"{Constants.ErrorChar} Script '{workspaceName}.{scriptName}' not found.", "cli.run", code: "script.notFound", ctx: new Dictionary<string, object?> { ["script"] = scriptName, ["workspace"] = workspaceName });
                     return Result.Error;
                 }
             }
             else {
-                Console.Error.WriteLine($"{Constants.ErrorChar} Workspace '{workspaceName}' not found.");
+                _console.WriteError($"{Constants.ErrorChar} Workspace '{workspaceName}' not found.", "cli.run", code: "workspace.notFound", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName });
                 return Result.Error;
             }
         }
 
         if (scriptDefinition is null) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Script definition not found");
+            _console.WriteError($"{Constants.ErrorChar} Script definition not found", "cli.run", code: "script.definition.missing", ctx: new Dictionary<string, object?> { ["script"] = scriptName, ["workspace"] = workspaceName });
             return Result.Error;
         }
 
@@ -303,7 +306,11 @@ internal class RunWsScriptCommand {
                             invokedViaReference = true;
                         }
                         catch (Microsoft.ClearScript.ScriptEngineException ex) {
-                            System.Console.Error.WriteLine($"[JS:err-probe] a2c.workspaces['{JsEscape(workspaceName)}']['{JsEscape(scriptName)}'] threw: {ex.ErrorDetails}");
+                            var details = ex.ErrorDetails;
+                            Utility.GetService<IUnifiedDiagnostics>()?.Error("cli.run", "script.invoke.reference.error", ex: ex, ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["script"] = scriptName, ["details"] = details });
+                            if (IsScriptDebugEnabled()) {
+                                _console.WriteLine($"[JS:err-probe] a2c.workspaces['{workspaceName}']['{scriptName}'] threw: {details}", category: "cli.debug", code: "script.invoke.reference.error");
+                            }
                         }
                         // fall back to __script__ path below
                     }
@@ -311,7 +318,8 @@ internal class RunWsScriptCommand {
             }
         }
         catch (Microsoft.ClearScript.ScriptEngineException ex) {
-            System.Console.Error.WriteLine($"[JS:err-probe] Direct a2c reference invocation threw: {ex.ErrorDetails}");
+            Utility.GetService<IUnifiedDiagnostics>()?.Error("cli.run", "script.invoke.reference.directError", ex: ex, ctx: new Dictionary<string, object?> { ["script"] = scriptName, ["workspace"] = workspaceName, ["details"] = ex.ErrorDetails });
+            if (IsScriptDebugEnabled()) { _console.WriteLine($"[JS:err-probe] Direct a2c reference invocation threw: {ex.ErrorDetails}", category: "cli.debug", code: "script.invoke.reference.directError"); }
         }
 
         if (!invokedViaReference) {
@@ -333,12 +341,64 @@ internal class RunWsScriptCommand {
                 }
             }
             catch (Microsoft.ClearScript.ScriptEngineException ex) {
-                System.Console.Error.WriteLine($"{Constants.ErrorChar} Script invoke error via a2c.__callScript: {ex.ErrorDetails}");
+                // Show concise first line + a trimmed stack excerpt immediately (no env var needed)
+                var detailsRaw = ex.ErrorDetails ?? ex.Message;
+                var lines = detailsRaw.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                var firstLine = lines.FirstOrDefault() ?? ex.Message;
+                // Strip duplicated leading "Error:" prefix if present (ClearScript includes this already)
+                var cleanedFirst = firstLine.Trim();
+                if (cleanedFirst.StartsWith("Error:", StringComparison.OrdinalIgnoreCase)) {
+                    cleanedFirst = cleanedFirst.Substring(6).TrimStart();
+                }
+                // Find first script frame line (e.g. "at Script [45] [temp]:6:29 ->  code")
+                string? frameLine = lines.Skip(1).FirstOrDefault(l => l.TrimStart().StartsWith("at Script ["));
+                int? frameLineNumber = null;
+                int? frameColumnNumber = null;
+                string? frameSnippet = null;
+                if (!string.IsNullOrEmpty(frameLine)) {
+                    // Parse pattern
+                    var m = System.Text.RegularExpressions.Regex.Match(frameLine, @"at Script \[\d+\] \[temp\]:(\d+):(\d+) *-> *(.*)");
+                    if (m.Success) {
+                        if (int.TryParse(m.Groups[1].Value, out var ln)) {
+                            frameLineNumber = ln;
+                        }
+                        if (int.TryParse(m.Groups[2].Value, out var col)) {
+                            frameColumnNumber = col;
+                        }
+                        frameSnippet = m.Groups[3].Value.Trim();
+                    }
+                }
+                var fullName = string.IsNullOrEmpty(workspaceName) ? scriptName : workspaceName + "." + scriptName;
+                var locationPart = frameLineNumber is null ? string.Empty : (frameSnippet is not null && frameSnippet.Length > 0 ? $" (line {frameLineNumber}: {frameSnippet})" : $" (line {frameLineNumber})");
+                // Compose concise display
+                var concise = $"{cleanedFirst}{locationPart}";
+                Utility.GetService<IUnifiedDiagnostics>()?.Error("cli.run", "script.invoke.callScript.error", ex: ex, ctx: new Dictionary<string, object?> {
+                    ["script"] = scriptName,
+                    ["workspace"] = workspaceName,
+                    ["details"] = detailsRaw,
+                    ["firstLine"] = firstLine,
+                    ["parsedLine"] = frameLineNumber,
+                    ["parsedColumn"] = frameColumnNumber,
+                    ["snippet"] = frameSnippet,
+                    ["rawFrameLine"] = frameLine
+                });
+                _console.WriteError($"{Constants.ErrorChar} Script '{fullName}' failed: {concise}", "cli.run", code: "script.invoke.callScript.error", ex: ex, ctx: new Dictionary<string, object?> {
+                    ["script"] = scriptName,
+                    ["workspace"] = workspaceName,
+                    ["message"] = cleanedFirst,
+                    ["line"] = frameLineNumber,
+                    ["column"] = frameColumnNumber,
+                    ["snippet"] = frameSnippet
+                });
                 return Result.Error;
             }
             catch (Exception ex) {
                 var root = ex.GetBaseException();
-                Console.Error.WriteLine($"{Constants.ErrorChar} Script '{(string.IsNullOrEmpty(workspaceName) ? scriptName : workspaceName + "." + scriptName)}' threw an error.\n- Verify the script body compiles and any required packages are installed.\n- Enable A2C_SCRIPT_DEBUG=1 for more details.\nDetails: {root.Message}\n{root.StackTrace}");
+                var msgLine = (root.Message ?? "").Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? root.Message;
+                var trace = root.StackTrace?.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
+                Utility.GetService<IUnifiedDiagnostics>()?.Error("cli.run", "script.invoke.unhandled", ex: root, ctx: new Dictionary<string, object?> { ["script"] = scriptName, ["workspace"] = workspaceName, ["message"] = root.Message, ["traceFirst"] = trace });
+                var fullName2 = string.IsNullOrEmpty(workspaceName) ? scriptName : workspaceName + "." + scriptName;
+                _console.WriteError($"{Constants.ErrorChar} Script '{fullName2}' failed: {msgLine}{(string.IsNullOrWhiteSpace(trace) ? string.Empty : " :: " + trace)}", "cli.run", code: "script.invoke.unhandled", ex: root, ctx: new Dictionary<string, object?> { ["script"] = scriptName, ["workspace"] = workspaceName, ["message"] = root.Message });
                 return Result.Error;
             }
         }
@@ -393,7 +453,8 @@ internal class RunWsScriptCommand {
             }
         }
         catch (Exception ex) {
-            Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Argument conversion failed for value '{s}' -> {typeToken}: {ex.Message}");
+            Utility.GetService<IUnifiedDiagnostics>()?.Error("cli.run", "arg.convert.failure", ex: ex, ctx: new Dictionary<string, object?> { ["value"] = s, ["targetType"] = typeToken });
+            Utility.GetService<IConsoleWriter>()?.WriteError($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Argument conversion failed for value '{s}' -> {typeToken}: {ex.Message}", "cli.run", code: "arg.convert.failure", ex: ex, ctx: new Dictionary<string, object?> { ["value"] = s, ["targetType"] = typeToken });
             throw;
         }
     }
@@ -426,7 +487,8 @@ internal class RunWsScriptCommand {
             return parts.Select(p => CoerceScalarArg(p, elemToken)).ToArray();
         }
         catch (Exception ex) {
-            Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Array argument conversion failed: {ex.Message}");
+            Utility.GetService<IUnifiedDiagnostics>()?.Error("cli.run", "arg.array.convert.failure", ex: ex, ctx: new Dictionary<string, object?> { ["value"] = s, ["elemType"] = elemToken });
+            Utility.GetService<IConsoleWriter>()?.WriteError($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Array argument conversion failed: {ex.Message}", "cli.run", code: "arg.array.convert.failure", ex: ex, ctx: new Dictionary<string, object?> { ["value"] = s, ["elemType"] = elemToken });
             throw;
         }
     }
@@ -462,7 +524,7 @@ internal class RunWsScriptCommand {
             return t;
         }
         try { return Type.GetType($"System.{typeName}", throwOnError: false, ignoreCase: true); }
-    catch (Exception ex) { DebugLog($"[Run] TryGetType fallback failed for '{typeName}'", ex); return null; }
+    catch (Exception ex) { /* debug logging only if enabled */ DebugLog($"[Run] TryGetType fallback failed for '{typeName}'", ex); return null; }
     }
 
     // After a successful fallback invocation, try to resolve the canonical a2c.* reference and cache it.

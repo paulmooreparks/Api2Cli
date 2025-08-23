@@ -77,7 +77,8 @@ public class RequestRunnerViewModel : System.ComponentModel.INotifyPropertyChang
                 _services.GetRequiredService<ParksComputing.Api2Cli.Scripting.Services.IApi2CliScriptEngineFactory>(),
                 _services.GetRequiredService<IWorkspaceScriptingOrchestrator>(),
                 _services.GetRequiredService<ParksComputing.Api2Cli.Scripting.Services.IPropertyResolver>(),
-                _services.GetRequiredService<ParksComputing.Api2Cli.Workspace.Services.ISettingsService>()
+                _services.GetRequiredService<ParksComputing.Api2Cli.Workspace.Services.ISettingsService>(),
+                _services.GetRequiredService<ParksComputing.Api2Cli.Cli.Services.IConsoleWriter>()
             );
 
             var result = send.DoCommand(

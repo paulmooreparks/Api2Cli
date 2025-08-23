@@ -5,6 +5,7 @@ using Cliffer;
 
 using ParksComputing.Api2Cli.Api;
 using ParksComputing.Api2Cli.Workspace;
+using ParksComputing.Api2Cli.Cli.Services;
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
 
@@ -14,12 +15,14 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 [Option(typeof(string), "--baseurl", "The base URL of the API.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(IEnumerable<string>), "--headers", "Headers to include in the request.", new[] { "-h" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
 internal class PutCommand(
-    A2CApi a2c
+    A2CApi a2c,
+    IConsoleWriter consoleWriter
     )
 {
     public string ResponseContent { get; protected set; } = string.Empty;
     public int StatusCode { get; protected set; } = 0;
     public HttpResponseHeaders? Headers { get; protected set; }
+    private readonly IConsoleWriter _console = consoleWriter;
 
     public int Execute(
         [ArgumentParam("payload")] string? payload,
@@ -33,7 +36,7 @@ internal class PutCommand(
             baseUrl ??= a2c.ActiveWorkspace.BaseUrl;
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
+                _console.WriteError($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}", category: "cli.put", code: "baseurl.invalid", ctx: new Dictionary<string, object?> { ["baseUrl"] = baseUrl, ["endpoint"] = endpoint });
                 return Result.InvalidArguments;
             }
         }
@@ -51,11 +54,11 @@ internal class PutCommand(
             var response = a2c.Http.Put(baseUrl, payload, headers);
 
             if (response is null) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUrl}");
+                _console.WriteError($"{Constants.ErrorChar} Error: No response received from {baseUrl}", category: "cli.put", code: "response.none", ctx: new Dictionary<string, object?> { ["baseUrl"] = baseUrl, ["endpoint"] = endpoint });
                 result = Result.Error;
             }
             else if (!response.IsSuccessStatusCode) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} {(int)response.StatusCode} {response.ReasonPhrase} at {baseUrl}");
+                _console.WriteError($"{Constants.ErrorChar} {(int)response.StatusCode} {response.ReasonPhrase} at {baseUrl}", category: "cli.put", code: "http.status.error", ctx: new Dictionary<string, object?> { ["baseUrl"] = baseUrl, ["endpoint"] = endpoint, ["status"] = (int)response.StatusCode, ["reason"] = response.ReasonPhrase });
                 result = Result.Error;
             }
 
@@ -64,7 +67,7 @@ internal class PutCommand(
             StatusCode = a2c.Http.StatusCode;
         }
         catch (Exception ex) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Error: {ex.Message}");
+            _console.WriteError($"{Constants.ErrorChar} Error: {ex.Message}", category: "cli.put", code: "http.request.failed", ex: ex, ctx: new Dictionary<string, object?> { ["baseUrl"] = baseUrl, ["endpoint"] = endpoint });
             result = Result.Error;
         }
 

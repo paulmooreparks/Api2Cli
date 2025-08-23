@@ -113,7 +113,7 @@ internal class WorkspaceService : IWorkspaceService {
 
     private static void DebugLog(string message, Exception? ex = null) {
         if (!IsScriptDebugEnabled()) { return; }
-        try { System.Console.Error.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message); } catch { }
+    System.Console.Error.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message);
     }
 
     public event Action<string>? ActiveWorkspaceChanged;
@@ -232,27 +232,24 @@ internal class WorkspaceService : IWorkspaceService {
                     workspace.Merge(parentWorkspace);
                 }
                 else {
-                    try {
-                        _diags.Emit(nameof(IWorkspaceService), new {
-                            Message = $"Workspace '{workspace.Name}' extends missing workspace '{workspace.Extend}'. Inheritance skipped.",
-                            Workspace = workspace.Name,
-                            MissingParent = workspace.Extend
-                        });
-                    } catch (Exception ex) { DebugLog($"[WorkspaceService] Emit missing parent warning failed for '{workspace.Name}'", ex); }
+                    _diags.Emit(nameof(IWorkspaceService), new {
+                        Message = $"Workspace '{workspace.Name}' extends missing workspace '{workspace.Extend}'. Inheritance skipped.",
+                        Workspace = workspace.Name,
+                        MissingParent = workspace.Extend
+                    });
                 }
             }
         }
 
         if (timingsEnabled && sw is not null) {
-            var line = $"A2C_TIMINGS: configParse={sw.Elapsed.TotalMilliseconds:F1} ms";
+            var ms = sw.Elapsed.TotalMilliseconds;
+            var line = $"A2C_TIMINGS: configParse={ms:F1} ms";
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
-            Console.WriteLine(line);
-
+            _diags.Emit("WorkspaceService.configParse", new { Message = line, ElapsedMs = ms });
             if (mirror) {
-                Console.Error.WriteLine(line);
+                _diags.Emit("WorkspaceService.configParse.mirror", new { Message = line, ElapsedMs = ms });
             }
-
         }
 
         return baseConfig;

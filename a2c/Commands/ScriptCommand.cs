@@ -23,16 +23,20 @@ internal class ScriptCommand {
     private readonly IApi2CliScriptEngineFactory _scriptEngineFactory;
     private readonly IReplContext _replContext;
 
+    private readonly IConsoleWriter? _console;
+
     public ScriptCommand(
         Command command,
         IApi2CliScriptEngineFactory scriptEngineFactory,
         ICommandSplitter splitter,
-        IWorkspaceService workspaceService
+    IWorkspaceService workspaceService,
+    IConsoleWriter consoleWriter
         )
     {
         _scriptEngineFactory = scriptEngineFactory;
-    _scriptEngine = _scriptEngineFactory.GetEngine(ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds.JavaScript);
+        _scriptEngine = _scriptEngineFactory.GetEngine(ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds.JavaScript);
         _replContext = new ScriptReplContext(command, _scriptEngineFactory, splitter, workspaceService);
+    _console = consoleWriter; // prefer direct DI injection
     }
 
     public async Task<int> Execute(
@@ -49,13 +53,13 @@ internal class ScriptCommand {
                 var output = _scriptEngine.ExecuteCommand(script);
 
                 if (output is not null && !output.Equals(Undefined.Value)) {
-                    Console.WriteLine(output);
+                    _console?.WriteLine(output.ToString() ?? string.Empty, category: "cli.script", code: "script.output");
                 }
 
                 return Result.Success;
             }
             catch (Exception ex) {
-                Console.Error.WriteLine($"{Workspace.Constants.ErrorChar} Error executing script: {ex.Message}");
+                _console?.WriteError($"{Workspace.Constants.ErrorChar} Error executing script: {ex.Message}", category: "cli.script", code: "script.error", ex: ex);
             }
 
             return Result.Error;

@@ -85,7 +85,8 @@ internal class ScriptReplContext : DefaultReplContext
                     var taskResultValue = property?.GetValue(taskResult);
                     if (taskResultValue is not null)
                     {
-                        Console.WriteLine(taskResultValue);
+                        var console = Utility.GetService<IConsoleWriter>();
+                        console?.WriteLine(taskResultValue?.ToString() ?? string.Empty, category: "cli.repl", code: "script.task.result");
                     }
                 }
             }
@@ -97,7 +98,8 @@ internal class ScriptReplContext : DefaultReplContext
             {
                 if (result is not null && !result.Equals(Undefined.Value))
                 {
-                    Console.WriteLine(result);
+                    var console = Utility.GetService<IConsoleWriter>();
+                    console?.WriteLine(result?.ToString() ?? string.Empty, category: "cli.repl", code: "script.result");
                 }
             }
 

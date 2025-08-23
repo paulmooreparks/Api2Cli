@@ -5,6 +5,7 @@ using ParksComputing.Api2Cli.Runtime.Services;
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Api2Cli.Cli.Commands; // for RunWsScriptCommand cache clear
+using ParksComputing.Api2Cli.Cli.Services; // IConsoleWriter
 using static ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds;
 
 namespace ParksComputing.Api2Cli.Runtime.Services.Impl;
@@ -40,7 +41,13 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
                 limit = parsed;
             }
 
-            var resolver = new RunWsScriptCommand(workspaceService, engineFactory, jsScriptEngine);
+            // Resolve console writer (may be null very early – skip warmup if unavailable)
+            var consoleWriter = Utility.GetService<IConsoleWriter>();
+            if (consoleWriter == null)
+            {
+                return; // Cannot perform warmup without console writer dependency; safe to exit early.
+            }
+            var resolver = new RunWsScriptCommand(workspaceService, engineFactory, jsScriptEngine, consoleWriter);
             int warmed = 0;
 
             foreach (var kvp in workspaceService.BaseConfig.Scripts)

@@ -19,7 +19,9 @@ public class ScriptCliBridge : IScriptCliBridge {
 
     [ScriptMember("runCommand")]
     public int RunCommand(string commandName, params object?[] args) {
-        Console.WriteLine(commandName);
+    // Emit via console writer if available; category cli.scriptBridge
+    var console = ParksComputing.Api2Cli.Cli.Services.Utility.GetService<ParksComputing.Api2Cli.Cli.Services.IConsoleWriter>();
+    console?.WriteLine(commandName, category: "cli.scriptBridge", code: "command.invoke", ctx: new Dictionary<string, object?> { ["command"] = commandName });
         return Result.Success;
     }
 }

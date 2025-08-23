@@ -41,7 +41,8 @@ internal class SubcommandReplContext : Cliffer.DefaultReplContext {
     public override async Task<int> RunAsync(Command command, string[] args) {
         // Prevent recursive invocation of the same command
         if (string.Equals(args[0], command.Name, StringComparison.OrdinalIgnoreCase)) {
-            Console.WriteLine($"Already in '{command.Name}' context.");
+            var console = Utility.GetService<IConsoleWriter>();
+            console?.WriteLine($"Already in '{command.Name}' context.", category: "cli.repl", code: "context.duplicate", ctx: new Dictionary<string, object?> { ["context"] = command.Name });
             return Result.Success;
         }
 

@@ -10,8 +10,7 @@ using ParksComputing.Api2Cli.Workspace.Services;
 
 namespace ParksComputing.Api2Cli.Cli.Repl;
 
-internal class A2CReplContext : DefaultReplContext
-{
+internal class A2CReplContext : DefaultReplContext {
     private readonly IServiceProvider _serviceProvider;
     private readonly IWorkspaceService _workspaceService;
     private readonly ICommandSplitter _commandSplitter;
@@ -26,8 +25,7 @@ internal class A2CReplContext : DefaultReplContext
         IWorkspaceService workspaceService,
         ICommandSplitter commandSplitter,
         Option recursionOption
-        ) : base( rootCommand )
-    {
+        ) : base(rootCommand) {
         _serviceProvider = serviceProvider;
         _workspaceService = workspaceService;
         _commandSplitter = commandSplitter;
@@ -43,8 +41,7 @@ internal class A2CReplContext : DefaultReplContext
         }
     }
 
-    override public string GetPrompt(Command command, InvocationContext context)
-    {
+    override public string GetPrompt(Command command, InvocationContext context) {
         return $"{command.Name}> ";
     }
 
@@ -58,13 +55,11 @@ internal class A2CReplContext : DefaultReplContext
         }
     }
 
-    public override string[] PreprocessArgs(string[] args, Command command, InvocationContext context)
-    {
+    public override string[] PreprocessArgs(string[] args, Command command, InvocationContext context) {
         var newArgs = new List<string>();
         newArgs.AddRange(args);
 
-        if (args[0] == command.Name)
-        {
+        if (args[0] == command.Name) {
             newArgs.Add(_recursionOption.Aliases.First());
             newArgs.Add("true");
         }
@@ -72,19 +67,18 @@ internal class A2CReplContext : DefaultReplContext
         return base.PreprocessArgs(newArgs.ToArray(), command, context);
     }
 
-    public override async Task<int> RunAsync(Command command, string[] args)
-    {
+    public override async Task<int> RunAsync(Command command, string[] args) {
         // Prevent recursive invocation of the same command
         if (string.Equals(args[0], command.Name, StringComparison.OrdinalIgnoreCase)) {
-            Console.WriteLine($"Already in '{command.Name}' context.");
+            var console = Utility.GetService<IConsoleWriter>();
+            console?.WriteLine($"Already in '{command.Name}' context.", category: "cli.repl", code: "context.duplicate", ctx: new Dictionary<string, object?> { ["context"] = command.Name });
             return Result.Success;
         }
 
         return await base.RunAsync(command, args);
     }
 
-    public override string[] SplitCommandLine(string input)
-    {
+    public override string[] SplitCommandLine(string input) {
         return _commandSplitter.Split(input).ToArray();
     }
 }

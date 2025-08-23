@@ -15,12 +15,36 @@ using System.Linq.Expressions;
 using Microsoft.CSharp.RuntimeBinder;
 using System.Runtime.CompilerServices;
 using static ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds;
+using ParksComputing.Api2Cli.Diagnostics.Services.Unified; // unified diagnostics (IUnifiedDiagnostics + extensions)
 
 namespace ParksComputing.Api2Cli.Orchestration.Services.Impl;
 
 internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrchestrator {
     private readonly IApi2CliScriptEngineFactory _engineFactory;
     private readonly IWorkspaceService _workspaceService;
+    private readonly ParksComputing.Api2Cli.Diagnostics.Services.Unified.IUnifiedDiagnostics? _unified;
+    // Use a minimal local abstraction to avoid depending on CLI assembly (breaks layering / introduces circular refs)
+    private readonly ITimingConsole? _console;
+
+    private interface ITimingConsole {
+        void WriteLine(string message, string? category = null, string? code = null);
+    }
+    private sealed class TimingConsoleAdapter : ITimingConsole {
+        private readonly object _impl;
+        private readonly System.Reflection.MethodInfo? _writeLine;
+        public TimingConsoleAdapter(object impl) {
+            _impl = impl;
+            _writeLine = impl.GetType().GetMethod("WriteLine", new[] { typeof(string), typeof(string), typeof(string) });
+        }
+        public void WriteLine(string message, string? category = null, string? code = null) {
+            if (_writeLine is not null) {
+                _writeLine.Invoke(_impl, new object?[] { message, category!, code! });
+            } else {
+                var m = _impl.GetType().GetMethod("WriteLine", new[] { typeof(string) });
+                m?.Invoke(_impl, new object?[] { message });
+            }
+        }
+    }
     private Func<string, string, object?[]?, object?>? _requestExecutor;
     private bool _needCs = false;
     private bool _hasAnyCSharpHandlers = false;
@@ -43,11 +67,35 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
     private sealed class CsWrapperDef { public string Body = string.Empty; public List<(string TypeToken, string Name)> Args = new(); public bool HasWorkspace; }
     private readonly Dictionary<string, CsWrapperDef> _csWrappers = new(StringComparer.OrdinalIgnoreCase);
 
-    public WorkspaceScriptingOrchestrator(IApi2CliScriptEngineFactory engineFactory, IWorkspaceService workspaceService) {
+    public WorkspaceScriptingOrchestrator(IApi2CliScriptEngineFactory engineFactory, IWorkspaceService workspaceService, ParksComputing.Api2Cli.Diagnostics.Services.Unified.IUnifiedDiagnostics unifiedDiagnostics) {
         _engineFactory = engineFactory;
         _workspaceService = workspaceService;
+        _unified = unifiedDiagnostics;
+        _console = TryResolveConsole();
         // Subscribe to workspace activation to lazily project/init scripts on first switch
         _workspaceService.ActiveWorkspaceChanged += OnActiveWorkspaceChanged;
+    }
+
+    private static ITimingConsole? TryResolveConsole() {
+        var consoleType = AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(a => a.GetTypes())
+            .FirstOrDefault(t => t.FullName == "ParksComputing.Api2Cli.Cli.Services.IConsoleWriter");
+        if (consoleType is null) { return null; }
+        var utilityType = AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(a => a.GetTypes())
+            .FirstOrDefault(t => t.FullName == "Cliffer.Utility");
+        if (utilityType is not null) {
+            var method = utilityType.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                .FirstOrDefault(m => m.Name == "GetService" && m.IsGenericMethodDefinition && m.GetParameters().Length == 0);
+            if (method is not null) {
+                var generic = method.MakeGenericMethod(consoleType);
+                var instance = generic.Invoke(null, null);
+                if (instance is not null) {
+                    return new TimingConsoleAdapter(instance);
+                }
+            }
+        }
+        return null;
     }
 
     private void OnActiveWorkspaceChanged(string workspaceName) {
@@ -63,18 +111,15 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
     }
 
     // Centralized guarded debug logger to remove scattered try/catch logging blocks
-    private static void DebugLog(string message, Exception? ex = null) {
-        if (!IsScriptDebugEnabled()) {
-            return;
+    private static IUnifiedDiagnostics? UnifiedAccessor(WorkspaceScriptingOrchestrator? self) => self?._unified;
+    private static void DebugLog(string message, Exception? ex = null, WorkspaceScriptingOrchestrator? self = null) {
+        if (!IsScriptDebugEnabled()) { return; }
+        var diag = UnifiedAccessor(self);
+        if (ex is null) {
+            diag?.Info("script.debug", message);
+        } else {
+            diag?.Warn("script.debug", message, ex: ex);
         }
-        try {
-            if (ex is null) {
-                System.Console.Error.WriteLine(message);
-            } else {
-                System.Console.Error.WriteLine(message + " :: " + ex.GetType().Name + ": " + ex.Message);
-            }
-        }
-        catch { /* ignore logging failures */ }
     }
 
     public void RegisterRequestExecutor(Func<string, string, object?[]?, object?> executor) {
@@ -112,8 +157,8 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         }
 
         // Reset underlying engines (ignore errors; they will be lazily re-created)
-        try { _engineFactory.GetEngine(Scripting.Services.ScriptEngineKinds.JavaScript).Reset(); } catch { }
-        try { _engineFactory.GetEngine(Scripting.Services.ScriptEngineKinds.CSharp).Reset(); } catch { }
+    _engineFactory.GetEngine(Scripting.Services.ScriptEngineKinds.JavaScript).Reset();
+    _engineFactory.GetEngine(Scripting.Services.ScriptEngineKinds.CSharp).Reset();
     }
 
     public void Initialize() {
@@ -128,10 +173,8 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
 
         if (timingsEnabled) {
             emitTiming = (line) => {
-                Console.WriteLine(line);
-                if (mirrorTimings) {
-                    Console.Error.WriteLine(line);
-                }
+                _console?.WriteLine(line, category: "cli.timings", code: "orch.init");
+                if (mirrorTimings) { _unified?.Info("timings.mirror", line); }
             };
         }
 
@@ -139,7 +182,9 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         js.InitializeScriptEnvironment();
 
         if (timingsEnabled && swJsEngine is not null) {
-            emitTiming!("A2C_TIMINGS: scriptingInit.jsEngine=" + swJsEngine.Elapsed.TotalMilliseconds.ToString("F1") + " ms");
+            var ms = swJsEngine.Elapsed.TotalMilliseconds;
+            emitTiming!("A2C_TIMINGS: scriptingInit.jsEngine=" + ms.ToString("F1") + " ms");
+            _unified?.Timing("scriptingInit.jsEngine", ms);
         }
 
         var baseConfig = _workspaceService.BaseConfig;
@@ -516,14 +561,10 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         // Run scriptInit for each workspace in base-first order, only if not already called
         foreach (var w in baseChain) {
             if (_jsWorkspaceInitRan.Contains(w)) {
-                if (IsScriptDebugEnabled()) {
-                    System.Console.Error.WriteLine($"[Orch] JS scriptInit for '{w}' already initialized, skipping.");
-                }
+                if (IsScriptDebugEnabled()) { DebugLog($"[Orch] JS scriptInit for '{w}' already initialized, skipping.", self: this); }
                 continue;
             }
-            if (IsScriptDebugEnabled()) {
-                System.Console.Error.WriteLine($"[Orch] Running JS scriptInit for '{w}'");
-            }
+            if (IsScriptDebugEnabled()) { DebugLog($"[Orch] Running JS scriptInit for '{w}'", self: this); }
             js.ExecuteWorkspaceInitFor(w);
             _jsWorkspaceInitRan.Add(w);
         }
@@ -600,11 +641,8 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
 
             if (timingsEnabled && sw is not null) {
                 var line = $"A2C_TIMINGS: scriptingInit.globalInit.cs={sw.Elapsed.TotalMilliseconds:F1} ms";
-                System.Console.WriteLine(line);
-
-                if (mirrorTimings) {
-                    System.Console.Error.WriteLine(line);
-                }
+                _console?.WriteLine(line, category: "cli.timings", code: "orch.cs.globalInit");
+                if (mirrorTimings) { _unified?.Info("timings.mirror", line); }
             }
 
             if (IsScriptDebugEnabled()) { DebugLog("[CS:init] Global C# scriptInit end (deferred)"); }
@@ -1582,13 +1620,9 @@ partial class WorkspaceScriptingOrchestrator {
 
             if (timingsEnabled && sw is not null) {
                 var line = $"A2C_TIMINGS: scriptingInit.csEngine={sw.Elapsed.TotalMilliseconds:F1} ms";
-                try { System.Console.WriteLine(line); }
+                try { _console?.WriteLine(line, category: "cli.timings", code: "orch.cs.engineInit"); }
                 catch (Exception ex) { DebugLog("[Orch] timings stdout write failed", ex); }
-
-                if (mirrorTimings) {
-                    try { System.Console.Error.WriteLine(line); }
-                    catch (Exception ex) { DebugLog("[Orch] timings stderr write failed", ex); }
-                }
+                if (mirrorTimings) { try { _unified?.Info("timings.mirror", line); } catch (Exception ex) { DebugLog("[Orch] timings mirror write failed", ex); } }
             }
             _csEngineInitialized = true;
         }

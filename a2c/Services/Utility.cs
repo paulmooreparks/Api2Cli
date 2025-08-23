@@ -34,11 +34,13 @@ internal class Utility {
 
     internal static int ShowMenu(string[] options, int defaultOptionIndex = 0, string markerText = "(*)") {
         // Display the menu with the marker for the default option
+        var console = GetService<ParksComputing.Api2Cli.Cli.Services.IConsoleWriter>();
         for (int i = 0; i < options.Length; i++) {
-            Console.WriteLine($"[{i + 1}] {options[i]}{(i + 1 == defaultOptionIndex ? " " + markerText : "")}");
+            // Category cli.menu; code option.entry
+            console?.WriteLine($"[{i + 1}] {options[i]}{(i + 1 == defaultOptionIndex ? " " + markerText : "")}", category: "cli.menu", code: "option.entry", ctx: new Dictionary<string, object?> { ["index"] = i + 1, ["option"] = options[i], ["default"] = (i + 1 == defaultOptionIndex) });
         }
 
-        Console.Write($"{Constants.WarningChar} Please enter a selection (default is {defaultOptionIndex}, 0 to cancel): ");
+        Console.Write($"{Constants.WarningChar} Please enter a selection (default is {defaultOptionIndex}, 0 to cancel): "); // prompt requires inline input; keep direct write
 
         while (true) {
             var userInput = Console.ReadLine();
@@ -56,7 +58,7 @@ internal class Utility {
                 return selection; // Return user selection
             }
 
-            Console.WriteLine($"{Constants.WarningChar} Invalid selection. Please enter a number between 1 and {options.Length}.");
+            console?.WriteError($"{Constants.WarningChar} Invalid selection. Please enter a number between 1 and {options.Length}.", category: "cli.menu", code: "selection.invalid", ctx: new Dictionary<string, object?> { ["max"] = options.Length });
 
             while (Console.KeyAvailable) {
                 Console.ReadKey(true); // Clear input buffer

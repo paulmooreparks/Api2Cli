@@ -2,6 +2,7 @@ using Cliffer;
 
 using ParksComputing.Api2Cli.Api;
 using ParksComputing.Api2Cli.Workspace;
+using ParksComputing.Api2Cli.Cli.Services;
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
 
@@ -13,11 +14,13 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 [Option(typeof(IEnumerable<string>), "--cookies", "Cookies to include in the request.", new[] { "-c" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
 [Option(typeof(bool), "--quiet", "If true, suppress echo of the response to the console.", new[] { "-q" }, Arity = ArgumentArity.ZeroOrOne, IsRequired = false)]
 internal class GetCommand(
-    A2CApi a2c
+    A2CApi a2c,
+    IConsoleWriter consoleWriter
     ) {
     public string ResponseContent { get; protected set; } = string.Empty;
     public int StatusCode { get; protected set; } = 0;
     public System.Net.Http.Headers.HttpResponseHeaders? Headers { get; protected set; } = default;
+    private readonly IConsoleWriter _console = consoleWriter;
 
     public int Execute(
         [OptionParam("--endpoint")] string endpoint,
@@ -33,7 +36,7 @@ internal class GetCommand(
             baseUrl ??= a2c.ActiveWorkspace.BaseUrl;
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
+                _console.WriteError($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}", category: "cli.get", code: "baseurl.invalid", ctx: new Dictionary<string, object?> { ["baseUrl"] = baseUrl, ["endpoint"] = endpoint });
                 return Result.InvalidArguments;
             }
         }
@@ -60,11 +63,11 @@ internal class GetCommand(
             var response = a2c.Http.Get(baseUrl, paramList, headers);
 
             if (response is null) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUrl}");
+                _console.WriteError($"{Constants.ErrorChar} Error: No response received from {baseUrl}", category: "cli.get", code: "response.none", ctx: new Dictionary<string, object?> { ["baseUrl"] = baseUrl, ["endpoint"] = endpoint });
                 result = Result.Error;
             }
             else if (!response.IsSuccessStatusCode) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} {(int) response.StatusCode} {response.ReasonPhrase} at {baseUrl}");
+                _console.WriteError($"{Constants.ErrorChar} {(int) response.StatusCode} {response.ReasonPhrase} at {baseUrl}", category: "cli.get", code: "http.status.error", ctx: new Dictionary<string, object?> { ["baseUrl"] = baseUrl, ["endpoint"] = endpoint, ["status"] = (int) response.StatusCode, ["reason"] = response.ReasonPhrase });
                 result = Result.Error;
             }
 
@@ -74,11 +77,11 @@ internal class GetCommand(
             // List<Cookie> responseCookies = cookieContainer.GetCookies(baseUri).Cast<Cookie>().ToList();
 
             if (!isQuiet) {
-                Console.WriteLine(ResponseContent);
+                _console.WriteLine(ResponseContent, category: "cli.get", code: "response.content");
             }
         }
         catch (HttpRequestException ex) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Error: HTTP request failed - {ex.Message}");
+            _console.WriteError($"{Constants.ErrorChar} Error: HTTP request failed - {ex.Message}", category: "cli.get", code: "http.request.failed", ex: ex, ctx: new Dictionary<string, object?> { ["baseUrl"] = baseUrl, ["endpoint"] = endpoint });
             return Result.Error;
         }
 

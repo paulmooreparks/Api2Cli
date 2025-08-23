@@ -1,5 +1,7 @@
 using System;
 using System.Text;
+using ParksComputing.Api2Cli.Cli.Services.Impl;
+using ParksComputing.Api2Cli.Cli.Services;
 using ParksComputing.Api2Cli.Workspace.Models;
 using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Xfer.Lang;
@@ -10,9 +12,11 @@ namespace ParksComputing.Api2Cli.Cli.Commands.WorkspaceTools;
 
 internal abstract class WorkspaceImportCommandBase {
     protected readonly IWorkspaceService WorkspaceService;
+    protected readonly IConsoleWriter ConsoleWriter;
 
-    protected WorkspaceImportCommandBase(IWorkspaceService workspaceService) {
+    protected WorkspaceImportCommandBase(IWorkspaceService workspaceService, IConsoleWriter consoleWriter) {
         WorkspaceService = workspaceService;
+        ConsoleWriter = consoleWriter;
     }
 
     protected string GetConfigRoot() => System.IO.Path.GetDirectoryName(WorkspaceService.WorkspaceFilePath) ?? Environment.CurrentDirectory;
@@ -23,7 +27,7 @@ internal abstract class WorkspaceImportCommandBase {
         if (System.IO.Directory.Exists(targetDir) && !force) {
             var existingFile = System.IO.Path.Combine(targetDir, "workspace.xfer");
             if (System.IO.File.Exists(existingFile)) {
-                Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Directory already contains a workspace.xfer: {existingFile}. Use --force to overwrite.");
+                ConsoleWriter.WriteError($"Directory already contains a workspace.xfer: {existingFile}. Use --force to overwrite.", category: "cli.workspace.import", code: "import.dir.exists");
                 return false;
             }
         }
@@ -73,11 +77,11 @@ internal abstract class WorkspaceImportCommandBase {
     protected void EmitActivationGuidance(string logicalName, string targetDir, int requestCount) {
         var configRoot = GetConfigRoot();
         var wsFilePath = System.IO.Path.Combine(targetDir, "workspace.xfer");
-        Console.WriteLine($"Workspace imported to {wsFilePath} with {requestCount} requests.");
-        Console.WriteLine();
-        Console.WriteLine("Add this line inside the workspaces block of your config.xfer to activate it:");
-        Console.WriteLine($"    {logicalName} {{ dir \"{WorkspaceImportHelpers.GetRelativePath(configRoot, targetDir)}\" }}");
-        Console.WriteLine();
-        Console.WriteLine("Then run: reload");
+    ConsoleWriter.WriteLine($"Workspace imported to {wsFilePath} with {requestCount} requests.", category: "cli.workspace.import", code: "import.success");
+    ConsoleWriter.WriteLine(string.Empty, category: "cli.workspace.import", code: "import.blank");
+    ConsoleWriter.WriteLine("Add this line inside the workspaces block of your config.xfer to activate it:", category: "cli.workspace.import", code: "import.guidance.header");
+    ConsoleWriter.WriteLine($"    {logicalName} {{ dir \"{WorkspaceImportHelpers.GetRelativePath(configRoot, targetDir)}\" }}", category: "cli.workspace.import", code: "import.guidance.line");
+    ConsoleWriter.WriteLine(string.Empty, category: "cli.workspace.import", code: "import.blank2");
+    ConsoleWriter.WriteLine("Then run: reload", category: "cli.workspace.import", code: "import.guidance.reload");
     }
 }

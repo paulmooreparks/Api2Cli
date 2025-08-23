@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Cliffer;
 using ParksComputing.Api2Cli.Workspace.Services;
+using ParksComputing.Api2Cli.Cli.Services;
 using ParksComputing.Api2Cli.Workspace.Models;
 
 namespace ParksComputing.Api2Cli.Cli.Commands.WorkspaceTools;
@@ -11,9 +12,11 @@ namespace ParksComputing.Api2Cli.Cli.Commands.WorkspaceTools;
 [Option(typeof(string), "--baseurl", "Optional base URL", new[] {"-b"}, IsRequired = false)]
 [Option(typeof(bool), "--force", "Overwrite existing workspace folder", new[] {"-f"}, IsRequired = false)]
 internal class NewWorkspaceCommand(
-    IWorkspaceService workspaceService
+    IWorkspaceService workspaceService,
+    IConsoleWriter consoleWriter
 ) {
     private readonly IWorkspaceService _ws = workspaceService;
+    private readonly IConsoleWriter _console = consoleWriter;
 
     public int Execute(
         [OptionParam("--name")] string name,
@@ -24,16 +27,16 @@ internal class NewWorkspaceCommand(
         try {
             slug ??= SlugUtil.ToSlug(name);
             if (string.IsNullOrWhiteSpace(slug)) {
-                Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Derived slug is empty.");
+                _console.WriteError($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Derived slug is empty.", category: "cli.workspace.new", code: "slug.empty");
                 return Result.InvalidArguments;
             }
             if (slug.Any(c => !(char.IsLower(c) || char.IsDigit(c) || c=='-'))) {
-                Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Invalid slug '{slug}'. Use lowercase letters, digits, and dashes only.");
+                _console.WriteError($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Invalid slug '{slug}'. Use lowercase letters, digits, and dashes only.", category: "cli.workspace.new", code: "slug.invalid", ctx: new Dictionary<string, object?> { ["slug"] = slug });
                 return Result.InvalidArguments;
             }
 
             if (!force && _ws.BaseConfig.Workspaces.ContainsKey(slug)) {
-                Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Workspace '{slug}' already exists. Use --force to overwrite.");
+                _console.WriteError($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Workspace '{slug}' already exists. Use --force to overwrite.", category: "cli.workspace.new", code: "workspace.exists", ctx: new Dictionary<string, object?> { ["slug"] = slug });
                 return Result.InvalidArguments;
             }
 
@@ -41,7 +44,7 @@ internal class NewWorkspaceCommand(
             var wsDir = System.IO.Path.Combine(configRoot, "workspaces", slug);
             if (System.IO.Directory.Exists(wsDir)) {
                 if (!force) {
-                    Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Directory already exists: {wsDir}. Use --force to overwrite.");
+                    _console.WriteError($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Directory already exists: {wsDir}. Use --force to overwrite.", category: "cli.workspace.new", code: "directory.exists", ctx: new Dictionary<string, object?> { ["dir"] = wsDir });
                     return Result.InvalidArguments;
                 }
             } else {
@@ -50,7 +53,7 @@ internal class NewWorkspaceCommand(
 
             var wsFile = System.IO.Path.Combine(wsDir, "workspace.xfer");
             if (System.IO.File.Exists(wsFile) && !force) {
-                Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} workspace.xfer already exists for '{slug}'. Use --force to overwrite.");
+                _console.WriteError($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} workspace.xfer already exists for '{slug}'. Use --force to overwrite.", category: "cli.workspace.new", code: "workspace.file.exists", ctx: new Dictionary<string, object?> { ["slug"] = slug, ["file"] = wsFile });
                 return Result.InvalidArguments;
             }
 
@@ -69,11 +72,11 @@ internal class NewWorkspaceCommand(
             var workspaceFileContent = $"{{\ndescription \"{escapedName}\"{baseLine}\nrequests {{ }}\nscripts {{ }}\nmacros {{ }}\nproperties {{ }}\n}}";
             System.IO.File.WriteAllText(wsFile, workspaceFileContent);
 
-            Console.WriteLine($"Workspace '{slug}' created at {wsDir}. Run 'reload' to load it.");
+            _console.WriteLine($"Workspace '{slug}' created at {wsDir}. Run 'reload' to load it.", category: "cli.workspace.new", code: "workspace.created", ctx: new Dictionary<string, object?> { ["slug"] = slug, ["dir"] = wsDir });
             return Result.Success;
         }
         catch (Exception ex) {
-            Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Failed to create workspace: {ex.Message}");
+            _console.WriteError($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Failed to create workspace: {ex.Message}", category: "cli.workspace.new", code: "workspace.create.failure", ex: ex);
             return Result.Error;
         }
     }

@@ -5,18 +5,35 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": ".NET Run a2c",
+            "name": "a2c --version (safe)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/a2c/bin/Debug/net8.0/a2c.dll",
-            "args": [
-                "--config",
-                "${workspaceFolder}/ParksComputing.Api2Cli.Tests/TestConfigs/tests.xfer"
-            ],
-            "cwd": "${workspaceFolder}/a2c",
-            "stopAtEntry": false,
-            "console": "externalTerminal"
+            "args": ["--version"],
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole"
+        },
+        {
+            "name": "a2c timings smoke",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/a2c/bin/Debug/net8.0/a2c.dll",
+            "args": ["--version"],
+            "env": { "A2C_TIMINGS": "1" },
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole"
+        },
+        {
+            "name": "a2c config+version (safe)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/a2c/bin/Debug/net8.0/a2c.dll",
+            "args": ["--config", "${env:USERPROFILE}\\.a2c", "--version"],
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole"
         }
     ]
 }

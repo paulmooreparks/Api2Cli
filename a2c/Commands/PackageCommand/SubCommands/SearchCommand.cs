@@ -8,9 +8,11 @@ namespace ParksComputing.Api2Cli.Cli.Commands.PackageCommand.SubCommands;
 [Command("search", "Search for packages.", Parent = "package")]
 [Argument(typeof(string), "packageName", "Name or partial name of the package to search for")]
 internal class SearchCommand(
-    A2CApi Api2CliApi
+    A2CApi Api2CliApi,
+    ParksComputing.Api2Cli.Cli.Services.IConsoleWriter consoleWriter
     )
 {
+    private readonly ParksComputing.Api2Cli.Cli.Services.IConsoleWriter _console = consoleWriter;
     public async Task<int> Execute(
         [ArgumentParam("packageName")] string packageName
         )
@@ -18,24 +20,24 @@ internal class SearchCommand(
         var searchResult = await Api2CliApi.Package.SearchAsync(packageName);
 
         if (searchResult == null) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Unexpected error searching for package '{packageName}'.");
+            _console.WriteError($"{Constants.ErrorChar} Unexpected error searching for package '{packageName}'.", category: "cli.package", code: "search.unexpected", ctx: new Dictionary<string, object?> { ["package"] = packageName });
             return Result.Error;
         }
 
         if (searchResult.Success == false) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Error searching for packages: {searchResult.Message}");
+            _console.WriteError($"{Constants.ErrorChar} Error searching for packages: {searchResult.Message}", category: "cli.package", code: "search.failed", ctx: new Dictionary<string, object?> { ["package"] = packageName, ["message"] = searchResult.Message });
             return Result.Error;
         }
 
         if (searchResult.List is null || searchResult.List.Count() == 0) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} No results found for search term '{packageName}'.");
+            _console.WriteError($"{Constants.ErrorChar} No results found for search term '{packageName}'.", category: "cli.package", code: "search.empty", ctx: new Dictionary<string, object?> { ["package"] = packageName });
             return Result.Error;
         }
 
-        Console.WriteLine($"Search results for search term '{packageName}':");
+        _console.WriteLine($"Search results for search term '{packageName}':", category: "cli.package", code: "search.header", ctx: new Dictionary<string, object?> { ["package"] = packageName });
 
         foreach (var package in searchResult.List) {
-            Console.WriteLine($"  - {package}");
+            _console.WriteLine(package, category: "cli.package", code: "search.item", ctx: new Dictionary<string, object?> { ["package"] = package });
         }
 
         return Result.Success;

@@ -14,7 +14,7 @@ public class FileSystemApi : IFileSystemApi {
            || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
     private static void DebugLog(string message, Exception? ex = null) {
         if (!IsScriptDebugEnabled()) { return; }
-        try { System.Console.Error.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message); } catch { }
+    System.Console.Error.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message);
     }
     public bool Exists(string path) {
         if (string.IsNullOrWhiteSpace(path)) {

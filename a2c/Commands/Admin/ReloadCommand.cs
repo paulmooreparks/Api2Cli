@@ -12,7 +12,8 @@ namespace ParksComputing.Api2Cli.Cli.Commands.Admin;
 [Command("reload", "Reload configuration in-process.")]
 internal class ReloadCommand(
     IWorkspaceService workspaceService,
-    ParksComputing.Api2Cli.Orchestration.Services.IWorkspaceScriptingOrchestrator orchestrator
+    ParksComputing.Api2Cli.Orchestration.Services.IWorkspaceScriptingOrchestrator orchestrator,
+    ParksComputing.Api2Cli.Cli.Services.IConsoleWriter console
 ) {
     public int Execute(
         Command command,
@@ -31,12 +32,12 @@ internal class ReloadCommand(
             } else if (!string.IsNullOrWhiteSpace(workspaceService.CurrentWorkspaceName)) {
                 orchestrator.ActivateWorkspace(workspaceService.CurrentWorkspaceName);
             }
-            Console.WriteLine("Configuration reloaded (scripting reset).");
+            console.WriteLine("Configuration reloaded (scripting reset).", category: "cli.reload", code: "reload.success");
 
             return Result.Success;
         }
         catch (Exception ex) {
-            Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Reload failed: {ex.Message}");
+            console.WriteError($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Reload failed: {ex.Message}", category: "cli.reload", code: "reload.failure", ex: ex);
             return Result.Error;
         }
     }

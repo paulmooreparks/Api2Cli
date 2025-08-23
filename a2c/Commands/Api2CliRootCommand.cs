@@ -66,7 +66,8 @@ internal class A2CRootCommand {
 
     public void ConfigureWorkspaces() {
         // Initialize scripts via orchestration layer (decoupled from Workspace)
-        var orchestrator = Utility.GetService<IWorkspaceScriptingOrchestrator>();
+    var orchestrator = Utility.GetService<IWorkspaceScriptingOrchestrator>();
+    var rootConsoleWriter = _serviceProvider.GetService(typeof(IConsoleWriter)) as IConsoleWriter ?? Utility.GetService<IConsoleWriter>();
 
         var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
@@ -85,10 +86,8 @@ internal class A2CRootCommand {
             var line = $"A2C_TIMINGS: scriptingInit={ms:F1} ms";
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
-            Console.WriteLine(line);
-            if (mirror) {
-                Console.Error.WriteLine(line);
-            }
+            rootConsoleWriter?.WriteLine(line, category: "cli.timings", code: "scripting.init", ctx: new Dictionary<string, object?> { ["elapsedMs"] = ms });
+            if (mirror) { rootConsoleWriter?.WriteError(line, category: "cli.timings", code: "scripting.init.mirror", ctx: new Dictionary<string, object?> { ["elapsedMs"] = ms }); }
         }
         var doWarm = string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP"), "1", StringComparison.OrdinalIgnoreCase);
         int limit = 25;
@@ -108,11 +107,8 @@ internal class A2CRootCommand {
             var line = $"A2C_TIMINGS: scriptingWarmup={ms:F1} ms";
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
-            Console.WriteLine(line);
-
-            if (mirror) {
-                Console.Error.WriteLine(line);
-            }
+            rootConsoleWriter?.WriteLine(line, category: "cli.timings", code: "scripting.warmup", ctx: new Dictionary<string, object?> { ["elapsedMs"] = ms, ["limit"] = limit, ["doWarm"] = doWarm });
+            if (mirror) { rootConsoleWriter?.WriteError(line, category: "cli.timings", code: "scripting.warmup.mirror", ctx: new Dictionary<string, object?> { ["elapsedMs"] = ms }); }
         }
 
         if (timingsEnabled && swScripting is not null) {
@@ -120,12 +116,8 @@ internal class A2CRootCommand {
             var line = $"A2C_TIMINGS: scriptingSetup={ms:F1} ms";
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
-            Console.WriteLine(line);
-
-            if (mirror) {
-                Console.Error.WriteLine(line);
-            }
-
+            rootConsoleWriter?.WriteLine(line, category: "cli.timings", code: "scripting.setup", ctx: new Dictionary<string, object?> { ["elapsedMs"] = ms });
+            if (mirror) { rootConsoleWriter?.WriteError(line, category: "cli.timings", code: "scripting.setup.mirror", ctx: new Dictionary<string, object?> { ["elapsedMs"] = ms }); }
         }
 
         // Register a single request executor bridge once; avoid per-request registration which causes O(N^2) wiring
@@ -142,7 +134,8 @@ internal class A2CRootCommand {
                 return null;
             }
             var baseUrl = wsDef.BaseUrl;
-            var send = new SendCommand(http, a2c, wsService, factory, orch, prop, settings);
+            var consoleWriter = _serviceProvider.GetService(typeof(IConsoleWriter)) as IConsoleWriter ?? Utility.GetService<IConsoleWriter>()!;
+            var send = new SendCommand(http, a2c, wsService, factory, orch, prop, settings, consoleWriter);
             var caller = new RequestCaller(_rootCommand, send, wsName, reqName, baseUrl);
             return caller.RunRequest(args ?? Array.Empty<object?>());
         });
@@ -163,7 +156,8 @@ internal class A2CRootCommand {
 
                 var scriptCommand = new Command(scriptName, $"[script] {description}");
                 var scriptEngine = _scriptEngineFactory.GetEngine(scriptLanguage);
-                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory, scriptEngine);
+                var consoleWriter = _serviceProvider.GetService(typeof(IConsoleWriter)) as IConsoleWriter ?? Utility.GetService<IConsoleWriter>()!;
+                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory, scriptEngine, consoleWriter);
 
                 foreach (var kvp in arguments) {
                     var argument = kvp.Value;
@@ -226,7 +220,7 @@ internal class A2CRootCommand {
                 }
 
                 if (string.IsNullOrEmpty(baseUrl)) {
-                    Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
+                    rootConsoleWriter?.WriteError($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Error: Invalid base URL: {baseUrl}", category: "cli.workspace", code: "baseurl.invalid", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["baseUrl"] = baseUrl });
                     return Result.InvalidArguments;
                 }
 
@@ -245,7 +239,8 @@ internal class A2CRootCommand {
                 var scriptCommand = new Command(scriptName, $"[script] {description}");
                 scriptCommand.IsHidden = workspaceConfig.IsHidden;
                 var scriptEngine = _scriptEngineFactory.GetEngine(scriptLanguage);
-                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory, scriptEngine);
+                var consoleWriter = _serviceProvider.GetService(typeof(IConsoleWriter)) as IConsoleWriter ?? Utility.GetService<IConsoleWriter>()!;
+                var scriptHandler = new RunWsScriptCommand(_workspaceService, _scriptEngineFactory, scriptEngine, consoleWriter);
 
                 foreach (var kvp in arguments) {
                     var argument = kvp.Value;
@@ -296,7 +291,8 @@ internal class A2CRootCommand {
 
                 var requestCommand = new Command(requestName, $"[request] {description}");
                 requestCommand.IsHidden = workspaceConfig.IsHidden;
-                var requestHandler = new SendCommand(Utility.GetService<IHttpService>()!, _a2c, _workspaceService, Utility.GetService<IApi2CliScriptEngineFactory>()!, Utility.GetService<ParksComputing.Api2Cli.Orchestration.Services.IWorkspaceScriptingOrchestrator>()!, Utility.GetService<IPropertyResolver>(), Utility.GetService<ISettingsService>());
+                var consoleWriter = _serviceProvider.GetService(typeof(IConsoleWriter)) as IConsoleWriter ?? Utility.GetService<IConsoleWriter>()!;
+                var requestHandler = new SendCommand(Utility.GetService<IHttpService>()!, _a2c, _workspaceService, Utility.GetService<IApi2CliScriptEngineFactory>()!, Utility.GetService<ParksComputing.Api2Cli.Orchestration.Services.IWorkspaceScriptingOrchestrator>()!, Utility.GetService<IPropertyResolver>(), Utility.GetService<ISettingsService>(), consoleWriter);
                 var requestCaller = new RequestCaller(_rootCommand, requestHandler, workspaceName, requestName, workspaceKvp.Value.BaseUrl);
 
                 var reqBaseurlOption = new Option<string>(["--baseurl", "-b"], "The base URL of the API to send HTTP requests to.");
@@ -353,7 +349,7 @@ internal class A2CRootCommand {
                     }
 
                     if (string.IsNullOrEmpty(baseUrl)) {
-                        Console.Error.WriteLine($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
+                        rootConsoleWriter?.WriteError($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Error: Invalid base URL: {baseUrl}", category: "cli.request", code: "baseurl.invalid", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName, ["baseUrl"] = baseUrl });
                         return Result.InvalidArguments;
                     }
 
@@ -385,7 +381,8 @@ internal class A2CRootCommand {
             string versionString = version != null
                 ? $"{version.Major}.{version.Minor}.{version.Build}"
                 : "Unknown";
-            Console.WriteLine($"a2c v{versionString}");
+            var consoleWriter = _serviceProvider.GetService(typeof(IConsoleWriter)) as IConsoleWriter ?? Utility.GetService<IConsoleWriter>();
+            consoleWriter?.WriteLine($"a2c v{versionString}", category: "cli.version", code: "banner", ctx: new Dictionary<string, object?> { ["version"] = versionString });
             return Result.Success;
         }
 

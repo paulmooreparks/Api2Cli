@@ -21,6 +21,7 @@ using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.DataStore;
 using ParksComputing.Api2Cli.Orchestration;
 using ParksComputing.Api2Cli.Workspace.Models;
+using ParksComputing.Api2Cli.Diagnostics.Services.Unified;
 
 namespace ParksComputing.Api2Cli.Cli;
 
@@ -33,18 +34,24 @@ internal class Program {
     var __a2cOverallSw = Stopwatch.StartNew();
     bool __a2cTimings = "1".Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), StringComparison.OrdinalIgnoreCase)
                 || "true".Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), StringComparison.OrdinalIgnoreCase);
+    bool __a2cShowVersionBanner = "1".Equals(Environment.GetEnvironmentVariable("A2C_SHOW_VERSION"), StringComparison.OrdinalIgnoreCase)
+                || "true".Equals(Environment.GetEnvironmentVariable("A2C_SHOW_VERSION"), StringComparison.OrdinalIgnoreCase);
     var __a2cBuildSw = new Stopwatch();
     var __a2cConfigWsSw = new Stopwatch();
     var __a2cRunSw = new Stopwatch();
     var __a2cTimingsPrinted = false;
+    bool __a2cTimingsBannerPending = __a2cTimings; // delay emission until IConsoleWriter resolved
 
-    if (__a2cTimings) {
-        // Emit a quick marker early so users can verify the flag was recognized
-        const string enabledMsg = "A2C_TIMINGS: enabled";
-        Console.WriteLine(enabledMsg);
-    }
+    IConsoleWriter? __console = null; // will resolve after building container
 
-        DiagnosticListener.AllListeners.Subscribe(new MyObserver());
+    IUnifiedDiagnostics? __unified = null; // will resolve after building container
+
+        // Optional verbose diagnostics event echo (disabled by default). Enable with A2C_DIAG_EVENTS=1|true
+        bool __a2cDiagEvents = "1".Equals(Environment.GetEnvironmentVariable("A2C_DIAG_EVENTS"), StringComparison.OrdinalIgnoreCase)
+            || "true".Equals(Environment.GetEnvironmentVariable("A2C_DIAG_EVENTS"), StringComparison.OrdinalIgnoreCase);
+        if (__a2cDiagEvents) {
+            DiagnosticListener.AllListeners.Subscribe(new DiagnosticsEventObserver());
+        }
 
     // Fast-path: handle --version/-v before building services (avoid heavy startup)
     // Trigger this regardless of other options (e.g., --config) to prevent full DI initialization on version queries.
@@ -52,6 +59,7 @@ internal class Program {
             var asm = Assembly.GetExecutingAssembly();
             var ver = asm.GetName().Version;
             var verStr = ver != null ? $"{ver.Major}.{ver.Minor}.{ver.Build}" : "Unknown";
+            // Fast path keeps direct Console (DI not built yet); structured diagnostics intentionally skipped here
             Console.WriteLine($"a2c v{verStr}");
             return 0;
         }
@@ -85,7 +93,10 @@ internal class Program {
                 if (!attr.HasFlag(FileAttributes.Directory)) {
                     var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                     var suggested = Path.GetDirectoryName(p) ?? Path.Combine(home, Constants.Api2CliDirectoryName);
-                    Console.Error.WriteLine($"--config must be a directory, but a file path was provided: '{p}'. Use '--config '{suggested}' instead.");
+                    var msg = $"--config must be a directory, but a file path was provided: '{p}'. Use '--config '{suggested}' instead.";
+                    // Write to stderr so tests (and callers) can detect failure; DI not initialized yet.
+                    Console.Error.WriteLine(msg);
+                    __unified?.Warn("cli.args", "config.path.notDirectory", ctx: new Dictionary<string, object?> { ["path"] = p, ["suggested"] = suggested });
                     return 2;
                 }
             }
@@ -97,7 +108,10 @@ internal class Program {
             if (File.Exists(q) || Directory.Exists(q)) {
                 var attr = File.GetAttributes(q);
                 if (!attr.HasFlag(FileAttributes.Directory)) {
-                    Console.Error.WriteLine($"--packages must be a directory, but a file path was provided: '{q}'.");
+                    var msg = $"--packages must be a directory, but a file path was provided: '{q}'.";
+                    // Write to stderr so tests (and callers) can detect failure; DI not initialized yet.
+                    Console.Error.WriteLine(msg);
+                    __unified?.Warn("cli.args", "packages.path.notDirectory", ctx: new Dictionary<string, object?> { ["path"] = q });
                     return 2;
                 }
             }
@@ -120,6 +134,7 @@ internal class Program {
                     services.AddApi2CliDiagnosticsServices("Api2Cli");
                     services.AddSingleton<ICommandSplitter, CommandSplitter>();
                     services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();
+                    services.AddSingleton<IConsoleWriter, ConsoleWriter>();
 
                     // Align data store path to the selected config root
                     string defaultRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Constants.Api2CliDirectoryName);
@@ -133,7 +148,27 @@ internal class Program {
                     services.AddApi2CliDataStore(databasePath);
                 })
                 .Build();
-    __a2cBuildSw.Stop();
+        __unified = cli.ServiceProvider.GetService<IUnifiedDiagnostics>();
+        __console = cli.ServiceProvider.GetService<IConsoleWriter>();
+        __unified?.Debug("startup", "container.built");
+        __a2cBuildSw.Stop();
+
+        // Emit deferred timings enabled banner via console writer (maintains silent default when env unset)
+        if (__a2cTimingsBannerPending) {
+            const string enabledMsg = "A2C_TIMINGS: enabled";
+            __console?.WriteLine(enabledMsg, category: "cli.timings", code: "enabled");
+            // Also mirror as structured timing flag
+            __unified?.Info("cli.timings", enabledMsg, code: "enabled");
+        }
+
+        // Optional version banner when explicitly requested by env (non fast-path)
+        if (__a2cShowVersionBanner) {
+            var asm = Assembly.GetExecutingAssembly();
+            var ver = asm.GetName().Version;
+            var verStr = ver != null ? $"{ver.Major}.{ver.Minor}.{ver.Build}" : "Unknown";
+            __console?.WriteLine($"a2c v{verStr}", category: "cli.version", code: "banner");
+            __unified?.Info("cli.version", "banner", ctx: new Dictionary<string, object?> { ["version"] = verStr });
+        }
 
         Cliffer.Macro.CustomMacroArgumentProcessor += CustomMacroArgumentProcessor;
         Utility.SetServiceProvider(cli.ServiceProvider);
@@ -161,16 +196,22 @@ internal class Program {
                     }
 
                     var timingLine = $"A2C_TIMINGS: overall={__a2cOverallSw.Elapsed.TotalMilliseconds:F1} ms, build={__a2cBuildSw.Elapsed.TotalMilliseconds:F1} ms, configureWorkspaces={__a2cConfigWsSw.Elapsed.TotalMilliseconds:F1} ms, run={__a2cRunSw.Elapsed.TotalMilliseconds:F1} ms";
-                    Console.WriteLine(timingLine);
+                    __console?.WriteLine(timingLine, category: "cli.timings", code: "summary");
 
                     if (__mirrorTimings) {
-                        Console.Error.WriteLine(timingLine);
+                        __unified?.Info("timings.mirror", timingLine);
                     }
+
+                    // unified structured timings
+                    __unified?.Timing("overall", __a2cOverallSw.Elapsed.TotalMilliseconds);
+                    __unified?.Timing("build", __a2cBuildSw.Elapsed.TotalMilliseconds);
+                    __unified?.Timing("configureWorkspaces", __a2cConfigWsSw.Elapsed.TotalMilliseconds);
+                    __unified?.Timing("run", __a2cRunSw.Elapsed.TotalMilliseconds);
 
                     __a2cTimingsPrinted = true;
                 }
             } catch (Exception ex) {
-                Console.Error.WriteLine($"Error emitting A2C timings: {ex}");
+                __unified?.Error("timings", "emit.failure", ex: ex);
             }
         };
 
@@ -220,7 +261,7 @@ internal class Program {
     }
 }
 
-public class MyObserver : IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object?>> {
+public class DiagnosticsEventObserver : IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object?>> {
     public void OnNext(DiagnosticListener listener) {
         if (listener.Name == Constants.Api2CliDiagnosticsName) {
             // Explicitly subscribe only to events matching specific criteria:
@@ -230,8 +271,12 @@ public class MyObserver : IObserver<DiagnosticListener>, IObserver<KeyValuePair<
     }
 
     public void OnNext(KeyValuePair<string, object?> evt) {
-        Console.WriteLine($"{evt.Key}: ");
-        Console.WriteLine($"  {evt.Value}");
+    // Only emit event lines when the observer is enabled (A2C_DIAG_EVENTS set before subscription)
+    try {
+        var console = ParksComputing.Api2Cli.Cli.Services.Utility.GetService<ParksComputing.Api2Cli.Cli.Services.IConsoleWriter>();
+        console?.WriteLine($"{evt.Key}:", category: "cli.diag.events", code: "event.name", ctx: new Dictionary<string, object?> { ["event"] = evt.Key });
+        console?.WriteLine($"  {evt.Value}", category: "cli.diag.events", code: "event.payload", ctx: new Dictionary<string, object?> { ["event"] = evt.Key, ["payload"] = evt.Value });
+    } catch { /* ignore if services not ready */ }
     }
 
     public void OnCompleted() { }

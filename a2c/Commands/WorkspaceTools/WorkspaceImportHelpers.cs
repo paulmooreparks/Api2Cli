@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using ParksComputing.Api2Cli.Cli.Services;
+using ParksComputing.Api2Cli.Workspace;
 
 namespace ParksComputing.Api2Cli.Cli.Commands.WorkspaceTools;
 
@@ -9,8 +11,9 @@ internal static class WorkspaceImportHelpers {
     private static void DebugLog(string message, Exception? ex = null) {
         if (!IsScriptDebugEnabled()) { return; }
         try {
-            System.Console.Error.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message);
-        } catch { }
+            var console = Utility.GetService<IConsoleWriter>();
+            console?.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message, category: "cli.debug", code: "workspace.import.debug");
+        } catch { /* last resort: swallow to avoid recursion */ }
     }
     internal static string GetRelativePath(string baseDir, string target) {
         if (string.IsNullOrWhiteSpace(baseDir) || string.IsNullOrWhiteSpace(target)) {

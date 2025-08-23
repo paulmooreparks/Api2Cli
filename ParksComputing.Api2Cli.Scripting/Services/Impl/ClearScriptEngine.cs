@@ -20,6 +20,7 @@ using ParksComputing.Api2Cli.Diagnostics.Services;
 using ParksComputing.Api2Cli.Workspace;
 using ParksComputing.Api2Cli.Scripting.Extensions;
 using ParksComputing.Xfer.Lang;
+using ParksComputing.Api2Cli.Diagnostics.Services.Unified; // unified diagnostics extensions (Info/Warn/Error)
 
 namespace ParksComputing.Api2Cli.Scripting.Services.Impl;
 
@@ -37,6 +38,7 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
     private V8ScriptEngine Engine => _engine ??= CreateV8Engine();
     private static bool ScriptDebug => string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase)
         || string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase);
+    private readonly ParksComputing.Api2Cli.Diagnostics.Services.Unified.IUnifiedDiagnostics? _unified;
 
     public ClearScriptEngine(
         IPackageService packageService,
@@ -44,6 +46,7 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
         IStoreService storeService,
         ISettingsService settingsService,
         IAppDiagnostics<ClearScriptEngine> appDiagnostics,
+        ParksComputing.Api2Cli.Diagnostics.Services.Unified.IUnifiedDiagnostics unifiedDiagnostics,
         IPropertyResolver propertyResolver,
         A2CApi apiRoot
         ) {
@@ -52,16 +55,17 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
         _packageService.PackagesUpdated += PackagesUpdated;
         _settingsService = settingsService;
         _diags = appDiagnostics;
+        _unified = unifiedDiagnostics;
         _propertyResolver = propertyResolver;
         _a2c = apiRoot;
     }
 
     // Centralized debug logging to eliminate repeated inline try/catch blocks.
-    private static void DebugLog(string message) {
+    private void DebugLog(string message) {
         if (!ScriptDebug) {
             return;
         }
-        try { Console.Error.WriteLine(message); } catch { /* ignore logging failures */ }
+    _unified?.Debug("ScriptDebug", message);
     }
 
     public dynamic Script => Engine.Script;
@@ -286,11 +290,9 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
 
             var line = $"A2C_TIMINGS: {label}={ms:F1} ms";
 
-            Console.WriteLine(line);
-
-            if (mirrorTimings) {
-                Console.Error.WriteLine(line);
-            }
+            // Use structured diagnostics only (silent unless A2C_TIMINGS* env set)
+            _unified?.Info("cli.timings", line, code: label, ctx: new Dictionary<string, object?> { ["elapsedMs"] = ms });
+            if (mirrorTimings) { _unified?.Info("timings.mirror", line, code: label + ".mirror", ctx: new Dictionary<string, object?> { ["elapsedMs"] = ms }); }
         }
 
         // Create the V8 engine lazily with flags per environment
@@ -391,9 +393,7 @@ function __preRequest(workspace, request) {{
 }};
 ");
             }
-            catch (ScriptEngineException ex) {
-                Console.Error.WriteLine(ex.ErrorDetails);
-            }
+            catch (ScriptEngineException ex) { _unified?.Error("js.init", "define.preRequest.failure", ex: ex, ctx: new Dictionary<string, object?> { ["details"] = ex.ErrorDetails }); }
 
             var postResponseScriptContent = GetJsScriptBody(_workspaceService.BaseConfig.PostResponse);
 
@@ -409,9 +409,7 @@ function __postResponse(workspace, request) {{
 }};
 ");
             }
-            catch (ScriptEngineException ex) {
-                Console.Error.WriteLine(ex.ErrorDetails);
-            }
+            catch (ScriptEngineException ex) { _unified?.Error("js.init", "define.postResponse.failure", ex: ex, ctx: new Dictionary<string, object?> { ["details"] = ex.ErrorDetails }); }
 
             if (swDefineGlobals is not null) {
                 swDefineGlobals.Stop();
@@ -561,7 +559,7 @@ function __postResponse(workspace, request) {{
             // Execute all generated shims in a single engine call to minimize overhead
             if (shimGlobalBuilder.Length > 0) {
                 try { Engine.Execute(shimGlobalBuilder.ToString()); }
-                catch (ScriptEngineException ex) { Console.Error.WriteLine(ex.ErrorDetails); }
+                catch (ScriptEngineException ex) { _unified?.Error("js.init", "shim.execute.failure", ex: ex, ctx: new Dictionary<string, object?> { ["details"] = ex.ErrorDetails }); }
             }
 
             if (timingsEnabled && timingsDetail && swProject is not null) {
@@ -574,9 +572,7 @@ function __postResponse(workspace, request) {{
                 var hasNewScriptInit = _workspaceService.BaseConfig.ScriptInit is not null;
 
                 if (!hasNewScriptInit) {
-                    if (ScriptDebug) {
-                        Console.Error.WriteLine("[JS:init] Legacy global init path");
-                    }
+                    if (ScriptDebug) { DebugLog("[JS:init] Legacy global init path"); }
 
                     var swLegacyGlobal = timingsEnabled && timingsDetail ? Stopwatch.StartNew() : null;
                     var jsInit = GetJsScriptBody(_workspaceService.BaseConfig.InitScript);
@@ -598,9 +594,7 @@ function __postResponse(workspace, request) {{
                             // Provide a writable identifier so scripts can reference `workspace` directly.
                             Engine.Execute("try { var workspace = this.workspace; } catch (e) {}");
 
-                            if (ScriptDebug) {
-                                Console.Error.WriteLine("[JS:init] Executing legacy global init");
-                            }
+                            if (ScriptDebug) { DebugLog("[JS:init] Executing legacy global init"); }
                             Engine.Execute(code);
                         }
                     }
@@ -630,9 +624,7 @@ function __postResponse(workspace, request) {{
                         }
 
                         if (_workspaceCache.TryGetValue(wsName, out var wsObj)) {
-                            if (ScriptDebug) {
-                                Console.Error.WriteLine($"[JS:init] Execute per-workspace init (legacy) -> {wsName}");
-                            }
+                            if (ScriptDebug) { DebugLog($"[JS:init] Execute per-workspace init (legacy) -> {wsName}"); }
 
                             ExecuteWorkspaceInitChain(wsName, wsDef, wsObj);
                         }
@@ -654,14 +646,10 @@ function __postResponse(workspace, request) {{
 
 }");
             }
-            catch (ScriptEngineException ex) {
-                Console.Error.WriteLine(ex.ErrorDetails);
-            }
+            catch (ScriptEngineException ex) { _unified?.Error("js.init", "define.defaultClr.failure", ex: ex, ctx: new Dictionary<string, object?> { ["details"] = ex.ErrorDetails }); }
 
             _isInitialized = true;
-            if (ScriptDebug) {
-                Console.Error.WriteLine("[JS:init] InitializeScriptEnvironment complete");
-            }
+            if (ScriptDebug) { DebugLog("[JS:init] InitializeScriptEnvironment complete"); }
         }
     }
 
@@ -671,9 +659,7 @@ function __postResponse(workspace, request) {{
             return;
         }
 
-        if (ScriptDebug) {
-            Console.Error.WriteLine("[JS:init] ExecuteAllWorkspaceInitScripts begin");
-        }
+    if (ScriptDebug) { DebugLog("[JS:init] ExecuteAllWorkspaceInitScripts begin"); }
 
         var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
@@ -735,9 +721,7 @@ function __postResponse(workspace, request) {{
             }
 
             if (_workspaceCache.TryGetValue(wsName, out var wsObj)) {
-                if (ScriptDebug) {
-                    Console.Error.WriteLine($"[JS:init] Execute per-workspace init (grouped) -> {wsName}");
-                }
+                if (ScriptDebug) { DebugLog($"[JS:init] Execute per-workspace init (grouped) -> {wsName}"); }
 
                 ExecuteWorkspaceInitChain(wsName, wsDef, wsObj);
 
@@ -747,18 +731,15 @@ function __postResponse(workspace, request) {{
             }
         }
 
-        if (ScriptDebug) {
-            Console.Error.WriteLine("[JS:init] ExecuteAllWorkspaceInitScripts end");
-        }
+    if (ScriptDebug) { DebugLog("[JS:init] ExecuteAllWorkspaceInitScripts end"); }
 
         if (timingsEnabled && timingsDetail && swWsInit is not null) {
-            var line = $"A2C_TIMINGS: jsWorkspaceInit={swWsInit.Elapsed.TotalMilliseconds:F1} ms";
+            var ms = swWsInit.Elapsed.TotalMilliseconds;
+            var line = $"A2C_TIMINGS: jsWorkspaceInit={ms:F1} ms";
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
-            Console.WriteLine(line);
-            if (mirror) {
-                Console.Error.WriteLine(line);
-            }
+            _unified?.Info("cli.timings", line, code: "jsWorkspaceInit", ctx: new Dictionary<string, object?> { ["elapsedMs"] = ms });
+            if (mirror) { _unified?.Info("timings.mirror", line, code: "jsWorkspaceInit.mirror", ctx: new Dictionary<string, object?> { ["elapsedMs"] = ms }); }
         }
     }
 
@@ -783,10 +764,7 @@ function __postResponse(workspace, request) {{
             try {
                 Engine.Execute("if (typeof globalThis.workspaceExpose !== 'function') { globalThis.workspaceExpose = function(name, value){ if(!globalThis.workspace) throw new Error('No workspace bound'); if(Object.prototype.hasOwnProperty.call(globalThis.workspace,name)) throw new Error('Workspace symbol conflict: '+name); globalThis.workspace[name]=value; return value; }; }");
             }
-            catch (ScriptEngineException ex) {
-                Console.Error.WriteLine(ex.ErrorDetails);
-                throw; // propagate: helper injection failure should abort init
-            }
+            catch (ScriptEngineException ex) { _unified?.Error("js.init", "define.workspaceHelper.failure", ex: ex, ctx: new Dictionary<string, object?> { ["details"] = ex.ErrorDetails }); throw; }
         }
         else {
             jsInit = GetJsScriptBody(workspace.InitScript);
@@ -807,29 +785,21 @@ function __postResponse(workspace, request) {{
                     // If script is workspace-agnostic (doesn't reference 'workspace' or 'request'), execute only once globally
                     if (!IsWorkspaceDependent(scriptCode)) {
                         if (_executedGlobalInits.Contains(workspaceKey)) {
-                            if (ScriptDebug) {
-                                Console.Error.WriteLine($"[JS:init] Skipping redundant global init for '{workspaceKey}'");
-                            }
+                            if (ScriptDebug) { DebugLog($"[JS:init] Skipping redundant global init for '{workspaceKey}'"); }
                             return;
                         }
-                        if (ScriptDebug) {
-                            Console.Error.WriteLine($"[JS:init] Running global init once for '{workspaceKey}'");
-                        }
+                        if (ScriptDebug) { DebugLog($"[JS:init] Running global init once for '{workspaceKey}'"); }
                         Engine.Execute(_compiledWorkspaceInitScripts[workspaceKey]);
                         _executedGlobalInits.Add(workspaceKey);
                     }
                     else {
                         // Workspace-dependent init: run only once per workspace
                         if (_executedWorkspaceInits.Contains(workspaceKey)) {
-                            if (ScriptDebug) {
-                                Console.Error.WriteLine($"[JS:init] Skipping already executed workspace init for '{workspaceKey}'");
-                            }
+                            if (ScriptDebug) { DebugLog($"[JS:init] Skipping already executed workspace init for '{workspaceKey}'"); }
                         }
                         else {
                             Engine.Script.workspace = workspaceObj;
-                            if (ScriptDebug) {
-                                Console.Error.WriteLine($"[JS:init] Running init for workspace '{workspaceKey}' (with projection)");
-                            }
+                            if (ScriptDebug) { DebugLog($"[JS:init] Running init for workspace '{workspaceKey}' (with projection)"); }
 
                             // Directly execute compiled init script with 'workspace' bound; users can call workspaceExpose() explicitly.
                             Engine.Execute(_compiledWorkspaceInitScripts[workspaceKey]);
@@ -838,7 +808,7 @@ function __postResponse(workspace, request) {{
                     }
                 }
                 catch (ScriptEngineException ex) {
-                    Console.Error.WriteLine(ex.ErrorDetails);
+                    _unified?.Error("js.init", "execute.workspaceInit.failure", ex: ex, ctx: new Dictionary<string, object?> { ["details"] = ex.ErrorDetails, ["workspace"] = workspaceKey });
                 }
             }
         }
@@ -856,9 +826,7 @@ function __postResponse(workspace, request) {{
                 // Cycle detected in workspace inheritance; emit and break to avoid infinite loop
                 _diags.Emit(nameof(ClearScriptEngine), new { Message = $"Cycle detected in workspace inheritance starting at '{workspaceKey}'. Halting init chain at '{currentKey}'." });
 
-                if (ScriptDebug) {
-                    Console.Error.WriteLine($"[JS:init] Cycle detected: start={workspaceKey}, at={currentKey}. Aborting chain.");
-                }
+                if (ScriptDebug) { DebugLog($"[JS:init] Cycle detected: start={workspaceKey}, at={currentKey}. Aborting chain."); }
 
                 break;
             }
@@ -878,9 +846,7 @@ function __postResponse(workspace, request) {{
         while (chain.Count > 0) {
             var (k, def) = chain.Pop();
 
-            if (ScriptDebug) {
-                Console.Error.WriteLine($"[JS:init] DefineInitScript -> {k}");
-            }
+            if (ScriptDebug) { DebugLog($"[JS:init] DefineInitScript -> {k}"); }
 
             DefineInitScript(k, def, workspaceObj);
         }
@@ -1016,7 +982,7 @@ function __postResponse(workspace, request) {{
             return Engine.Invoke(script, args);
         }
         catch (ScriptEngineException ex) {
-            Console.Error.WriteLine(ex.ErrorDetails);
+            _unified?.Error("js.invoke", "invoke.failure", ex: ex, ctx: new Dictionary<string, object?> { ["details"] = ex.ErrorDetails, ["script"] = script });
         }
 
         return null;
@@ -1228,15 +1194,11 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
 }}
 
 ");
-            if (ScriptDebug) {
-                Console.Error.WriteLine($"[JS:req] Defined wrappers for {workspaceName}.{requestName}");
-            }
+            if (ScriptDebug) { DebugLog($"[JS:req] Defined wrappers for {workspaceName}.{requestName}"); }
 
             _definedRequestWrappers.Add(key);
         }
-        catch (ScriptEngineException ex) {
-            Console.Error.WriteLine(ex.ErrorDetails);
-        }
+    catch (ScriptEngineException ex) { _unified?.Error("js.req", "define.requestWrappers.failure", ex: ex, ctx: new Dictionary<string, object?> { ["details"] = ex.ErrorDetails, ["workspace"] = workspaceName, ["request"] = requestName }); }
     }
 
     // Recursively ensure base chain workspace and request wrappers exist (base-first) for a given request.
@@ -1284,9 +1246,7 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
             }
         }
         catch (ScriptEngineException ex) {
-            if (ScriptDebug) {
-                Console.Error.WriteLine($"[JS:req] Failed defining parent request wrappers for {parentName}.{requestName}: {ex.Message}");
-            }
+            if (ScriptDebug) { DebugLog($"[JS:req] Failed defining parent request wrappers for {parentName}.{requestName}: {ex.Message}"); }
         }
     }
 
@@ -1317,9 +1277,7 @@ function __postResponse__{workspaceName}__{requestName} (workspace, request{extr
             DebugLog($"[JS:req] Defined shim wrappers for {workspaceName}.{requestName}");
             _definedRequestWrappers.Add(key);
         }
-        catch (ScriptEngineException ex) {
-            Console.Error.WriteLine(ex.ErrorDetails);
-        }
+    catch (ScriptEngineException ex) { _unified?.Error("js.req", "define.requestWrapperShim.failure", ex: ex, ctx: new Dictionary<string, object?> { ["details"] = ex.ErrorDetails, ["workspace"] = workspaceName, ["request"] = requestName }); }
     }
 
     private void EnsureWorkspaceWrappers(string workspaceName, WorkspaceDefinition workspace) {
@@ -1346,15 +1304,11 @@ function __postResponse__{workspaceName}(workspace, request) {{
 }};
 
 ");
-            if (ScriptDebug) {
-                Console.Error.WriteLine($"[JS:req] Defined workspace wrappers for {workspaceName}");
-            }
+            if (ScriptDebug) { DebugLog($"[JS:req] Defined workspace wrappers for {workspaceName}"); }
 
             _definedWorkspaceWrappers.Add(workspaceName);
         }
-        catch (ScriptEngineException ex) {
-            Console.Error.WriteLine(ex.ErrorDetails);
-        }
+    catch (ScriptEngineException ex) { _unified?.Error("js.req", "define.workspaceWrappers.failure", ex: ex, ctx: new Dictionary<string, object?> { ["details"] = ex.ErrorDetails, ["workspace"] = workspaceName }); }
     }
 
     private static bool IsWorkspaceDependent(string? scriptCode) {
@@ -1377,9 +1331,7 @@ function __postResponse__{workspaceName}(workspace, request) {{
             return;
         }
 
-        if (ScriptDebug) {
-            Console.Error.WriteLine($"[JS:init] Projecting workspace on-demand -> {workspaceName}");
-        }
+    if (ScriptDebug) { DebugLog($"[JS:init] Projecting workspace on-demand -> {workspaceName}"); }
 
         var bc = _workspaceService?.BaseConfig;
 
@@ -1454,9 +1406,7 @@ function __postResponse__{workspaceName}(workspace, request) {{
             try {
                 Engine.Execute(shimBuilder.ToString());
             }
-            catch (ScriptEngineException ex) {
-                Console.Error.WriteLine(ex.ErrorDetails);
-            }
+            catch (ScriptEngineException ex) { _unified?.Error("js.init", "project.workspace.shims.failure", ex: ex, ctx: new Dictionary<string, object?> { ["details"] = ex.ErrorDetails, ["workspace"] = workspaceName }); }
         }
     }
 
@@ -1484,9 +1434,7 @@ function __postResponse__{workspaceName}(workspace, request) {{
             }
         }
 
-        if (ScriptDebug) {
-            Console.Error.WriteLine($"[JS:init] Running workspace init on-demand -> {workspaceName}");
-        }
+    if (ScriptDebug) { DebugLog($"[JS:init] Running workspace init on-demand -> {workspaceName}"); }
 
         ExecuteWorkspaceInitChain(workspaceName, wsDef, wsObj);
     }
