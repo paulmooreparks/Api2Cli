@@ -364,6 +364,36 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
 
         Engine.AddHostObject("a2c", _a2c);
 
+        // Provide a JS helper for starting dotnet services if workspace scripts reference a2c.startService
+        try {
+            Engine.Execute(@"(function(){
+    if (typeof a2c === 'object' && typeof a2c.startService !== 'function') {
+        a2c.startService = function(displayName, srcPath, relPath, assemblyName){
+            try {
+                var basePath = (srcPath || '').replace(/\\\\+/g,'/').replace(/\/$/, '');
+                var rel = (relPath || '').replace(/\\\\+/g,'/');
+                if (rel && rel.charAt(0) !== '/' && basePath && basePath.charAt(basePath.length-1) !== '/') { rel = '/' + rel; }
+                var processPath = (basePath || '') + (rel || '');
+                var title = displayName || assemblyName || relPath || 'service';
+                var safeTitle = title.replace(/'/g, ''""'');
+                var pwshCmd = '$host.UI.RawUI.WindowTitle = \'' + safeTitle + '\'; dotnet run';
+                if (a2c && a2c.process && typeof a2c.process.run === 'function') {
+                    return a2c.process.run('pwsh', processPath, '-Command', pwshCmd);
+                }
+                if (a2c && a2c.process && typeof a2c.process.runCommand === 'function') {
+                    return a2c.process.runCommand(false, processPath, 'pwsh', '-Command', pwshCmd);
+                }
+                throw new Error('No process runner available on a2c.process');
+            } catch (e) {
+                if (typeof console !== 'undefined' && console.error) { console.error('[startService] ' + (e && e.message ? e.message : e)); }
+                throw e;
+            }
+        };
+    }
+})();");
+        }
+        catch (Exception ex) { _unified?.Warn("js.init", "define.startService.failure", ex: ex); }
+
         if (swHostObjs is not null) {
             swHostObjs.Stop();
             EmitTiming("jsEngine.addHostObjects", swHostObjs.Elapsed.TotalMilliseconds);
