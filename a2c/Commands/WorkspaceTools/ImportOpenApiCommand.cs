@@ -35,7 +35,7 @@ internal class ImportOpenApiCommand(
         try {
             var effectiveSource = openapi ?? source;
             if (string.IsNullOrWhiteSpace(effectiveSource)) {
-                ConsoleWriter.WriteError("Please specify a source URL or file path (positional) or use --openapi.", category: "cli.workspace.import", code: "import.missingSource");
+                ConsoleWriter.WriteErrorKey("import.missingSource", category: "cli.workspace.import", code: "import.missingSource");
                 return Result.InvalidArguments;
             }
             dir ??= name; // default directory name from workspace name
@@ -45,7 +45,7 @@ internal class ImportOpenApiCommand(
 
             if (!LooksLikeJson(content)) {
                 if (IsYamlIndicated(contentType) || LooksLikeYaml(content)) {
-                    ConsoleWriter.WriteError("YAML OpenAPI specs are not yet supported. Please supply a JSON spec.", category: "cli.workspace.import", code: "import.yamlUnsupported");
+                    ConsoleWriter.WriteErrorKey("import.yamlUnsupported", category: "cli.workspace.import", code: "import.yamlUnsupported");
                     return Result.InvalidArguments;
                 }
             }
@@ -71,7 +71,7 @@ internal class ImportOpenApiCommand(
             };
 
             if (!root.TryGetProperty("paths", out var paths) || paths.ValueKind != JsonValueKind.Object) {
-                ConsoleWriter.WriteError("Invalid OpenAPI document: missing 'paths'.", category: "cli.workspace.import", code: "import.missingPaths");
+                ConsoleWriter.WriteErrorKey("import.missingPaths", category: "cli.workspace.import", code: "import.missingPaths");
                 return Result.InvalidArguments;
             }
 

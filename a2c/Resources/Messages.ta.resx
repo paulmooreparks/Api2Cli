@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="script.notFound" xml:space="preserve"><value>✖ ஸ்கிரிப்ட் '{script}' கிடைக்கவில்லை.</value></data>
+  <data name="workspace.notFound" xml:space="preserve"><value>✖ வேலைவெளி '{workspace}' கிடைக்கவில்லை.</value></data>
+  <data name="script.missingName" xml:space="preserve"><value>✖ ஸ்கிரிப்ட் பெயர் அவசியம்.</value></data>
+  <data name="arg.convert.failure" xml:space="preserve"><value>✖ '{value}' மதிப்பை {targetType} ஆக மாற்றும்போது தோல்வி.</value></data>
+  <data name="arg.array.convert.failure" xml:space="preserve"><value>✖ வரிசை argument '{value}' மாற்றம் தோல்வி (உறுப்பின் வகை {elemType})</value></data>
+  <data name="workspace.definition.missing" xml:space="preserve"><value>✖ ஸ்கிரிப்ட் வரையறை கிடைக்கவில்லை.</value></data>
+  <data name="request.notFound" xml:space="preserve"><value>✖ தற்போதைய வேலைவெளியில் '{request}' கோரிக்கை கிடைக்கவில்லை.</value></data>
+  <data name="prerequest.failure" xml:space="preserve"><value>✖ preRequest ஸ்கிரிப்ட் இயங்கும்போது பிழை: {message}</value></data>
+  <data name="get.missing" xml:space="preserve"><value>✖ பிழை: GET கட்டளை கிடைக்கவில்லை.</value></data>
+  <data name="postresponse.failure" xml:space="preserve"><value>✖ postResponse ஸ்கிரிப்ட் இயங்கும்போது பிழை: {message}</value></data>
+  <data name="post.missing" xml:space="preserve"><value>✖ பிழை: POST கட்டளை கிடைக்கவில்லை.</value></data>
+  <data name="method.unknown" xml:space="preserve"><value>✖ தெரியாத முறை {method}</value></data>
+  <data name="script.invoke.callScript.error" xml:space="preserve"><value>✖ ஸ்கிரிப்ட் '{script}' தோல்வி: {message}</value></data>
+  <data name="script.invoke.unhandled" xml:space="preserve"><value>✖ ஸ்கிரிப்ட் '{script}' தோல்வி: {message}</value></data>
+  <data name="arg.convert.failure.detail" xml:space="preserve"><value>✖ '{value}' மதிப்பை {targetType} ஆக மாற்றும்போது தோல்வி: {message}</value></data>
+  <data name="arg.array.convert.failure.detail" xml:space="preserve"><value>✖ வரிசை argument மாற்றம் தோல்வி: {message}</value></data>
+  <data name="script.error" xml:space="preserve"><value>✖ ஸ்கிரிப்ட் இயக்கப் பிழை: {message}</value></data>
+  <data name="baseurl.invalid" xml:space="preserve"><value>✖ பிழை: தவறான அடிப்படை URL: {baseUrl}</value></data>
+  <data name="reload.failure" xml:space="preserve"><value>✖ மீளேற்றம் தோல்வி: {message}</value></data>
+  <data name="reload.success" xml:space="preserve"><value>உள்ளமைவு மீளேற்றப்பட்டது (ஸ்கிரிப்டிங் மீளமைக்கப்பட்டது).</value></data>
+  <data name="import.success" xml:space="preserve"><value>வேலைவெளி {file} க்கு இறக்குமதி செய்யப்பட்டது; {count} கோரிக்கைகள்.</value></data>
+  <data name="import.guidance.header" xml:space="preserve"><value>இதை செயலில் கொண்டு வர உங்கள் config.xfer இல் workspaces பகுதியில் இந்த வரியை சேர்க்கவும்:</value></data>
+  <data name="import.guidance.line" xml:space="preserve"><value>{line}</value></data>
+  <data name="import.guidance.reload" xml:space="preserve"><value>பின்னர் இயக்கவும்: reload</value></data>
+  <data name="import.dir.exists" xml:space="preserve"><value>✖ அடைவில் ஏற்கனவே workspace.xfer உள்ளது: {file}. --force பயன்படுத்தி எழுதி மேலெழுதவும்.</value></data>
+  <data name="import.failure" xml:space="preserve"><value>✖ இறக்குமதி தோல்வி: {message}</value></data>
+  <data name="import.jsonParse.failure" xml:space="preserve"><value>✖ OpenAPI JSON பகுப்பாய்வு தோல்வி: {message}</value></data>
+  <data name="http.fetch.failure" xml:space="preserve"><value>✖ GET {url} தோல்வி: {message}</value></data>
+  <data name="import.blank" xml:space="preserve"><value></value></data>
+  <data name="import.blank2" xml:space="preserve"><value></value></data>
+  <data name="package.list.header" xml:space="preserve"><value>நிறுவப்பட்ட பிளகின்கள்:</value></data>
+  <data name="package.list.item" xml:space="preserve"><value>{plugin}</value></data>
+  <data name="package.list.empty" xml:space="preserve"><value>⚠ எந்த பிளகின்களும் நிறுவப்படவில்லை.</value></data>
+  <data name="store.clear.confirm" xml:space="preserve"><value>சேமிப்பகத்திலிருந்து அனைத்து விசைகளையும் நீக்க விரும்புகிறீர்களா?</value></data>
+  <data name="store.clear.cancelled" xml:space="preserve"><value>செயல் ரத்து செய்யப்பட்டது.</value></data>
+  <data name="store.clear.success" xml:space="preserve"><value>சேமிப்பகம் காலியிடப்பட்டது.</value></data>
+  <data name="store.get.key.notFound" xml:space="preserve"><value>✖ '{key}' விசை கிடைக்கவில்லை.</value></data>
+  <data name="store.get.value.found" xml:space="preserve"><value>{value}</value></data>
+  <data name="foo.executed" xml:space="preserve"><value>Foo கட்டளை இயங்கியது.</value></data>
+  <data name="script.console.emptyTable" xml:space="preserve"><value>(காலியான அட்டவணை)</value></data>
+  <data name="script.console.noProperties" xml:space="preserve"><value>(பண்புகள் எதுவும் இல்லை)</value></data>
+  <data name="script.console.maxDepth" xml:space="preserve"><value>[பிழை] அதிகபட்ச recursion ஆழம் சென்றடைந்தது.</value></data>
+  <data name="import.missingSource" xml:space="preserve"><value>✖ ஒரு மூல URL அல்லது கோப்பு பாதையை (positional) குறிப்பிடுங்கள் அல்லது --openapi பயன்படுத்துங்கள்.</value></data>
+  <data name="import.yamlUnsupported" xml:space="preserve"><value>✖ YAML OpenAPI விளக்கங்கள் இதுவரை ஆதரிக்கப்படவில்லை. தயவு செய்து JSON விளக்கத்தை வழங்கவும்.</value></data>
+  <data name="import.missingPaths" xml:space="preserve"><value>✖ தவறான OpenAPI ஆவணம்: 'paths' இல்லை.</value></data>
+</root>

@@ -12,7 +12,7 @@ namespace ParksComputing.Api2Cli.CliCommands.Commands;
 public class FooCommand {
     public int Execute() {
     var console = ParksComputing.Api2Cli.Cli.Services.Utility.GetService<ParksComputing.Api2Cli.Cli.Services.IConsoleWriter>();
-    console?.WriteLine("Foo command executed", category: "cli.foo", code: "foo.executed");
+    console?.WriteLineKey("foo.executed", category: "cli.foo", code: "foo.executed");
         return Result.Success;
     }
 }

@@ -123,17 +123,17 @@ public class SendCommand {
     // Use IConsoleWriter for user-facing messages; it mirrors to diagnostics automatically.
 
         if (_ws == null || _ws.BaseConfig == null || _ws.BaseConfig.Workspaces == null) {
-            _console.WriteError($"{Constants.ErrorChar} Workspace name '{workspaceName}' not found in current configuration.", category: "cli.send", code: "workspace.notFound", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName });
+            _console.WriteErrorKey("workspace.notFound", category: "cli.send", code: "workspace.notFound", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName });
             return Result.Error;
         }
 
         if (!_ws.BaseConfig.Workspaces.TryGetValue(workspaceName, out WorkspaceDefinition? workspace)) {
-            _console.WriteError($"{Constants.ErrorChar} Workspace name '{workspaceName}' not found in current configuration.", category: "cli.send", code: "workspace.notFound", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName });
+            _console.WriteErrorKey("workspace.notFound", category: "cli.send", code: "workspace.notFound", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName });
             return Result.Error;
         }
 
         if (!workspace.Requests.TryGetValue(requestName, out var definition) || definition is null) {
-            _console.WriteError($"{Constants.ErrorChar} Request name '{requestName}' not found in current workspace.", category: "cli.send", code: "request.notFound", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName });
+            _console.WriteErrorKey("request.notFound", category: "cli.send", code: "request.notFound", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName });
             return Result.Error;
         }
 
@@ -288,7 +288,7 @@ public class SendCommand {
                 extraArgs.ToArray());
         }
         catch (Exception ex) {
-            _console.WriteError($"{Constants.ErrorChar} Error executing preRequest script: {ex.Message}", category: "cli.send", code: "prerequest.failure", ex: ex, ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName });
+            _console.WriteErrorKey("prerequest.failure", category: "cli.send", code: "prerequest.failure", ex: ex, ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName, ["message"] = ex.Message });
         }
 
         var finalHeaders = configHeaders
@@ -306,7 +306,7 @@ public class SendCommand {
             var getCommand = new GetCommand(_a2c, _console);
 
                     if (getCommand is null) {
-                        _console.WriteError($"{Constants.ErrorChar} Error: Unable to find GET command.", category: "cli.send", code: "get.missing", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName });
+                        _console.WriteErrorKey("get.missing", category: "cli.send", code: "get.missing", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName });
                         return Result.Error;
                     }
                     result = getCommand.Execute(endpoint, baseUrl, finalParameters, finalHeaders, finalCookies, isQuiet: true);
@@ -322,7 +322,7 @@ public class SendCommand {
                             );
                     }
                     catch (Exception ex) {
-                        _console.WriteError($"{Constants.ErrorChar} Error executing postResponse script: {ex.Message}", category: "cli.send", code: "postresponse.failure", ex: ex, ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName, ["method"] = "GET" });
+                        _console.WriteErrorKey("postresponse.failure", category: "cli.send", code: "postresponse.failure", ex: ex, ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName, ["method"] = "GET", ["message"] = ex.Message });
                     }
 
                     break;
@@ -332,7 +332,7 @@ public class SendCommand {
             var postCommand = new PostCommand(_a2c, _console);
 
                     if (postCommand is null) {
-                        _console.WriteError($"{Constants.ErrorChar} Error: Unable to find POST command.", category: "cli.send", code: "post.missing", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName });
+                        _console.WriteErrorKey("post.missing", category: "cli.send", code: "post.missing", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName });
                         return Result.Error;
                     }
 
@@ -351,14 +351,14 @@ public class SendCommand {
                             );
                     }
                     catch (Exception ex) {
-                        _console.WriteError($"{Constants.ErrorChar} Error executing postResponse script: {ex.Message}", category: "cli.send", code: "postresponse.failure", ex: ex, ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName, ["method"] = "POST" });
+                        _console.WriteErrorKey("postresponse.failure", category: "cli.send", code: "postresponse.failure", ex: ex, ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName, ["method"] = "POST", ["message"] = ex.Message });
                     }
 
                     break;
                 }
 
             default:
-                _console.WriteError($"{Constants.ErrorChar} Unknown method {method}", category: "cli.send", code: "method.unknown", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName, ["method"] = method });
+                _console.WriteErrorKey("method.unknown", category: "cli.send", code: "method.unknown", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["request"] = requestName, ["method"] = method });
                 result = Result.Error;
                 break;
         }

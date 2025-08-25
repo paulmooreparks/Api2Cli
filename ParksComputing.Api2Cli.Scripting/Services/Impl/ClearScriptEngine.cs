@@ -355,7 +355,8 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
 
         Engine.AddHostType("Console", typeof(Console));
         Engine.AddHostType("Task", typeof(Task));
-        Engine.AddHostType("console", typeof(ConsoleScriptObject));
+    Engine.AddHostType("console", typeof(ConsoleScriptObject));
+    // NOTE: ConsoleScriptObject.Localize can be assigned externally by the hosting layer (CLI) to enable localization.
         Engine.AddHostType("Environment", typeof(Environment));
         // _engine.AddHostObject("workspaceService", _workspaceService);
         Engine.AddHostObject("btoa", new Func<string, string>(s => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s))));

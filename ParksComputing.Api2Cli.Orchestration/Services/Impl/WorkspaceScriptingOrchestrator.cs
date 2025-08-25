@@ -400,13 +400,26 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         if (__a2cWrapped[wsName]) return;
         a2c.workspaces[wsName] = new Proxy(target, {
             get: function(t, prop) {
-                if (prop in t) {
-                    return t[prop];
-                }
+                if (prop in t) { return t[prop]; }
+                // Inherit dynamic properties from base workspaces via extend chain (shallow, first hit wins)
                 if (typeof prop === 'string') {
+                    var cur = t;
+                    var seen = Object.create(null);
+                    while (cur && typeof cur.extend === 'string' && !seen[cur.extend]) {
+                        seen[cur.extend] = true;
+                        var baseWs = a2c.workspaces[cur.extend];
+                        if (!baseWs) break;
+                        if (prop in baseWs) {
+                            // Cache on child for faster subsequent access
+                            try { t[prop] = baseWs[prop]; } catch(_){}
+                            return baseWs[prop];
+                        }
+                        cur = baseWs;
+                    }
+                    // Fallback: treat as script name -> return invoker function
                     return (...args) => a2c.__callScript(wsName, prop, args);
                 }
-                return t[prop];
+                return undefined;
             }
         });
         __a2cWrapped[wsName] = true;

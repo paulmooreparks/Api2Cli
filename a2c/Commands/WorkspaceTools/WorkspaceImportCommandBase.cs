@@ -27,7 +27,7 @@ internal abstract class WorkspaceImportCommandBase {
         if (System.IO.Directory.Exists(targetDir) && !force) {
             var existingFile = System.IO.Path.Combine(targetDir, "workspace.xfer");
             if (System.IO.File.Exists(existingFile)) {
-                ConsoleWriter.WriteError($"Directory already contains a workspace.xfer: {existingFile}. Use --force to overwrite.", category: "cli.workspace.import", code: "import.dir.exists");
+                ConsoleWriter.WriteErrorKey("import.dir.exists", category: "cli.workspace.import", code: "import.dir.exists", ctx: new Dictionary<string, object?> { ["file"] = existingFile });
                 return false;
             }
         }
@@ -77,11 +77,12 @@ internal abstract class WorkspaceImportCommandBase {
     protected void EmitActivationGuidance(string logicalName, string targetDir, int requestCount) {
         var configRoot = GetConfigRoot();
         var wsFilePath = System.IO.Path.Combine(targetDir, "workspace.xfer");
-    ConsoleWriter.WriteLine($"Workspace imported to {wsFilePath} with {requestCount} requests.", category: "cli.workspace.import", code: "import.success");
-    ConsoleWriter.WriteLine(string.Empty, category: "cli.workspace.import", code: "import.blank");
-    ConsoleWriter.WriteLine("Add this line inside the workspaces block of your config.xfer to activate it:", category: "cli.workspace.import", code: "import.guidance.header");
-    ConsoleWriter.WriteLine($"    {logicalName} {{ dir \"{WorkspaceImportHelpers.GetRelativePath(configRoot, targetDir)}\" }}", category: "cli.workspace.import", code: "import.guidance.line");
-    ConsoleWriter.WriteLine(string.Empty, category: "cli.workspace.import", code: "import.blank2");
-    ConsoleWriter.WriteLine("Then run: reload", category: "cli.workspace.import", code: "import.guidance.reload");
+    ConsoleWriter.WriteLineKey("import.success", category: "cli.workspace.import", code: "import.success", ctx: new Dictionary<string, object?> { ["file"] = wsFilePath, ["count"] = requestCount });
+    ConsoleWriter.WriteLineKey("import.blank", category: "cli.workspace.import", code: "import.blank");
+    ConsoleWriter.WriteLineKey("import.guidance.header", category: "cli.workspace.import", code: "import.guidance.header");
+    var rel = WorkspaceImportHelpers.GetRelativePath(configRoot, targetDir);
+    ConsoleWriter.WriteLineKey("import.guidance.line", category: "cli.workspace.import", code: "import.guidance.line", ctx: new Dictionary<string, object?> { ["line"] = $"    {logicalName} {{ dir \"{rel}\" }}" });
+    ConsoleWriter.WriteLineKey("import.blank2", category: "cli.workspace.import", code: "import.blank2");
+    ConsoleWriter.WriteLineKey("import.guidance.reload", category: "cli.workspace.import", code: "import.guidance.reload");
     }
 }

@@ -32,12 +32,12 @@ internal class ReloadCommand(
             } else if (!string.IsNullOrWhiteSpace(workspaceService.CurrentWorkspaceName)) {
                 orchestrator.ActivateWorkspace(workspaceService.CurrentWorkspaceName);
             }
-            console.WriteLine("Configuration reloaded (scripting reset).", category: "cli.reload", code: "reload.success");
+            console.WriteLineKey("reload.success", category: "cli.reload", code: "reload.success");
 
             return Result.Success;
         }
         catch (Exception ex) {
-            console.WriteError($"{ParksComputing.Api2Cli.Workspace.Constants.ErrorChar} Reload failed: {ex.Message}", category: "cli.reload", code: "reload.failure", ex: ex);
+            console.WriteErrorKey("reload.failure", category: "cli.reload", code: "reload.failure", ex: ex, ctx: new Dictionary<string, object?> { ["message"] = ex.Message });
             return Result.Error;
         }
     }

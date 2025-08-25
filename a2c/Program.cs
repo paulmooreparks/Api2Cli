@@ -15,6 +15,7 @@ using ParksComputing.Api2Cli.Cli;
 using System.Diagnostics;
 using System.Reflection;
 using System.IO;
+using System.Globalization;
 using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Api2Cli.Cli.Commands;
 using ParksComputing.Api2Cli.Scripting.Services;
@@ -70,6 +71,7 @@ internal class Program {
         // Early parse: capture --config/-c and --packages/-P before services initialize; pass via options, not env vars.
         string? __configRootOpt = null;
         string? __packagesDirOpt = null;
+        string? __langOpt = null;
         for (int i = 0; i < args.Length; i++) {
             if (string.Equals(args[i], "--config", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-c", StringComparison.OrdinalIgnoreCase)) {
                 var next = (i + 1) < args.Length ? args[i + 1] : null;
@@ -82,6 +84,36 @@ internal class Program {
                 var next = (i + 1) < args.Length ? args[i + 1] : null;
                 if (!string.IsNullOrWhiteSpace(next)) { __packagesDirOpt = next; }
                 break;
+            }
+        }
+        for (int i = 0; i < args.Length; i++) {
+            if (string.Equals(args[i], "--lang", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-L", StringComparison.OrdinalIgnoreCase)) {
+                var next = (i + 1) < args.Length ? args[i + 1] : null;
+                if (!string.IsNullOrWhiteSpace(next)) { __langOpt = next; }
+                break;
+            }
+        }
+
+        // Resolve desired UI culture: precedence CLI option > env var (A2C_LANG) > system default
+        string? cultureCandidate = __langOpt ?? Environment.GetEnvironmentVariable("A2C_LANG");
+        if (!string.IsNullOrWhiteSpace(cultureCandidate)) {
+            // Normalization helpers (allow short forms)
+            string norm = cultureCandidate!.Trim();
+            norm = norm switch {
+                "en" or "en-GB" or "en-gb" => "en-GB", // prefer en-GB variant when explicitly chosen
+                "zh" or "zh-CN" or "zh-cn" or "zh-hans" => "zh-Hans",
+                "ms" or "ms-MY" or "ms-my" => "ms",
+                "ta" or "ta-IN" or "ta-in" => "ta",
+                _ => norm
+            };
+            try {
+                var ci = CultureInfo.GetCultureInfo(norm);
+                CultureInfo.CurrentCulture = ci; // number/date formatting if needed
+                CultureInfo.CurrentUICulture = ci; // resource lookup
+            }
+            catch (CultureNotFoundException) {
+                // Fall back silently to system culture; early stage so only Console available
+                Console.Error.WriteLine($"Warning: culture '{cultureCandidate}' not recognized. Falling back to system default '{CultureInfo.CurrentUICulture.Name}'.");
             }
         }
 
@@ -134,6 +166,7 @@ internal class Program {
                     services.AddApi2CliDiagnosticsServices("Api2Cli");
                     services.AddSingleton<ICommandSplitter, CommandSplitter>();
                     services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();
+                    services.AddSingleton<ILocalizer, ResourceLocalizer>();
                     services.AddSingleton<IConsoleWriter, ConsoleWriter>();
 
                     // Align data store path to the selected config root
@@ -150,6 +183,11 @@ internal class Program {
                 .Build();
         __unified = cli.ServiceProvider.GetService<IUnifiedDiagnostics>();
         __console = cli.ServiceProvider.GetService<IConsoleWriter>();
+        // Inject localization delegate for scripting console helper (makes script.console.* resource keys available)
+        try {
+            var __localizer = cli.ServiceProvider.GetService<ILocalizer>();
+            ParksComputing.Api2Cli.Scripting.Services.ConsoleScriptObject.Localize = key => __localizer?.Get(key) ?? key;
+        } catch { /* non-fatal */ }
         __unified?.Debug("startup", "container.built");
         __a2cBuildSw.Stop();
 

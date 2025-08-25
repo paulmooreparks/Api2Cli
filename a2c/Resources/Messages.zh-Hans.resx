@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="script.notFound" xml:space="preserve"><value>✖ 未找到脚本“{script}”。</value></data>
+  <data name="workspace.notFound" xml:space="preserve"><value>✖ 未找到工作区“{workspace}”。</value></data>
+  <data name="script.missingName" xml:space="preserve"><value>✖ 需要脚本名称。</value></data>
+  <data name="workspace.definition.missing" xml:space="preserve"><value>✖ 未找到脚本定义。</value></data>
+  <data name="request.notFound" xml:space="preserve"><value>✖ 当前工作区中未找到请求“{request}”。</value></data>
+  <data name="prerequest.failure" xml:space="preserve"><value>✖ 预请求脚本执行出错: {message}</value></data>
+  <data name="get.missing" xml:space="preserve"><value>✖ 错误：找不到 GET 命令。</value></data>
+  <data name="postresponse.failure" xml:space="preserve"><value>✖ 响应后脚本执行出错: {message}</value></data>
+  <data name="post.missing" xml:space="preserve"><value>✖ 错误：找不到 POST 命令。</value></data>
+  <data name="method.unknown" xml:space="preserve"><value>✖ 未知方法 {method}</value></data>
+  <data name="script.invoke.callScript.error" xml:space="preserve"><value>✖ 脚本“{script}”失败: {message}</value></data>
+  <data name="script.invoke.unhandled" xml:space="preserve"><value>✖ 脚本“{script}”失败: {message}</value></data>
+  <data name="arg.convert.failure" xml:space="preserve"><value>✖ 参数值“{value}”转换为 {targetType} 失败</value></data>
+  <data name="arg.array.convert.failure" xml:space="preserve"><value>✖ 数组参数“{value}”转换失败 (元素类型 {elemType})</value></data>
+  <data name="arg.convert.failure.detail" xml:space="preserve"><value>✖ 参数转换失败: {message}</value></data>
+  <data name="arg.array.convert.failure.detail" xml:space="preserve"><value>✖ 数组参数转换失败: {message}</value></data>
+  <data name="script.error" xml:space="preserve"><value>✖ 脚本执行出错: {message}</value></data>
+  <data name="baseurl.invalid" xml:space="preserve"><value>✖ 错误：无效的基础 URL: {baseUrl}</value></data>
+  <data name="reload.failure" xml:space="preserve"><value>✖ 重新加载失败: {message}</value></data>
+  <data name="reload.success" xml:space="preserve"><value>配置已重新加载（脚本已重置）。</value></data>
+  <data name="import.success" xml:space="preserve"><value>工作区已导入到 {file}，包含 {count} 个请求。</value></data>
+  <data name="import.guidance.header" xml:space="preserve"><value>在 config.xfer 的 workspaces 块中添加此行以激活：</value></data>
+  <data name="import.guidance.line" xml:space="preserve"><value>{line}</value></data>
+  <data name="import.guidance.reload" xml:space="preserve"><value>然后运行: reload</value></data>
+  <data name="import.dir.exists" xml:space="preserve"><value>✖ 目录已包含 workspace.xfer: {file}。使用 --force 覆盖。</value></data>
+  <data name="import.failure" xml:space="preserve"><value>✖ 导入失败: {message}</value></data>
+  <data name="import.jsonParse.failure" xml:space="preserve"><value>✖ 解析 OpenAPI JSON 失败: {message}</value></data>
+  <data name="http.fetch.failure" xml:space="preserve"><value>✖ GET {url} 失败: {message}</value></data>
+  <data name="import.blank" xml:space="preserve"><value></value></data>
+  <data name="import.blank2" xml:space="preserve"><value></value></data>
+  <data name="package.list.header" xml:space="preserve"><value>已安装的插件:</value></data>
+  <data name="package.list.item" xml:space="preserve"><value>{plugin}</value></data>
+  <data name="package.list.empty" xml:space="preserve"><value>⚠ 未安装任何插件。</value></data>
+  <data name="store.clear.confirm" xml:space="preserve"><value>确定要清空存储中的所有键吗？</value></data>
+  <data name="store.clear.cancelled" xml:space="preserve"><value>操作已取消。</value></data>
+  <data name="store.clear.success" xml:space="preserve"><value>存储已清空。</value></data>
+  <data name="store.get.key.notFound" xml:space="preserve"><value>✖ 未找到键“{key}”。</value></data>
+  <data name="store.get.value.found" xml:space="preserve"><value>{value}</value></data>
+  <data name="foo.executed" xml:space="preserve"><value>Foo 命令已执行。</value></data>
+  <data name="script.console.emptyTable" xml:space="preserve"><value>(空表)</value></data>
+  <data name="script.console.noProperties" xml:space="preserve"><value>(未找到属性)</value></data>
+  <data name="script.console.maxDepth" xml:space="preserve"><value>[错误] 已达到最大递归深度。</value></data>
+  <data name="import.missingSource" xml:space="preserve"><value>✖ 请指定源 URL 或文件路径（位置参数）或使用 --openapi。</value></data>
+  <data name="import.yamlUnsupported" xml:space="preserve"><value>✖ 暂不支持 YAML OpenAPI 规范，请提供 JSON 规范。</value></data>
+  <data name="import.missingPaths" xml:space="preserve"><value>✖ 无效的 OpenAPI 文档：缺少 'paths'。</value></data>
+</root>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="script.notFound" xml:space="preserve"><value>✖ Skrip '{script}' tidak ditemui.</value></data>
+  <data name="workspace.notFound" xml:space="preserve"><value>✖ Ruang kerja '{workspace}' tidak ditemui.</value></data>
+  <data name="script.missingName" xml:space="preserve"><value>✖ Nama skrip diperlukan.</value></data>
+  <data name="arg.convert.failure" xml:space="preserve"><value>✖ Penukaran argumen gagal bagi nilai '{value}' → {targetType}</value></data>
+  <data name="arg.array.convert.failure" xml:space="preserve"><value>✖ Penukaran argumen tatasusunan '{value}' gagal (jenis elemen {elemType})</value></data>
+  <data name="workspace.definition.missing" xml:space="preserve"><value>✖ Definisi skrip tidak ditemui.</value></data>
+  <data name="request.notFound" xml:space="preserve"><value>✖ Permintaan '{request}' tidak ditemui dalam ruang kerja semasa.</value></data>
+  <data name="prerequest.failure" xml:space="preserve"><value>✖ Ralat melaksanakan skrip pra-permintaan: {message}</value></data>
+  <data name="get.missing" xml:space="preserve"><value>✖ Ralat: Perintah GET tidak ditemui.</value></data>
+  <data name="postresponse.failure" xml:space="preserve"><value>✖ Ralat melaksanakan skrip pasca-respons: {message}</value></data>
+  <data name="post.missing" xml:space="preserve"><value>✖ Ralat: Perintah POST tidak ditemui.</value></data>
+  <data name="method.unknown" xml:space="preserve"><value>✖ Kaedah tidak diketahui {method}</value></data>
+  <data name="script.invoke.callScript.error" xml:space="preserve"><value>✖ Skrip '{script}' gagal: {message}</value></data>
+  <data name="script.invoke.unhandled" xml:space="preserve"><value>✖ Skrip '{script}' gagal: {message}</value></data>
+  <data name="arg.convert.failure.detail" xml:space="preserve"><value>✖ Penukaran argumen gagal bagi nilai '{value}' → {targetType}: {message}</value></data>
+  <data name="arg.array.convert.failure.detail" xml:space="preserve"><value>✖ Penukaran argumen tatasusunan gagal: {message}</value></data>
+  <data name="script.error" xml:space="preserve"><value>✖ Ralat melaksanakan skrip: {message}</value></data>
+  <data name="baseurl.invalid" xml:space="preserve"><value>✖ Ralat: URL asas tidak sah: {baseUrl}</value></data>
+  <data name="reload.failure" xml:space="preserve"><value>✖ Muat semula gagal: {message}</value></data>
+  <data name="reload.success" xml:space="preserve"><value>Konfigurasi dimuat semula (scripting ditetapkan semula).</value></data>
+  <data name="import.success" xml:space="preserve"><value>Ruang kerja diimport ke {file} dengan {count} permintaan.</value></data>
+  <data name="import.guidance.header" xml:space="preserve"><value>Tambah baris ini dalam blok workspaces dalam config.xfer anda untuk mengaktifkannya:</value></data>
+  <data name="import.guidance.line" xml:space="preserve"><value>{line}</value></data>
+  <data name="import.guidance.reload" xml:space="preserve"><value>Kemudian jalankan: reload</value></data>
+  <data name="import.dir.exists" xml:space="preserve"><value>✖ Direktori sudah mengandungi workspace.xfer: {file}. Guna --force untuk menulis ganti.</value></data>
+  <data name="import.failure" xml:space="preserve"><value>✖ Import gagal: {message}</value></data>
+  <data name="import.jsonParse.failure" xml:space="preserve"><value>✖ Gagal menghuraikan OpenAPI JSON: {message}</value></data>
+  <data name="http.fetch.failure" xml:space="preserve"><value>✖ GET {url} gagal: {message}</value></data>
+  <data name="import.blank" xml:space="preserve"><value></value></data>
+  <data name="import.blank2" xml:space="preserve"><value></value></data>
+  <data name="package.list.header" xml:space="preserve"><value>Plugin Dipasang:</value></data>
+  <data name="package.list.item" xml:space="preserve"><value>{plugin}</value></data>
+  <data name="package.list.empty" xml:space="preserve"><value>⚠ Tiada plugin dipasang.</value></data>
+  <data name="store.clear.confirm" xml:space="preserve"><value>Adakah anda pasti mahu mengosongkan semua kunci daripada stor?</value></data>
+  <data name="store.clear.cancelled" xml:space="preserve"><value>Operasi dibatalkan.</value></data>
+  <data name="store.clear.success" xml:space="preserve"><value>Stor dikosongkan.</value></data>
+  <data name="store.get.key.notFound" xml:space="preserve"><value>✖ Kunci '{key}' tidak ditemui.</value></data>
+  <data name="store.get.value.found" xml:space="preserve"><value>{value}</value></data>
+  <data name="foo.executed" xml:space="preserve"><value>Perintah Foo dilaksanakan.</value></data>
+  <data name="script.console.emptyTable" xml:space="preserve"><value>(jadual kosong)</value></data>
+  <data name="script.console.noProperties" xml:space="preserve"><value>(Tiada sifat ditemui)</value></data>
+  <data name="script.console.maxDepth" xml:space="preserve"><value>[RALAT] Kedalaman rekursi maksimum dicapai.</value></data>
+  <data name="import.missingSource" xml:space="preserve"><value>✖ Sila nyatakan URL sumber atau laluan fail (posisi) atau guna --openapi.</value></data>
+  <data name="import.yamlUnsupported" xml:space="preserve"><value>✖ Spesifikasi OpenAPI YAML belum disokong. Sila berikan spesifikasi JSON.</value></data>
+  <data name="import.missingPaths" xml:space="preserve"><value>✖ Dokumen OpenAPI tidak sah: tiada 'paths'.</value></data>
+</root>

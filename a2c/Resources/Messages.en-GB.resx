@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="script.notFound" xml:space="preserve"><value>✖ Script '{script}' not found.</value></data>
+  <data name="workspace.notFound" xml:space="preserve"><value>✖ Workspace '{workspace}' not found.</value></data>
+  <data name="script.missingName" xml:space="preserve"><value>✖ Script name is required.</value></data>
+  <data name="arg.convert.failure" xml:space="preserve"><value>✖ Argument conversion failed for value '{value}' → {targetType}</value></data>
+  <data name="arg.array.convert.failure" xml:space="preserve"><value>✖ Array argument conversion failed for '{value}' (element type {elemType})</value></data>
+  <data name="workspace.definition.missing" xml:space="preserve"><value>✖ Script definition not found.</value></data>
+  <data name="request.notFound" xml:space="preserve"><value>✖ Request '{request}' not found in current workspace.</value></data>
+  <data name="prerequest.failure" xml:space="preserve"><value>✖ Error executing preRequest script: {message}</value></data>
+  <data name="get.missing" xml:space="preserve"><value>✖ Error: Unable to find GET command.</value></data>
+  <data name="postresponse.failure" xml:space="preserve"><value>✖ Error executing postResponse script: {message}</value></data>
+  <data name="post.missing" xml:space="preserve"><value>✖ Error: Unable to find POST command.</value></data>
+  <data name="method.unknown" xml:space="preserve"><value>✖ Unknown method {method}</value></data>
+  <data name="script.invoke.callScript.error" xml:space="preserve"><value>✖ Script '{script}' failed: {message}</value></data>
+  <data name="script.invoke.unhandled" xml:space="preserve"><value>✖ Script '{script}' failed: {message}</value></data>
+  <data name="arg.convert.failure.detail" xml:space="preserve"><value>✖ Argument conversion failed for value '{value}' → {targetType}: {message}</value></data>
+  <data name="arg.array.convert.failure.detail" xml:space="preserve"><value>✖ Array argument conversion failed: {message}</value></data>
+  <data name="script.error" xml:space="preserve"><value>✖ Error executing script: {message}</value></data>
+  <data name="baseurl.invalid" xml:space="preserve"><value>✖ Error: Invalid base URL: {baseUrl}</value></data>
+  <data name="reload.failure" xml:space="preserve"><value>✖ Reload failed: {message}</value></data>
+  <data name="reload.success" xml:space="preserve"><value>Configuration reloaded (scripting reset).</value></data>
+  <data name="import.success" xml:space="preserve"><value>Workspace imported to {file} with {count} requests.</value></data>
+  <data name="import.guidance.header" xml:space="preserve"><value>Add this line inside the workspaces block of your config.xfer to activate it:</value></data>
+  <data name="import.guidance.line" xml:space="preserve"><value>{line}</value></data>
+  <data name="import.guidance.reload" xml:space="preserve"><value>Then run: reload</value></data>
+  <data name="import.dir.exists" xml:space="preserve"><value>✖ Directory already contains a workspace.xfer: {file}. Use --force to overwrite.</value></data>
+  <data name="import.failure" xml:space="preserve"><value>✖ Import failed: {message}</value></data>
+  <data name="import.jsonParse.failure" xml:space="preserve"><value>✖ Failed to parse OpenAPI JSON: {message}</value></data>
+  <data name="http.fetch.failure" xml:space="preserve"><value>✖ GET {url} failed: {message}</value></data>
+  <data name="import.blank" xml:space="preserve"><value></value></data>
+  <data name="import.blank2" xml:space="preserve"><value></value></data>
+  <data name="package.list.header" xml:space="preserve"><value>Installed Plugins:</value></data>
+  <data name="package.list.item" xml:space="preserve"><value>{plugin}</value></data>
+  <data name="package.list.empty" xml:space="preserve"><value>⚠ No plugins installed.</value></data>
+  <data name="store.clear.confirm" xml:space="preserve"><value>Are you sure you want to clear all keys from the store?</value></data>
+  <data name="store.clear.cancelled" xml:space="preserve"><value>Operation cancelled.</value></data>
+  <data name="store.clear.success" xml:space="preserve"><value>Store cleared.</value></data>
+  <data name="store.get.key.notFound" xml:space="preserve"><value>✖ Key '{key}' not found.</value></data>
+  <data name="store.get.value.found" xml:space="preserve"><value>{value}</value></data>
+  <data name="foo.executed" xml:space="preserve"><value>Foo command executed.</value></data>
+  <data name="script.console.emptyTable" xml:space="preserve"><value>(empty table)</value></data>
+  <data name="script.console.noProperties" xml:space="preserve"><value>(No properties found)</value></data>
+  <data name="script.console.maxDepth" xml:space="preserve"><value>[ERROR] Maximum recursion depth reached.</value></data>
+  <data name="import.missingSource" xml:space="preserve"><value>✖ Please specify a source URL or file path (positional) or use --openapi.</value></data>
+  <data name="import.yamlUnsupported" xml:space="preserve"><value>✖ YAML OpenAPI specs are not yet supported. Please supply a JSON spec.</value></data>
+  <data name="import.missingPaths" xml:space="preserve"><value>✖ Invalid OpenAPI document: missing 'paths'.</value></data>
+</root>

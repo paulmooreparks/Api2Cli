@@ -4,6 +4,8 @@ using System.Reflection;
 namespace ParksComputing.Api2Cli.Scripting.Services;
 
 public class ConsoleScriptObject {
+    // Localizer delegate injected by hosting engine (optional). Signature: key -> localized string.
+    public static Func<string, string>? Localize { get; set; }
     private static Dictionary<string, int> _counts = new();
     private static int _groupDepth = 0;
 
@@ -102,14 +104,14 @@ public class ConsoleScriptObject {
     public static void table(IEnumerable<object> data) {
         if (data == null || !data.Any()) {
             Write(Indent);
-            WriteLine("(empty table)");
+            WriteLine(Localize?.Invoke("script.console.emptyTable") ?? "(empty table)");
             return;
         }
 
         var properties = data.First().GetType().GetProperties();
         if (properties.Length == 0) {
             Write(Indent);
-            WriteLine("(No properties found)");
+            WriteLine(Localize?.Invoke("script.console.noProperties") ?? "(No properties found)");
             return;
         }
 
@@ -135,7 +137,7 @@ public class ConsoleScriptObject {
 
         if (depth > 10) {
             Write(Indent);
-            WriteLine("[ERROR] Maximum recursion depth reached.");
+            WriteLine(Localize?.Invoke("script.console.maxDepth") ?? "[ERROR] Maximum recursion depth reached.");
             return;
         }
 

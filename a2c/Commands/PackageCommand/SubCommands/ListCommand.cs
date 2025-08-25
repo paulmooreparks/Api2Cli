@@ -16,13 +16,13 @@ internal class ListCommand(
         var plugins = Api2CliApi.Package.List;
 
         if (plugins.Any()) {
-            _console.WriteLine("Installed Plugins:", category: "cli.package", code: "list.header");
+            _console.WriteLineKey("package.list.header", category: "cli.package", code: "package.list.header");
             foreach (var plugin in plugins) {
-                _console.WriteLine(plugin, category: "cli.package", code: "list.item", ctx: new Dictionary<string, object?> { ["plugin"] = plugin });
+                _console.WriteLineKey("package.list.item", category: "cli.package", code: "package.list.item", ctx: new Dictionary<string, object?> { ["plugin"] = plugin, ["value"] = plugin });
             }
         }
         else {
-            _console.WriteLine($"{Constants.WarningChar} No plugins installed.", category: "cli.package", code: "list.empty");
+            _console.WriteLineKey("package.list.empty", category: "cli.package", code: "package.list.empty");
         }
 
         return Result.Success;

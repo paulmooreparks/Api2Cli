@@ -93,7 +93,7 @@ internal class RunWsScriptCommand {
         IReadOnlyList<System.CommandLine.Parsing.Token>? tokenArguments
         ) {
         if (scriptName is null) {
-            _console.WriteError($"{Constants.ErrorChar} Script name is required.", "cli.run", code: "script.missingName");
+            _console.WriteErrorKey("script.missingName", "cli.run", code: "script.missingName");
             return Result.Error;
         }
 
@@ -112,26 +112,26 @@ internal class RunWsScriptCommand {
         if (string.IsNullOrEmpty(workspaceName)) {
             found = _workspaceService.BaseConfig.Scripts.TryGetValue(scriptName, out scriptDefinition);
             if (!found) {
-                _console.WriteError($"{Constants.ErrorChar} Script '{scriptName}' not found.", "cli.run", code: "script.notFound", ctx: new Dictionary<string, object?> { ["script"] = scriptName });
+                _console.WriteErrorKey("script.notFound", "cli.run", code: "script.notFound", ctx: new Dictionary<string, object?> { ["script"] = scriptName });
                 return Result.Error;
             }
         }
         else {
             if (_workspaceService.BaseConfig.Workspaces.TryGetValue(workspaceName, out var workspace)) {
                 found = workspace.Scripts.TryGetValue(scriptName, out scriptDefinition);
-                if (!found) {
-                    _console.WriteError($"{Constants.ErrorChar} Script '{workspaceName}.{scriptName}' not found.", "cli.run", code: "script.notFound", ctx: new Dictionary<string, object?> { ["script"] = scriptName, ["workspace"] = workspaceName });
+                    if (!found) {
+                    _console.WriteErrorKey("script.notFound", "cli.run", code: "script.notFound", ctx: new Dictionary<string, object?> { ["script"] = scriptName, ["workspace"] = workspaceName });
                     return Result.Error;
                 }
             }
             else {
-                _console.WriteError($"{Constants.ErrorChar} Workspace '{workspaceName}' not found.", "cli.run", code: "workspace.notFound", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName });
+                _console.WriteErrorKey("workspace.notFound", "cli.run", code: "workspace.notFound", ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName });
                 return Result.Error;
             }
         }
 
         if (scriptDefinition is null) {
-            _console.WriteError($"{Constants.ErrorChar} Script definition not found", "cli.run", code: "script.definition.missing", ctx: new Dictionary<string, object?> { ["script"] = scriptName, ["workspace"] = workspaceName });
+            _console.WriteErrorKey("workspace.definition.missing", "cli.run", code: "script.definition.missing", ctx: new Dictionary<string, object?> { ["script"] = scriptName, ["workspace"] = workspaceName });
             return Result.Error;
         }
 

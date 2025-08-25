@@ -14,17 +14,19 @@ namespace ParksComputing.Api2Cli.Cli.Commands.StoreCommand.SubCommands;
 
 [Command("clear", "Clear all keys from the store", Parent = "store")]
 internal class ClearCommand(
-    IStoreService store
-    ) 
+    IStoreService store,
+    ParksComputing.Api2Cli.Cli.Services.IConsoleWriter consoleWriter
+    )
 {
+    private readonly ParksComputing.Api2Cli.Cli.Services.IConsoleWriter _console = consoleWriter;
     public int Execute() {
-        if (!ConsolePrompts.Confirm("Are you sure you want to clear all keys from the store?")) {
-            Console.WriteLine("Operation cancelled.");
+    if (!ConsolePrompts.Confirm(_console.Localize("store.clear.confirm"))) {
+            _console.WriteLineKey("store.clear.cancelled", category: "cli.store.clear", code: "store.clear.cancelled");
             return Result.Success;
         }
 
         store.Clear();
-        Console.WriteLine("Store cleared.");
+        _console.WriteLineKey("store.clear.success", category: "cli.store.clear", code: "store.clear.success");
         return Result.Success;
     }
 }

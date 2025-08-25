@@ -5,6 +5,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+  <NeutralLanguage>en</NeutralLanguage>
     <RootNamespace>ParksComputing.Api2Cli.Cli</RootNamespace>
     <AssemblyName>a2c</AssemblyName>
     <Version>0.8.0</Version>

@@ -6,9 +6,10 @@ using System.Collections.Generic;
 
 internal sealed class ConsoleWriter : IConsoleWriter {
     private readonly IUnifiedDiagnostics? _diag;
+    private readonly ILocalizer? _localizer;
     private readonly object _lock = new();
 
-    public ConsoleWriter(IUnifiedDiagnostics? diag) { _diag = diag; }
+    public ConsoleWriter(IUnifiedDiagnostics? diag, ILocalizer? localizer = null) { _diag = diag; _localizer = localizer; }
 
     private static string Normalize(string message) => message ?? string.Empty;
 
@@ -34,4 +35,16 @@ internal sealed class ConsoleWriter : IConsoleWriter {
     lock (_lock) { Console.Error.WriteLine(Normalize(message)); }
     _diag?.Error(category ?? "cli.error", Normalize(message), code: code, ex: ex, ctx: ctx);
     }
+
+    public void WriteKey(string key, string? category = null, string? code = null, IReadOnlyDictionary<string, object?>? ctx = null)
+        => Write(_localizer?.Get(key, ctx) ?? key, category, code ?? key, ctx);
+
+    public void WriteLineKey(string key, string? category = null, string? code = null, IReadOnlyDictionary<string, object?>? ctx = null)
+        => WriteLine(_localizer?.Get(key, ctx) ?? key, category, code ?? key, ctx);
+
+    public void WriteErrorKey(string key, string? category = null, string? code = null, Exception? ex = null, IReadOnlyDictionary<string, object?>? ctx = null)
+        => WriteError(_localizer?.Get(key, ctx) ?? key, category, code ?? key, ex, ctx);
+
+    public string Localize(string key, IReadOnlyDictionary<string, object?>? ctx = null)
+        => _localizer?.Get(key, ctx) ?? key;
 }

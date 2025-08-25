@@ -24,10 +24,10 @@ internal class GetCommand(
         )
     {
         if (store.TryGetValue(key, out var value)) {
-            _console.WriteLine(value?.ToString() ?? string.Empty, category: "cli.store.get", code: "value.found", ctx: new Dictionary<string, object?> { ["key"] = key });
+            _console.WriteLineKey("store.get.value.found", category: "cli.store.get", code: "store.get.value.found", ctx: new Dictionary<string, object?> { ["key"] = key, ["value"] = value?.ToString() ?? string.Empty });
         }
         else {
-            _console.WriteError($"{Constants.ErrorChar} Key '{key}' not found.", category: "cli.store.get", code: "key.notFound", ctx: new Dictionary<string, object?> { ["key"] = key });
+            _console.WriteErrorKey("store.get.key.notFound", category: "cli.store.get", code: "store.get.key.notFound", ctx: new Dictionary<string, object?> { ["key"] = key });
             return Result.Error;
         }
 
