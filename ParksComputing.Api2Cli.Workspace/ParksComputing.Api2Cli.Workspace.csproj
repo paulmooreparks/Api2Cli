@@ -14,6 +14,9 @@
     <PackageReference Include="NuGet.Packaging" Version="6.13.2" />
     <PackageReference Include="NuGet.Protocol" Version="6.13.2" />
     <PackageReference Include="ParksComputing.Xfer.Lang" Version="0.15.25-prerelease" />
+  <!-- External .env parser (replaces in-house parser) -->
+  <!-- Pin exact version (bracket syntax) to silence NU1603 range warning -->
+  <PackageReference Include="dotenv.net" Version="[3.2.0]" />
   </ItemGroup>
 
   <ItemGroup>

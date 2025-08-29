@@ -4,13 +4,16 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace ParksComputing.Api2Cli.Api.Store;
 
 public interface IStoreApi {
-    object? get(string key);
-    void set(string key, object value);
-    void delete(string key);
-    void clear();
-    string[] keys { get; }
-    object[]? values { get; }
+    object? Get(string key);
+    void Set(string key, object value);
+    void Delete(string key);
+    void Clear();
+    string[] Keys { get; }
+    // Non-null array instance; elements may be null
+    object?[] Values { get; }
 }

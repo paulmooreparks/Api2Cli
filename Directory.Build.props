@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- Generate packages.lock.json files for deterministic restores and to prevent stale version ranges (e.g., NU1603) from persisting in obj caches -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+</Project>

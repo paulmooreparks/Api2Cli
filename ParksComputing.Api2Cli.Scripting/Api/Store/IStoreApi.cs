@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.ClearScript;
 
+#nullable enable
+
 namespace ParksComputing.Api2Cli.Api.Store;
 
 public interface IStoreApi {
@@ -19,5 +21,6 @@ public interface IStoreApi {
     [ScriptMember("keys")]
     string[] Keys { get; }
     [ScriptMember("values")]
-    object[]? Values { get; }
+    // Non-null array instance; elements may be null
+    object?[] Values { get; }
 }

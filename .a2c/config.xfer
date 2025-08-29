@@ -14,20 +14,22 @@
     }
 
     </ Global init: convenience helpers available to all scripts />
-    initScript <'
-        function testFunction(message) {
-            console.log("Test function called with message:", message);
-        }
+    scriptInit {
+        javascript <'
+            function testFunction(message) {
+                console.log("Test function called with message:", message);
+            }
 
-        function formatJson(rawJson) {
-            try { let obj = (typeof rawJson === 'string') ? JSON.parse(rawJson) : rawJson; return JSON.stringify(obj, null, 2); }
-            catch { return String(rawJson); }
-        }
+            function formatJson(rawJson) {
+                try { let obj = (typeof rawJson === 'string') ? JSON.parse(rawJson) : rawJson; return JSON.stringify(obj, null, 2); }
+                catch { return String(rawJson); }
+            }
 
-        function logHeader(title) {
-            console.log("\n=== " + title + " ===");
-        }
-    '>
+            function logHeader(title) {
+                console.log("\n=== " + title + " ===");
+            }
+        '>
+    }
 
     </ Global scripts (JavaScript and C#) />
     scripts {

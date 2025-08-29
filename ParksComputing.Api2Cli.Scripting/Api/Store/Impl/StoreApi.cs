@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 
+#nullable enable
+
 using ParksComputing.Api2Cli.DataStore;
 using ParksComputing.Api2Cli.DataStore.Services;
 
@@ -21,11 +23,20 @@ internal class StoreApi : IStoreApi {
 
     public void Clear() => _store.Clear();
 
-    public string[] Keys => [.. _store.Keys];
+    public string[] Keys => _store.Keys.ToArray();
 
-    public object[]? Values {
+    // Return non-null array; elements may be null.
+    [System.Diagnostics.CodeAnalysis.DisallowNull]
+    public object?[] Values {
         get {
-            return [.. _store.Values.Where(v => v != null).Cast<object>()];
+            var values = _store.Values; // ICollection<object?>
+            var result = new object?[values.Count];
+            int i = 0;
+            foreach (var v in values) {
+                result[i++] = v;
+            }
+            return result;
         }
     }
 }
+

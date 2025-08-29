@@ -15,12 +15,15 @@ using ParksComputing.Xfer.Lang.Attributes;
 using ParksComputing.Xfer.Lang.Elements;
 using ParksComputing.Api2Cli.Diagnostics.Services;
 using ParksComputing.Api2Cli.Workspace.Models;
+using dotenv.net;
+using dotenv.net.Utilities;
 
 namespace ParksComputing.Api2Cli.Workspace.Services.Impl;
 
 internal class WorkspaceService : IWorkspaceService {
     private readonly ISettingsService _settingsService;
     private readonly IAppDiagnostics<WorkspaceService> _diags;
+    private readonly IEnvService _env;
 
     public BaseConfig BaseConfig { get; protected set; }
     public WorkspaceDefinition ActiveWorkspace { get; protected set; }
@@ -42,43 +45,62 @@ internal class WorkspaceService : IWorkspaceService {
 
     public WorkspaceService(
         ISettingsService settingsService,
-        IAppDiagnostics<WorkspaceService> appDiagnostics
+    IAppDiagnostics<WorkspaceService> appDiagnostics,
+    IEnvService envService
         ) {
         // WorkspaceInitializer.InitializeWorkspace(settingsService);
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
-        LoadEnvironmentVariables(_settingsService.EnvironmentFilePath);
+        _env = envService ?? throw new ArgumentNullException(nameof(envService));
+        // Load + apply root env snapshot
+        _env.LoadRoot(_settingsService.EnvironmentFilePath);
+        _env.ApplyRoot();
         _diags = appDiagnostics ?? throw new ArgumentNullException(nameof(appDiagnostics));
 
         ActiveWorkspace = new WorkspaceDefinition();
         WorkspaceFilePath = _settingsService.ConfigFilePath;
         _packageDirectory = _settingsService.PluginDirectory ?? string.Empty;
 
-    EnsureConfigScaffold();
-    BaseConfig = LoadWorkspace();
+        EnsureConfigScaffold();
+        BaseConfig = LoadWorkspace();
         LoadConfiguredAssemblies();
         SetActiveWorkspace(BaseConfig.ActiveWorkspace ?? string.Empty);
 
     }
 
-    private void LoadEnvironmentVariables(string? environmentFilePath) {
-        if (File.Exists(environmentFilePath)) {
-            var lines = File.ReadAllLines(environmentFilePath);
-
-            foreach (var line in lines) {
-                var trimmedLine = line.Trim();
-
-                if (string.IsNullOrWhiteSpace(trimmedLine) || trimmedLine.StartsWith('#')) {
-                    continue;
-                }
-
-                var parts = trimmedLine.Split('=', 2);
-
-                if (parts.Length == 2) {
-                    var key = parts[0].Trim();
-                    var value = parts[1].Trim().Trim('"');
-                    Environment.SetEnvironmentVariable(key, value);
-                }
+    private void LoadWorkspaceEnvOverlay(WorkspaceDefinition def) {
+        try {
+            if (def is null) {
+                return;
             }
+
+            if (string.IsNullOrWhiteSpace(def.Dir)) {
+                return; // no external dir mapping => no per-workspace .env
+            }
+
+            // Reconstruct absolute directory path similar to LoadWorkspace mapping logic
+            var rel = def.Dir.Trim();
+
+            if (rel.StartsWith("./")) {
+                rel = rel[2..];
+            }
+
+            rel = Regex.Replace(rel, @"<\|([A-Z0-9_]+)\|>", m => Environment.GetEnvironmentVariable(m.Groups[1].Value) ?? m.Value, RegexOptions.IgnoreCase);
+            rel = Regex.Replace(rel, @"\$\{([A-Z0-9_]+)\}", m => Environment.GetEnvironmentVariable(m.Groups[1].Value) ?? m.Value, RegexOptions.IgnoreCase);
+            var abs = Path.GetFullPath(Path.Combine(ConfigRoot, rel));
+            var envPath = Path.Combine(abs, ".env");
+
+            if (!File.Exists(envPath)) {
+                return;
+            }
+
+            _env.ApplyOverlay(envPath);
+
+            if (IsScriptDebugEnabled()) {
+                System.Console.Error.WriteLine($"[WorkspaceService] Loaded workspace .env from {envPath}");
+            }
+        }
+        catch (Exception ex) {
+            DebugLog($"[WorkspaceService] Failed loading workspace .env: {ex.Message}", ex);
         }
     }
 
@@ -86,6 +108,7 @@ internal class WorkspaceService : IWorkspaceService {
         if (!string.IsNullOrEmpty(workspaceName)) {
             if (BaseConfig.Workspaces is not null) {
                 if (string.Equals(workspaceName, "/")) {
+                    _env.RevertOverlay(); // revert overlay when resetting to root
                     ActiveWorkspace = new WorkspaceDefinition();
                     BaseConfig.ActiveWorkspace = string.Empty;
                 }
@@ -93,8 +116,12 @@ internal class WorkspaceService : IWorkspaceService {
                     if (value.IsHidden) {
                         throw new InvalidOperationException($"Workspace '{workspaceName}' is hidden and cannot be activated.");
                     }
+
+                    _env.RevertOverlay();
                     ActiveWorkspace = value;
                     BaseConfig.ActiveWorkspace = workspaceName;
+                    // Load and apply new workspace .env overlay (if any)
+                    LoadWorkspaceEnvOverlay(value);
 
                     try {
                         ActiveWorkspaceChanged?.Invoke(workspaceName);
@@ -113,7 +140,7 @@ internal class WorkspaceService : IWorkspaceService {
 
     private static void DebugLog(string message, Exception? ex = null) {
         if (!IsScriptDebugEnabled()) { return; }
-    System.Console.Error.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message);
+        System.Console.Error.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message);
     }
 
     public event Action<string>? ActiveWorkspaceChanged;
@@ -123,6 +150,7 @@ internal class WorkspaceService : IWorkspaceService {
         if (!File.Exists(WorkspaceFilePath)) {
             var baseConfig = new BaseConfig { Workspaces = new Dictionary<string, WorkspaceDefinition>() };
             var xfer = XferConvert.Serialize(baseConfig, Formatting.Indented | Formatting.Spaced);
+
             try {
                 File.WriteAllText(WorkspaceFilePath, xfer, Encoding.UTF8);
             }
@@ -130,7 +158,7 @@ internal class WorkspaceService : IWorkspaceService {
                 throw new Exception($"Error creating config file '{WorkspaceFilePath}': {ex.Message}", ex);
             }
         }
-    // Do NOT auto-create a 'workspaces' directory anymore; workspaces can live anywhere via explicit dir mappings.
+        // Do NOT auto-create a 'workspaces' directory anymore; workspaces can live anywhere via explicit dir mappings.
     }
 
     /// <summary>
@@ -142,12 +170,13 @@ internal class WorkspaceService : IWorkspaceService {
         var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "1", StringComparison.OrdinalIgnoreCase);
         Stopwatch? sw = null;
+
         if (timingsEnabled) {
             sw = Stopwatch.StartNew();
         }
 
-    var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
-    var document = XferParser.Parse(xfer);
+        var xfer = File.ReadAllText(WorkspaceFilePath, Encoding.UTF8);
+        var document = XferParser.Parse(xfer);
 
         if (document is null) {
             throw new Exception($"Error parsing workspace file '{WorkspaceFilePath}'.");
@@ -167,6 +196,7 @@ internal class WorkspaceService : IWorkspaceService {
         baseConfig.Workspaces ??= new Dictionary<string, WorkspaceDefinition>();
         // Build mapping ONLY from explicit 'dir' properties. No implicit directory discovery.
         var workspaceDirMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var kvp in baseConfig.Workspaces.ToList()) {
             var logicalName = kvp.Key;
             var def = kvp.Value;
@@ -183,27 +213,36 @@ internal class WorkspaceService : IWorkspaceService {
 
         // Ensure uniqueness of directory targets (prevent two names pointing to same physical path)
         var pathUniq = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var kvp in workspaceDirMap) {
             if (pathUniq.TryGetValue(kvp.Value, out var existingName)) {
                 throw new Exception($"Multiple workspace names ('{existingName}', '{kvp.Key}') reference the same directory '{kvp.Value}'. Only one mapping may target a given folder.");
             }
+
             pathUniq[kvp.Value] = kvp.Key;
         }
 
         // Load external workspace.xfer for each mapped directory; external file overrides inline
         foreach (var (logicalName, dir) in workspaceDirMap) {
             var wsFile = Path.Combine(dir, "workspace.xfer");
-            if (!File.Exists(wsFile)) { continue; }
+            if (!File.Exists(wsFile)) {
+                continue;
+            }
+
             try {
                 var wsText = File.ReadAllText(wsFile, Encoding.UTF8);
                 var wsDoc = XferParser.Parse(wsText);
+
                 if (wsDoc?.Root is ObjectElement wsObj) {
                     var externalDef = XferConvert.Deserialize<WorkspaceDefinition>(wsObj);
+
                     if (externalDef is not null) {
                         externalDef.Name = logicalName;
+
                         if (baseConfig.Workspaces.TryGetValue(logicalName, out var inlineDef)) {
                             externalDef.Merge(inlineDef);
                         }
+
                         baseConfig.Workspaces[logicalName] = externalDef;
                     }
                 }
@@ -247,6 +286,7 @@ internal class WorkspaceService : IWorkspaceService {
             var mirror = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "true", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
             _diags.Emit("WorkspaceService.configParse", new { Message = line, ElapsedMs = ms });
+
             if (mirror) {
                 _diags.Emit("WorkspaceService.configParse.mirror", new { Message = line, ElapsedMs = ms });
             }
@@ -259,6 +299,7 @@ internal class WorkspaceService : IWorkspaceService {
         var loadedAssemblies = new List<Assembly>();
 
         var assemblyNames = BaseConfig.Assemblies;
+
         if (assemblyNames is null) {
             return loadedAssemblies;
         }
@@ -313,8 +354,7 @@ internal class WorkspaceService : IWorkspaceService {
     /// <summary>
     /// Re-reads the workspace configuration file and refreshes the active workspace and loaded assemblies.
     /// </summary>
-    public void ReloadConfig()
-    {
+    public void ReloadConfig() {
         // Remember the current active workspace name before reloading
         var previousWorkspace = CurrentWorkspaceName;
 
