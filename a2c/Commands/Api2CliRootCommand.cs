@@ -16,16 +16,19 @@ using ParksComputing.Api2Cli.Http.Services;
 using ParksComputing.Api2Cli.Workspace;
 using ParksComputing.Api2Cli.Orchestration.Services;
 using static ParksComputing.Api2Cli.Orchestration.Services.ScriptArgTypeHelper;
+using ParksComputing.Api2Cli.Runtime.Services.Mcp;
 
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
 
 [RootCommand("Api2Cli Application")]
-[Option(typeof(string), "--config", "Path to the configuration root directory (contains config.xfer and workspaces/).", new[] { "-c" }, IsRequired = false)]
+[Option(typeof(string), "--config", "Path to the configuration root directory (contains config.xfer).", new[] { "-c" }, IsRequired = false)]
 [Option(typeof(string), "--packages", "Path to the packages directory to use instead of the default (~/.a2c/packages).", new[] { "-P" }, IsRequired = false)]
 [Option(typeof(string), "--baseurl", "The base URL of the API to send HTTP requests to.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(bool), "--version", "Display the version information.", new[] { "-v" }, IsRequired = false)]
 [Option(typeof(bool), "--recursive", "Indicates if this is a recursive call.", IsHidden = true, IsRequired = false)]
+[Option(typeof(bool), "--mcp", "Start (or attach to) the MCP server on launch.", IsRequired = false)]
+[Option(typeof(int), "--mcp-port", "Preferred MCP server port (0 or omit for auto).", IsRequired = false)]
 internal class A2CRootCommand {
     private readonly Option _recursionOption;
     private readonly IServiceProvider _serviceProvider;
@@ -37,6 +40,7 @@ internal class A2CRootCommand {
     private readonly A2CApi _a2c;
     private readonly IScriptCliBridge _scriptCliBridge;
     private readonly ISettingsService _settingsService;
+    private readonly ParksComputing.Api2Cli.Runtime.Services.Jobs.IJobManager _jobManager;
 
     private string _currentWorkspaceName = string.Empty;
 
@@ -47,8 +51,9 @@ internal class A2CRootCommand {
         ICommandSplitter splitter,
         IApi2CliScriptEngineFactory scriptEngineFactory,
         A2CApi Api2CliApi,
-        IScriptCliBridge scriptCliBridge,
-        ISettingsService settingsService,
+    IScriptCliBridge scriptCliBridge,
+    ISettingsService settingsService,
+    ParksComputing.Api2Cli.Runtime.Services.Jobs.IJobManager jobManager,
         [OptionParam("--recursive")] Option recursionOption
         )
     {
@@ -62,6 +67,7 @@ internal class A2CRootCommand {
         _scriptCliBridge = scriptCliBridge;
         _settingsService = settingsService;
         _scriptCliBridge.RootCommand = rootCommand;
+    _jobManager = jobManager; // phase1 async
     }
 
     public void ConfigureWorkspaces() {
@@ -140,7 +146,7 @@ internal class A2CRootCommand {
             return caller.RunRequest(args ?? Array.Empty<object?>());
         });
 
-        if (_workspaceService.BaseConfig is not null) {
+    if (_workspaceService.BaseConfig is not null) {
             foreach (var macro in _workspaceService.BaseConfig.Macros.OrderBy(m => m.Key, StringComparer.OrdinalIgnoreCase)) {
                 var macroCommand = new Macro($"{macro.Key}", $"[macro] {macro.Value.Description}", macro.Value.Command);
 
@@ -372,6 +378,8 @@ internal class A2CRootCommand {
         [OptionParam("--baseurl")] string? baseUrl,
         [OptionParam("--version")] bool showVersion,
         [OptionParam("--recursive")] bool isRecursive,
+    [OptionParam("--mcp")] bool startMcp,
+    [OptionParam("--mcp-port")] int? mcpPort,
         Command command,
         InvocationContext context
         ) {
@@ -392,6 +400,39 @@ internal class A2CRootCommand {
 
         if (isRecursive) {
             return Result.Success;
+        }
+
+        // MCP handling: configure preferred port and optionally start immediately
+    var mcpMgrObj = _serviceProvider.GetService(typeof(IMcpServerManager));
+    if (mcpMgrObj is IMcpServerManager mcpMgr) {
+            if (mcpPort.HasValue && mcpPort.Value >= 0) {
+                mcpMgr.PreferredPort = mcpPort.Value == 0 ? null : mcpPort.Value;
+            }
+            if (startMcp) {
+                try {
+                    var st = await mcpMgr.StartAsync(mcpPort.GetValueOrDefault(0), context.GetCancellationToken());
+                    var consoleWriter = _serviceProvider.GetService(typeof(IConsoleWriter)) as IConsoleWriter ?? Utility.GetService<IConsoleWriter>();
+                    var endpoints = st.Port.HasValue
+                        ? new [] { $"127.0.0.1:{st.Port}", $"localhost:{st.Port}" }
+                        : Array.Empty<string>();
+                    var ctxObj = new Dictionary<string, object?> {
+                        ["running"] = st.IsRunning,
+                        ["external"] = st.IsExternal,
+                        ["port"] = st.Port,
+                        ["pid"] = st.ProcessId,
+                        ["startedUtc"] = st.StartedUtc,
+                        ["endpoints"] = endpoints
+                    };
+                    if (st.IsRunning && st.Port.HasValue) {
+                        // Explicit human-friendly line for copy/paste
+                        consoleWriter?.WriteLine($"MCP listening on tcp://127.0.0.1:{st.Port} (aliases: {string.Join(", ", endpoints)})", category: "cli.mcp", code: "mcp.start.endpoint", ctx: ctxObj);
+                    }
+                    consoleWriter?.WriteLineKey(st.IsExternal ? "mcp.start.external" : "mcp.start.started", "cli.mcp", code: "mcp.start", ctx: ctxObj);
+                } catch (Exception ex) {
+                    var consoleWriter = _serviceProvider.GetService(typeof(IConsoleWriter)) as IConsoleWriter ?? Utility.GetService<IConsoleWriter>();
+                    consoleWriter?.WriteError($"MCP start failed: {ex.Message}", category: "cli.mcp", code: "mcp.start.failed");
+                }
+            }
         }
 
         var result = await command.Repl(

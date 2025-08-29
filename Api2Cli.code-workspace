@@ -1,0 +1,25 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../.a2c-exp"
+		},
+		{
+			"path": "../../../.a2c"
+		},
+		{
+			"path": "../../../jptrucks"
+		}
+	],
+	"settings": {
+		"dotnet.defaultSolution": "Api2Cli.sln",
+		"omnisharp.enableEditorConfigSupport": true,
+		"files.associations": {
+			"*.cs": "csharp"
+		},
+		"dotnet.completion.showCompletionItemsFromUnimportedNamespaces": true,
+		"powershell.cwd": "Api2Cli"
+	}
+}

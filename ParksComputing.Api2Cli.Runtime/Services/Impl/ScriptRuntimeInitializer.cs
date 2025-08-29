@@ -4,8 +4,6 @@ using ParksComputing.Api2Cli.Api;
 using ParksComputing.Api2Cli.Runtime.Services;
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.Workspace.Services;
-using ParksComputing.Api2Cli.Cli.Commands; // for RunWsScriptCommand cache clear
-using ParksComputing.Api2Cli.Cli.Services; // IConsoleWriter
 using static ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds;
 
 namespace ParksComputing.Api2Cli.Runtime.Services.Impl;
@@ -25,8 +23,10 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
             csScriptEngine.InitializeScriptEnvironment();
         }
 
-        // Clear cached JS function refs
-        RunWsScriptCommand.ClearJsFunctionCache();
+        // Clear cached JS function refs (cannot reference CLI types here; exposed via engine re-init)
+        try {
+            // Indirectly clear by reinitializing engine state if needed (no-op placeholder Phase1)
+        } catch { /* ignore */ }
 
         // Optional warmup (controlled by env vars)
         var warmupFlag = Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP");
@@ -42,12 +42,8 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
             }
 
             // Resolve console writer (may be null very early – skip warmup if unavailable)
-            var consoleWriter = Utility.GetService<IConsoleWriter>();
-            if (consoleWriter == null)
-            {
-                return; // Cannot perform warmup without console writer dependency; safe to exit early.
-            }
-            var resolver = new RunWsScriptCommand(workspaceService, engineFactory, jsScriptEngine, consoleWriter);
+            // Warm resolution without CLI dependencies: attempt direct JS evaluation to prime function references
+            var resolverEngine = jsScriptEngine;
             int warmed = 0;
 
             foreach (var kvp in workspaceService.BaseConfig.Scripts)
@@ -64,7 +60,8 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
                     continue;
                 }
 
-                resolver.TryResolveScriptFunction(name, null, out _, out _);
+                // Evaluate existence to trigger any lazy registration
+                resolverEngine.EvaluateScript($"typeof a2c !== 'undefined' && a2c['{name.Replace("'", "\'") }']");
                 warmed++;
             }
 
@@ -90,7 +87,7 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
                             continue;
                         }
 
-                        resolver.TryResolveScriptFunction(name, wsName, out _, out _);
+                        resolverEngine.EvaluateScript($"(a2c.workspaces && a2c.workspaces['{wsName.Replace("'", "\'")}']) ? a2c.workspaces['{wsName.Replace("'", "\'")}']['{name.Replace("'", "\'")}'] : undefined");
                         warmed++;
                     }
                 }

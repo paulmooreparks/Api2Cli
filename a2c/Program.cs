@@ -23,6 +23,8 @@ using ParksComputing.Api2Cli.DataStore;
 using ParksComputing.Api2Cli.Orchestration;
 using ParksComputing.Api2Cli.Workspace.Models;
 using ParksComputing.Api2Cli.Diagnostics.Services.Unified;
+using ParksComputing.Api2Cli.Runtime.Services.Jobs;
+using ParksComputing.Api2Cli.Runtime.Services.Mcp;
 
 namespace ParksComputing.Api2Cli.Cli;
 
@@ -168,6 +170,9 @@ internal class Program {
                     services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();
                     services.AddSingleton<ILocalizer, ResourceLocalizer>();
                     services.AddSingleton<IConsoleWriter, ConsoleWriter>();
+                    services.AddJobManager();
+                    services.AddSingleton<JobManagerStatusWriter>();
+                    services.AddMcpServer();
 
                     // Align data store path to the selected config root
                     string defaultRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Constants.Api2CliDirectoryName);
@@ -183,6 +188,8 @@ internal class Program {
                 .Build();
         __unified = cli.ServiceProvider.GetService<IUnifiedDiagnostics>();
         __console = cli.ServiceProvider.GetService<IConsoleWriter>();
+    // Wire job status events
+    try { cli.ServiceProvider.GetService<JobManagerStatusWriter>()?.Wire(); } catch { }
         // Inject localization delegate for scripting console helper (makes script.console.* resource keys available)
         try {
             var __localizer = cli.ServiceProvider.GetService<ILocalizer>();

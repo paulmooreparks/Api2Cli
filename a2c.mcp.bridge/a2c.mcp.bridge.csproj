@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>a2c.mcp.bridge</RootNamespace>
+    <AssemblyName>a2c.mcp.bridge</AssemblyName>
+  <Description>StdIO &lt;-&gt; TCP bridge for a2c MCP server</Description>
+  </PropertyGroup>
+</Project>
