@@ -315,14 +315,21 @@ jobs:
           path: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
 
       # Upload standalone executables with icons as additional artifacts
-      - name: Package Standalone (zip all published files)
+      # Package standalone artifact (Windows uses Compress-Archive, others use zip)
+      - name: Package Standalone (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Get-ChildItem publish -Recurse -Include *.pdb | Remove-Item -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path publish/* -DestinationPath standalone-${{ matrix.runtime }}.zip -Force
+          Get-Item standalone-${{ matrix.runtime }}.zip | Select-Object Name,Length
+
+      - name: Package Standalone (Unix)
+        if: matrix.os != 'windows-latest'
         shell: bash
         run: |
-          # Zip entire publish directory (excluding PDBs to reduce size)
-          mkdir -p standalone
-          cp -r publish standalone/publish
-          find standalone/publish -name '*.pdb' -type f -delete || true
-          (cd standalone && zip -r ../standalone-${{ matrix.runtime }}.zip publish >/dev/null)
+          find publish -name '*.pdb' -type f -delete || true
+          zip -r standalone-${{ matrix.runtime }}.zip publish >/dev/null
           ls -la standalone-${{ matrix.runtime }}.zip
 
       - name: Upload Standalone Build Artifact (zip)
