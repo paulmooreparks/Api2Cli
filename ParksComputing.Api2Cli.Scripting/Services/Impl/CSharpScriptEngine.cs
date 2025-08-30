@@ -473,7 +473,8 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
             if (string.IsNullOrWhiteSpace(script)) {
                 return;
             }
-
+            // Mark global init as done so deferred path inside ExecuteScript does not re-run it
+            _globalInitExecuted = true;
             ExecuteScript(script);
         }
 
@@ -481,10 +482,9 @@ namespace ParksComputing.Api2Cli.Scripting.Services.Impl {
         public void ExecuteInitScript(XferKeyedValue? script) {
             var body = GetInitBodyForLanguage(script, ScriptEngineKinds.CSharp);
             if (string.IsNullOrWhiteSpace(body)) {
-
                 return;
-
             }
+            _globalInitExecuted = true;
             ExecuteScript(body);
         }
 

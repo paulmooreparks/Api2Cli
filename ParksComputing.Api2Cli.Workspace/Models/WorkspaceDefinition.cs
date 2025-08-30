@@ -23,6 +23,8 @@ public class WorkspaceDefinition : FolderDefinition {
         Description ??= parentWorkspace.Description;
         Extend ??= parentWorkspace.Extend;
         Base ??= parentWorkspace.Base;
+    // Preserve directory mapping (inline config may supply it; external workspace.xfer typically omits it)
+    Dir ??= parentWorkspace.Dir;
 
         BaseUrl ??= parentWorkspace.BaseUrl;
         // InitScript ??= parentWorkspace.InitScript;

@@ -20,6 +20,11 @@ using ParksComputing.Api2Cli.Diagnostics.Services.Unified; // unified diagnostic
 namespace ParksComputing.Api2Cli.Orchestration.Services.Impl;
 
 internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrchestrator {
+    // Process-wide guard so global C# scriptInit prints only once even if multiple orchestrator instances occur
+    private static bool _processCsGlobalInitRan = false;
+    // Instance sequencing for diagnostics
+    private static int _instanceSeq = 0;
+    private readonly int _instanceId;
     private readonly IApi2CliScriptEngineFactory _engineFactory;
     private readonly IWorkspaceService _workspaceService;
     private readonly ParksComputing.Api2Cli.Diagnostics.Services.Unified.IUnifiedDiagnostics? _unified;
@@ -72,6 +77,8 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         _workspaceService = workspaceService;
         _unified = unifiedDiagnostics;
         _console = TryResolveConsole();
+    _instanceId = System.Threading.Interlocked.Increment(ref _instanceSeq);
+    if (IsScriptDebugEnabled()) { DebugLog($"[Orch] ctor instance#{_instanceId}"); }
         // Subscribe to workspace activation to lazily project/init scripts on first switch
         _workspaceService.ActiveWorkspaceChanged += OnActiveWorkspaceChanged;
     }
@@ -202,11 +209,11 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         _needCs = needCs;
         _hasAnyCSharpHandlers = anyCsHandlers;
 
-        // Defer creation/initialization of the C# engine until first actual C# use
+    // Defer creation/initialization of the C# engine until first actual C# use (except we now eagerly run global C# scriptInit if present)
 
         // CLI-level JS function cache is process-local; nothing to clear here.
 
-        if (needCs) {
+    if (needCs) {
             // Bridge for invoking C# script wrappers from JS with host-side argument conversion (engine created lazily)
             js.AddHostObject("a2cCsharpInvoke", new Func<string, object?, object?>((fname, argsObj) => {
                 // Ensure global C# init has run on first C# use
@@ -238,12 +245,14 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 return csRef.Invoke(fname, argsArray);
             }));
             js.EvaluateScript("a2c.csharpInvoke = function(name, args) { return a2cCsharpInvoke(name, args); };");
+            // (Global C# scriptInit now invoked in a single unified location below)
         }
 
-        // Execute new global scriptInit if present: C# first, then JavaScript
+        // Execute new global scriptInit if present: C# eager (single-run) then JavaScript
         if (baseConfig.ScriptInit is not null) {
-
-            // Defer global C# ScriptInit until first C# use; only JS init runs eagerly
+            if (!string.IsNullOrWhiteSpace(baseConfig.ScriptInit.CSharp)) {
+                EnsureGlobalCSharpInit();
+            }
             if (!string.IsNullOrWhiteSpace(baseConfig.ScriptInit.JavaScript)) {
                 Stopwatch? swJsGlobalInit = timingsEnabled ? Stopwatch.StartNew() : null;
                 js.ExecuteInitScript(baseConfig.ScriptInit.JavaScript);
@@ -618,11 +627,17 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
 
     // Ensure the global C# scriptInit (grouped ScriptInit.CSharp) has run once before any C# usage
     private void EnsureGlobalCSharpInit() {
-        if (_csGlobalInitRan) {
+        // Instrumentation: record every entry attempt for diagnosis
+        if (IsScriptDebugEnabled()) {
+            DebugLog("[CS:init] EnsureGlobalCSharpInit() entry attempt" + (_csGlobalInitRan ? " (instanceRan)" : "") + (_processCsGlobalInitRan ? " (processRan)" : ""));
+        }
+        if (_csGlobalInitRan || _processCsGlobalInitRan) { // fast path (already initialized)
+            _csGlobalInitRan = true;
             return;
         }
 
         if (!_needCs) {
+            _processCsGlobalInitRan = true;
             _csGlobalInitRan = true;
             return;
         }
@@ -631,13 +646,26 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         var body = baseConfig?.ScriptInit?.CSharp;
 
         if (string.IsNullOrWhiteSpace(body)) {
+            _processCsGlobalInitRan = true;
             _csGlobalInitRan = true;
+            if (IsScriptDebugEnabled()) { DebugLog("[CS:init] No global C# scriptInit body; marking complete"); }
             return;
         }
 
         lock (_csInitLock) {
-            if (_csGlobalInitRan) {
+            if (_csGlobalInitRan || _processCsGlobalInitRan) {
+                _csGlobalInitRan = true;
+                if (IsScriptDebugEnabled()) { DebugLog("[CS:init] Re-entrant skip inside lock"); }
                 return;
+            }
+            // Mark as ran early to prevent re-entrant duplicate execution
+            _csGlobalInitRan = true;
+            _processCsGlobalInitRan = true;
+            if (IsScriptDebugEnabled()) {
+                try {
+                    var st = new System.Diagnostics.StackTrace(true);
+                    DebugLog("[CS:init] Captured stack for first execution:\n" + st.ToString());
+                } catch { }
             }
 
             var timingsEnabled = string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), "true", StringComparison.OrdinalIgnoreCase)
@@ -646,10 +674,11 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 || string.Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS_MIRROR"), "1", StringComparison.OrdinalIgnoreCase);
             System.Diagnostics.Stopwatch? sw = timingsEnabled ? System.Diagnostics.Stopwatch.StartNew() : null;
 
-            if (IsScriptDebugEnabled()) { DebugLog("[CS:init] Global C# scriptInit begin (deferred)"); }
+            if (IsScriptDebugEnabled()) { DebugLog("[CS:init] Global C# scriptInit begin executing body"); }
 
             EnsureCSharpEngineInitialized();
             var cs = _engineFactory.GetEngine(CSharp);
+            if (IsScriptDebugEnabled()) { DebugLog($"[CS:init] Executing body (instance#{_instanceId}, processAlreadyRan={_processCsGlobalInitRan})"); }
             cs.ExecuteInitScript(body);
 
             if (timingsEnabled && sw is not null) {
@@ -658,9 +687,9 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
                 if (mirrorTimings) { _unified?.Info("timings.mirror", line); }
             }
 
-            if (IsScriptDebugEnabled()) { DebugLog("[CS:init] Global C# scriptInit end (deferred)"); }
+            if (IsScriptDebugEnabled()) { DebugLog("[CS:init] Global C# scriptInit end"); }
 
-            _csGlobalInitRan = true;
+            // Already set true above
         }
     }
 
@@ -676,6 +705,9 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
         if (bc.ScriptInit is null) {
             return;
         }
+
+        // Ensure the global C# scriptInit runs before any workspace C# scriptInit (now deferred)
+        EnsureGlobalCSharpInit();
 
         if (!bc.Workspaces.TryGetValue(workspaceName, out var wsDef) || wsDef is null) {
             return;

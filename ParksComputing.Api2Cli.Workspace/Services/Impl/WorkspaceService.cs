@@ -74,7 +74,8 @@ internal class WorkspaceService : IWorkspaceService {
             }
 
             if (string.IsNullOrWhiteSpace(def.Dir)) {
-                return; // no external dir mapping => no per-workspace .env
+                DebugLog("[WorkspaceService] Workspace has no 'dir'; skipping .env overlay.");
+                return; // no explicit directory mapping => no per-workspace .env
             }
 
             // Reconstruct absolute directory path similar to LoadWorkspace mapping logic
@@ -90,10 +91,18 @@ internal class WorkspaceService : IWorkspaceService {
             var envPath = Path.Combine(abs, ".env");
 
             if (!File.Exists(envPath)) {
+                DebugLog($"[WorkspaceService] No .env file found for workspace at {envPath}");
                 return;
             }
 
+            var before = Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG");
             _env.ApplyOverlay(envPath);
+            if (IsScriptDebugEnabled()) {
+                System.Console.Error.WriteLine($"[WorkspaceService] Applied workspace .env overlay ({def.Name}) with {_env.ActiveOverlay.Count} variables");
+                if (_env.ActiveOverlay.Count == 0) {
+                    System.Console.Error.WriteLine($"[WorkspaceService] WARNING: .env file at {envPath} parsed to zero variables");
+                }
+            }
 
             if (IsScriptDebugEnabled()) {
                 System.Console.Error.WriteLine($"[WorkspaceService] Loaded workspace .env from {envPath}");
