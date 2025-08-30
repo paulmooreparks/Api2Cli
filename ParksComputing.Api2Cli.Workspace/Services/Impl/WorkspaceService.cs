@@ -98,6 +98,10 @@ internal class WorkspaceService : IWorkspaceService {
             var before = Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG");
             _env.ApplyOverlay(envPath);
             if (IsScriptDebugEnabled()) {
+                System.Console.Error.WriteLine($"[WorkspaceService] Overlay apply path: {envPath}");
+                foreach (var kv in _env.ActiveOverlay) { System.Console.Error.WriteLine($"[WorkspaceService] overlay var: {kv.Key}={(string.IsNullOrEmpty(kv.Value)?"<empty>":"<set>")}"); }
+            }
+            if (IsScriptDebugEnabled()) {
                 System.Console.Error.WriteLine($"[WorkspaceService] Applied workspace .env overlay ({def.Name}) with {_env.ActiveOverlay.Count} variables");
                 if (_env.ActiveOverlay.Count == 0) {
                     System.Console.Error.WriteLine($"[WorkspaceService] WARNING: .env file at {envPath} parsed to zero variables");

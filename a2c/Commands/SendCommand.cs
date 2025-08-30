@@ -119,6 +119,18 @@ public class SendCommand {
         IReadOnlyList<System.CommandLine.Parsing.Token>? tokenArguments,
         object?[]? objArguments
         ) {
+        // Ensure workspace activation so that its .env overlay is applied before any request processing
+        try {
+            if (!string.IsNullOrWhiteSpace(workspaceName)) {
+                _ws.SetActiveWorkspace(workspaceName);
+                _orchestrator.ActivateWorkspace(workspaceName);
+            }
+        }
+        catch (Exception ex) {
+            _console.WriteErrorKey("workspace.activate.failure", category: "cli.send", code: "workspace.activate.failure", ex: ex, ctx: new Dictionary<string, object?> { ["workspace"] = workspaceName, ["message"] = ex.Message });
+            return Result.Error;
+        }
+
         var reqSplit = requestName.Split('.');
     // Use IConsoleWriter for user-facing messages; it mirrors to diagnostics automatically.
 
