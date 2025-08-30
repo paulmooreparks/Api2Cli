@@ -133,7 +133,6 @@ jobs:
           dotnet publish a2c/a2c.csproj \
             --configuration Release \
             --runtime ${{ matrix.runtime }} \
-            -p:PublishSingleFile=true \
             -p:PublishReadyToRun=${{ matrix.os == 'windows-latest' && 'true' || 'false' }} \
             -p:PublishTrimmed=false \
             -o publish \
@@ -316,18 +315,21 @@ jobs:
           path: Api2Cli-v${{ needs.auto-build.outputs.version }}-installer-osx-x64.pkg
 
       # Upload standalone executables with icons as additional artifacts
-      - name: Create Standalone Archive
+      - name: Package Standalone (zip all published files)
         shell: bash
         run: |
-          mkdir -p standalone-${{ matrix.runtime }}
-          cp publish/${{ matrix.executable }} standalone-${{ matrix.runtime }}/
-          cp publish/${{ matrix.icon_copy_name }} standalone-${{ matrix.runtime }}/
+          # Zip entire publish directory (excluding PDBs to reduce size)
+          mkdir -p standalone
+          cp -r publish standalone/publish
+          find standalone/publish -name '*.pdb' -type f -delete || true
+          (cd standalone && zip -r ../standalone-${{ matrix.runtime }}.zip publish >/dev/null)
+          ls -la standalone-${{ matrix.runtime }}.zip
 
-      - name: Upload Standalone Build Artifact
+      - name: Upload Standalone Build Artifact (zip)
         uses: actions/upload-artifact@v4
         with:
           name: standalone-${{ matrix.runtime }}
-          path: standalone-${{ matrix.runtime }}/
+          path: standalone-${{ matrix.runtime }}.zip
 
   publish-release:
     name: Publish GitHub Release
@@ -410,9 +412,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/standalone-win-x64/a2c.exe
-          asset_name: a2c-v${{ needs.auto-build.outputs.version }}-standalone-win-x64.exe
-          asset_content_type: application/octet-stream
+          asset_path: release-assets/standalone-win-x64/standalone-win-x64.zip
+          asset_name: a2c-v${{ needs.auto-build.outputs.version }}-standalone-win-x64.zip
+          asset_content_type: application/zip
 
       - name: Upload Linux Standalone
         uses: actions/upload-release-asset@v1
@@ -420,9 +422,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/standalone-linux-x64/a2c
-          asset_name: a2c-v${{ needs.auto-build.outputs.version }}-standalone-linux-x64
-          asset_content_type: application/octet-stream
+          asset_path: release-assets/standalone-linux-x64/standalone-linux-x64.zip
+          asset_name: a2c-v${{ needs.auto-build.outputs.version }}-standalone-linux-x64.zip
+          asset_content_type: application/zip
 
       - name: Upload macOS Standalone
         uses: actions/upload-release-asset@v1
@@ -430,6 +432,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release-assets/standalone-osx-x64/a2c
-          asset_name: a2c-v${{ needs.auto-build.outputs.version }}-standalone-osx-x64
-          asset_content_type: application/octet-stream
+          asset_path: release-assets/standalone-osx-x64/standalone-osx-x64.zip
+          asset_name: a2c-v${{ needs.auto-build.outputs.version }}-standalone-osx-x64.zip
+          asset_content_type: application/zip

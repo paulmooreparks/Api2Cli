@@ -291,6 +291,10 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
             if (string.Equals(lang, JavaScript, StringComparison.OrdinalIgnoreCase)) {
                 if (!string.IsNullOrEmpty(body)) {
                     jsBodies[$"__root__::{name}"] = body!;
+                    // Capture ordered argument names for root scripts too so we can build a proper formal parameter list
+                    if (def.Arguments.Count > 0) {
+                        jsArgNames[$"__root__::{name}"] = def.Arguments.Select(a => a.Key).ToArray();
+                    }
                 }
                 // define stub that calls the generic invoker
                 jsRootStubs.Append($"a2c['{JsEscape(name)}'] = (...args) => a2c.__callScript(null, '{JsEscape(name)}', args);\n");
@@ -491,13 +495,23 @@ internal partial class WorkspaceScriptingOrchestrator : IWorkspaceScriptingOrche
 
         js.AddHostObject("a2cCompileJsRootScript", new Action<string>((name) => {
             var key = $"__root__::{name}";
-
             if (!jsBodies.TryGetValue(key, out var bodyText) || string.IsNullOrWhiteSpace(bodyText)) {
                 return;
             }
-
-            // Root scripts currently don't have argument metadata; retain rest param pattern.
-            var code = $"(function(){{ var fn = function(...args) {{\n{bodyText}\n}}; fn._compiled=true; a2c['{JsEscape(name)}']=fn; }})()";
+            string BuildParamList() {
+                if (jsArgNames.TryGetValue(key, out var arr) && arr.Length > 0) {
+                    return string.Join(", ", arr.Select(a => a.Replace("`", string.Empty).Replace(" ", "_")));
+                }
+                return "...args"; // fallback
+            }
+            var paramList = BuildParamList();
+            string fnDecl;
+            if (paramList == "...args") {
+                fnDecl = $"function(...args) {{\n{bodyText}\n}}";
+            } else {
+                fnDecl = $"function({paramList}) {{\n{bodyText}\n}}";
+            }
+            var code = $"(function(){{ var fn = {fnDecl}; fn._compiled=true; a2c['{JsEscape(name)}']=fn; }})()";
             js.EvaluateScript(code);
         }));
 

@@ -107,6 +107,7 @@
         "resolved": "9.0.4",
         "contentHash": "SPFyMjyku1nqTFFJ928JAMd0QnRe4xjE7KeKnZMWXf3xk+6e0WiOZAluYtLdbJUXtsl2cCRSi8cBquJ408k8RA=="
       }
-    }
+    },
+    "net8.0/win-x64": {}
   }
 }
