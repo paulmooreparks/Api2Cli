@@ -60,7 +60,8 @@ internal class EnvService : IEnvService {
             var vars = DotEnv.Read(new DotEnvOptions(envFilePaths: new[] { path }, ignoreExceptions: true, trimValues: false));
             foreach (var kv in vars) { dict[kv.Key] = kv.Value; }
         }
-        catch {
+        catch (Exception ex) {
+            System.Diagnostics.Debug.WriteLine($"[EnvService] Failed to load env file '{path}': {ex.Message}");
             return dict;
         }
 

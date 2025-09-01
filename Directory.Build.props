@@ -3,4 +3,26 @@
     <!-- Generate packages.lock.json files for deterministic restores and to prevent stale version ranges (e.g., NU1603) from persisting in obj caches -->
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
+  <!-- Temporary diagnostic to investigate duplicate Compile inclusions & phantom expressions in Scripting project -->
+  <Target Name="DumpScriptingCompileItems" BeforeTargets="CoreCompile" Condition="'$(MSBuildProjectName)' == 'ParksComputing.Api2Cli.Scripting'">
+    <Message Importance="High" Text="== BEGIN Compile Items ($(MSBuildProjectName)) ==" />
+    <Message Importance="High" Text="%(Compile.Identity)" />
+    <Message Importance="High" Text="== END Compile Items ($(MSBuildProjectName)) ==" />
+    <!-- Persist the list and full paths to obj for post-mortem diffing between succeeding/failing builds -->
+    <WriteLinesToFile File="$(IntermediateOutputPath)compile-items.txt" Lines="@(Compile)" Overwrite="true" />
+    <WriteLinesToFile File="$(IntermediateOutputPath)compile-items-details.txt" Lines="%(Compile.Identity)|%(Compile.FullPath)" Overwrite="true" />
+  <!-- Derive duplicate counts (same Identity appearing more than once) -->
+  <Exec Command="powershell -NoProfile -Command &quot;Get-Content '$(IntermediateOutputPath)compile-items.txt' | Sort-Object | Group-Object | Where-Object { $_.Count -gt 1 } | ForEach-Object { '{0}::{1}' -f $_.Name,$_.Count } | Out-File '$(IntermediateOutputPath)compile-items-dups.txt' -Encoding ascii&quot;" />
+    <!-- Compute a hash per file (best-effort using GetFileHash if available) -->
+    <PropertyGroup>
+      <_HashTool>powershell</_HashTool>
+    </PropertyGroup>
+    <Exec Condition="Exists('%24(MSBuildProjectDirectory)\Api\Http\IHttpScriptApi.cs')" Command="powershell -NoProfile -Command &quot;Get-FileHash -Algorithm SHA256 '$(MSBuildProjectDirectory)\Api\Http\IHttpScriptApi.cs' | ForEach-Object { $_.Hash } | Out-File '$(IntermediateOutputPath)IHttpScriptApi.hash.txt' -Encoding ascii&quot;" />
+    <Exec Condition="Exists('%24(MSBuildProjectDirectory)\Api\Store\IStoreScriptApi.cs')" Command="powershell -NoProfile -Command &quot;Get-FileHash -Algorithm SHA256 '$(MSBuildProjectDirectory)\Api\Store\IStoreScriptApi.cs' | ForEach-Object { $_.Hash } | Out-File '$(IntermediateOutputPath)IStoreScriptApi.hash.txt' -Encoding ascii&quot;" />
+  </Target>
+  <!-- After build diagnostics for Scripting project: hash output DLL and detect presence of AddApi2CliScriptingServices extension method -->
+  <Target Name="PostScriptingBuildDiagnostics" AfterTargets="CopyFilesToOutputDirectory" Condition="'$(MSBuildProjectName)' == 'ParksComputing.Api2Cli.Scripting'">
+    <Message Importance="High" Text="Running PostScriptingBuildDiagnostics for $(TargetPath)" />
+    <Exec Command="powershell -NoProfile -Command &quot;try { $asm=[Reflection.Assembly]::LoadFrom('$(TargetPath)'); $type=$asm.GetTypes() | Where-Object { $_.Name -eq 'ServiceCollectionExtensions' }; $methodCount=0; if($type){ $methodCount=($type.GetMethods([Reflection.BindingFlags]::Static -bor [Reflection.BindingFlags]::Public) | Where-Object { $_.Name -eq 'AddApi2CliScriptingServices' } | Measure-Object).Count }; '{0:O}' -f (Get-Date) | Out-File '$(IntermediateOutputPath)PostBuild.timestamp.txt' -Encoding ascii; $methodCount | Out-File '$(IntermediateOutputPath)AddApi2CliScriptingServices.count.txt' -Encoding ascii; if (Get-Command Get-FileHash -ErrorAction SilentlyContinue) { (Get-FileHash -Algorithm SHA256 '$(TargetPath)').Hash | Out-File '$(IntermediateOutputPath)ScriptingDll.hash.txt' -Encoding ascii } } catch { $_ | Out-File '$(IntermediateOutputPath)PostBuild.error.txt' -Encoding ascii }&quot;" />
+  </Target>
 </Project>

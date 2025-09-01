@@ -23,9 +23,17 @@ internal sealed class ResourceLocalizer : ILocalizer {
         foreach (var bn in _baseNames) {
             try {
                 _managers.Add(new ResourceManager(bn, Assembly.GetExecutingAssembly()));
-            } catch { /* ignore missing */ }
+            }
+            catch (Exception ex) {
+                if (IsDebug()) {
+                    System.Diagnostics.Debug.WriteLine($"[ResourceLocalizer] Resource base '{bn}' load failed: {ex.Message}");
+                }
+            }
         }
     }
+
+    private static bool IsDebug() => "1".Equals(Environment.GetEnvironmentVariable("A2C_LOC_DEBUG"), StringComparison.OrdinalIgnoreCase)
+        || "true".Equals(Environment.GetEnvironmentVariable("A2C_LOC_DEBUG"), StringComparison.OrdinalIgnoreCase);
 
     public string Get(string key, IReadOnlyDictionary<string, object?>? ctx = null, CultureInfo? culture = null) {
         if (string.IsNullOrWhiteSpace(key)) { return string.Empty; }
@@ -38,7 +46,12 @@ internal sealed class ResourceLocalizer : ILocalizer {
             try {
                 value = rm.GetString(key, ci);
                 if (value != null) { break; }
-            } catch { /* swallow */ }
+            }
+            catch (Exception ex) {
+                if (IsDebug()) {
+                    System.Diagnostics.Debug.WriteLine($"[ResourceLocalizer] Lookup failed for '{key}': {ex.Message}");
+                }
+            }
         }
 
         if (value is null) {

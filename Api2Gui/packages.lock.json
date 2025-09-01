@@ -960,7 +960,8 @@
           "Microsoft.Extensions.DependencyInjection": "[9.0.4, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.4, )",
           "Microsoft.Extensions.Http": "[9.0.4, )",
-          "ParksComputing.Api2Cli.Diagnostics": "[1.0.0, )"
+          "ParksComputing.Api2Cli.Diagnostics": "[1.0.0, )",
+          "ParksComputing.Api2Cli.Workspace": "[1.0.0, )"
         }
       },
       "parkscomputing.api2cli.orchestration": {
@@ -987,6 +988,7 @@
           "Microsoft.ClearScript.Complete": "[7.5.0, )",
           "Microsoft.CodeAnalysis.CSharp.Scripting": "[4.14.0, )",
           "Microsoft.Extensions.DependencyInjection": "[9.0.4, )",
+          "ParksComputing.Api2Cli.Api": "[1.0.0, )",
           "ParksComputing.Api2Cli.DataStore": "[1.0.0, )",
           "ParksComputing.Api2Cli.Diagnostics": "[1.0.0, )",
           "ParksComputing.Api2Cli.Http": "[1.0.0, )",

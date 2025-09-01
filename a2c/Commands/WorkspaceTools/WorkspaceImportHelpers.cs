@@ -13,7 +13,10 @@ internal static class WorkspaceImportHelpers {
         try {
             var console = Utility.GetService<IConsoleWriter>();
             console?.WriteLine(ex is null ? message : message + " :: " + ex.GetType().Name + ": " + ex.Message, category: "cli.debug", code: "workspace.import.debug");
-        } catch { /* last resort: swallow to avoid recursion */ }
+        }
+        catch (Exception inner) {
+            System.Diagnostics.Debug.WriteLine($"[WorkspaceImport] DebugLog failed: {inner.Message}");
+        }
     }
     internal static string GetRelativePath(string baseDir, string target) {
         if (string.IsNullOrWhiteSpace(baseDir) || string.IsNullOrWhiteSpace(target)) {

@@ -54,10 +54,15 @@ static async Task<int> BridgeMain(string[] args) {
             client?.Dispose(); client = null;
             if (attempt == retries) { Console.Error.WriteLine($"[a2c.mcp.bridge] failed: {ex.Message}"); return 2; }
             Console.Error.WriteLine($"[a2c.mcp.bridge] connect attempt {attempt+1} failed: {ex.Message}");
-            try { await Task.Delay(retryDelayMs, cts.Token); } catch { }
+            try { await Task.Delay(retryDelayMs, cts.Token); }
+            catch (Exception dlex) {
+                if (Environment.GetEnvironmentVariable("A2C_BRIDGE_DEBUG") is string dbg && (dbg == "1" || dbg.Equals("true", StringComparison.OrdinalIgnoreCase))) {
+                    Console.Error.WriteLine($"[a2c.mcp.bridge] retry delay interrupted: {dlex.Message}");
+                }
+            }
         }
     }
-    if (client == null) return 2;
+    if (client == null) { return 2; }
 
     using var tcp = client;
     using var netStream = tcp.GetStream();
@@ -69,7 +74,7 @@ static async Task<int> BridgeMain(string[] args) {
         try {
             while (!cts.IsCancellationRequested) {
                 var n = await netStream.ReadAsync(buffer.AsMemory(0, buffer.Length), cts.Token);
-                if (n == 0) break;
+                if (n == 0) { break; }
                 await stdout.WriteAsync(buffer.AsMemory(0, n), cts.Token);
                 await stdout.FlushAsync(cts.Token);
             }
@@ -83,7 +88,7 @@ static async Task<int> BridgeMain(string[] args) {
         try {
             while (!cts.IsCancellationRequested) {
                 var n = await stdin.ReadAsync(buffer.AsMemory(0, buffer.Length), cts.Token);
-                if (n == 0) break;
+                if (n == 0) { break; }
                 await netStream.WriteAsync(buffer.AsMemory(0, n), cts.Token);
                 await netStream.FlushAsync(cts.Token);
             }

@@ -11,7 +11,7 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 [Option(typeof(string), "--baseurl", "The base URL of the API to send HTTP requests to.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(IEnumerable<string>), "--parameters", "Query parameters to include in the request. If input is redirected, parameters can also be read from standard input.", new[] { "-p" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
 [Option(typeof(IEnumerable<string>), "--headers", "Headers to include in the request.", new[] { "-h" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
-[Option(typeof(IEnumerable<string>), "--cookies", "Cookies to include in the request.", new[] { "-c" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
+[Option(typeof(IEnumerable<string>), "--cookies", "Cookies to include in the request (name=value). Multiple allowed.", new[] { "-c" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
 [Option(typeof(bool), "--quiet", "If true, suppress echo of the response to the console.", new[] { "-q" }, Arity = ArgumentArity.ZeroOrOne, IsRequired = false)]
 internal class GetCommand(
     A2CApi a2c,
@@ -60,7 +60,9 @@ internal class GetCommand(
         int result = Result.Success;
 
         try {
-            var response = a2c.Http.Get(baseUrl, paramList, headers);
+            var headerList = ParksComputing.Api2Cli.Cli.Utilities.CookieHeaderHelper.MergeCookies(headers, cookies);
+
+            var response = a2c.Http.Get(baseUrl, paramList, headerList);
 
             if (response is null) {
                 _console.WriteError($"{Constants.ErrorChar} Error: No response received from {baseUrl}", category: "cli.get", code: "response.none", ctx: new Dictionary<string, object?> { ["baseUrl"] = baseUrl, ["endpoint"] = endpoint });

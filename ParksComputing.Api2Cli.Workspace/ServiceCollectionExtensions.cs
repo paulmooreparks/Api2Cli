@@ -18,7 +18,6 @@ public static class ServiceCollectionExtensions {
             return new SettingsService(opts);
         });
         services.TryAddSingleton<IPackageService, PackageService>();
-        services.TryAddSingleton<IStoreService, SqliteStoreService>();
         services.TryAddSingleton<IEnvService, EnvService>();
         services.TryAddSingleton<IWorkspaceService, WorkspaceService>();
         return services;

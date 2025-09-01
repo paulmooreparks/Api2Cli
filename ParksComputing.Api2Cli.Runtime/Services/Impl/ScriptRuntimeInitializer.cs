@@ -26,7 +26,13 @@ public class ScriptRuntimeInitializer : IScriptRuntimeInitializer
         // Clear cached JS function refs (cannot reference CLI types here; exposed via engine re-init)
         try {
             // Indirectly clear by reinitializing engine state if needed (no-op placeholder Phase1)
-        } catch { /* ignore */ }
+        }
+        catch (Exception ex) {
+            if (string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "true", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(Environment.GetEnvironmentVariable("A2C_SCRIPT_DEBUG"), "1", StringComparison.OrdinalIgnoreCase)) {
+                System.Diagnostics.Debug.WriteLine("[ScriptRuntimeInitializer] Clear cached JS references failed: " + ex.Message);
+            }
+        }
 
         // Optional warmup (controlled by env vars)
         var warmupFlag = Environment.GetEnvironmentVariable("A2C_SCRIPT_WARMUP");

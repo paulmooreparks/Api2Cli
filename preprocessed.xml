@@ -1,0 +1,4 @@
+MSBUILD : error MSB1047: File to preprocess to is not valid. The process cannot access the file 'C:\Users\paul\source\repos\Api2Cli\preprocessed.xml' because it is being used by another process.
+Switch: preprocessed.xml
+
+For switch syntax, type "MSBuild -help"

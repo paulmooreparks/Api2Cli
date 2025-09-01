@@ -4,11 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using ParksComputing.Api2Cli.Http.Services;
+using ParksComputing.Api2Cli.Scripting.Api.Http; // IHttpScriptApi
 using System.Net;
 
-namespace ParksComputing.Api2Cli.Api.Http.Impl;
+namespace ParksComputing.Api2Cli.Scripting.Api.Http.Impl;
 
-internal class HttpApi : IHttpApi
+internal class HttpApi : IHttpScriptApi
 {
     private readonly IHttpService _httpService;
 
@@ -18,7 +19,7 @@ internal class HttpApi : IHttpApi
 
     public HttpApi(
         IHttpService httpService
-        ) 
+        )
     {
         _httpService = httpService;
     }

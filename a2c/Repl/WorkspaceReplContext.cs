@@ -30,11 +30,11 @@ internal class WorkspaceReplContext : DefaultReplContext
 
     public override string EntryMessage {
         get {
-            if (_workspaceService.BaseConfig.Properties.TryGetValue("hideReplMessages", out var value) && value is bool hideReplMessages && hideReplMessages == true) {
-                return string.Empty;
+            if (_workspaceService.BaseConfig.Properties.TryGetValue("showReplMessages", out var value) && value is bool showReplMessages && showReplMessages == true) {
+                return base.EntryMessage;
             }
 
-            return base.EntryMessage;
+            return string.Empty;
         }
     }
 

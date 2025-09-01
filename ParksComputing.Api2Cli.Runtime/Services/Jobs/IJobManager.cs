@@ -66,7 +66,10 @@ internal class JobManager : IJobManager, IDisposable {
             if (!_jobs.TryGetValue(id, out var job)) return false;
             if (job.Status is JobStatus.Succeeded or JobStatus.Failed or JobStatus.Cancelled) return false;
             job.CancelRequested = true;
-            try { job.CancellationSource.Cancel(); } catch { }
+            try { job.CancellationSource.Cancel(); }
+            catch (Exception ex) {
+                System.Diagnostics.Debug.WriteLine($"[JobManager] Cancel token error for job {id}: {ex.Message}");
+            }
             return true;
         }
     }

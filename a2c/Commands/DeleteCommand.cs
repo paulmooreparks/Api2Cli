@@ -14,6 +14,7 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 [Option(typeof(string), "--endpoint", "The endpoint to send the DELETE request to.", new[] { "-e" }, IsRequired = false, Arity = ArgumentArity.ExactlyOne)]
 [Option(typeof(string), "--baseurl", "The base URL of the API.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(IEnumerable<string>), "--headers", "Headers to include in the request.", new[] { "-h" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
+[Option(typeof(IEnumerable<string>), "--cookies", "Cookies to include in the request (name=value).", new[] { "-c" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
 internal class DeleteCommand(
     A2CApi a2c,
     IConsoleWriter consoleWriter
@@ -26,7 +27,8 @@ internal class DeleteCommand(
     public int Execute(
         [OptionParam("--endpoint")] string endpoint,
         [OptionParam("--baseurl")] string? baseUrl,
-        [OptionParam("--headers")] IEnumerable<string>? headers
+    [OptionParam("--headers")] IEnumerable<string>? headers,
+    [OptionParam("--cookies")] IEnumerable<string>? cookies
     ) {
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var fullUri) || string.IsNullOrWhiteSpace(fullUri.Scheme)) {
             baseUrl ??= a2c.ActiveWorkspace.BaseUrl;
@@ -40,7 +42,8 @@ internal class DeleteCommand(
         int result = Result.Success;
 
         try {
-            var response = a2c.Http.Delete(fullUri.ToString(), headers);
+            var headerList = ParksComputing.Api2Cli.Cli.Utilities.CookieHeaderHelper.MergeCookies(headers, cookies);
+            var response = a2c.Http.Delete(fullUri.ToString(), headerList);
 
             if (response is null) {
                 _console.WriteError($"{Constants.ErrorChar} Error: No response received from {fullUri}", category: "cli.delete", code: "response.none", ctx: new Dictionary<string, object?> { ["url"] = fullUri.ToString() });

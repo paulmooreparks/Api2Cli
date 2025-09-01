@@ -2,6 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using ParksComputing.Api2Cli.Api.Http;
+using ParksComputing.Api2Cli.Api.Cookies;
+using ParksComputing.Api2Cli.Api.Cookies.Impl;
 using ParksComputing.Api2Cli.Api.Http.Impl;
 using ParksComputing.Api2Cli.Api.Package;
 using ParksComputing.Api2Cli.Api.Package.Impl;
@@ -16,6 +18,7 @@ public static class ServiceCollectionExtensions {
     public static IServiceCollection AddApi2CliApiServices(this IServiceCollection services) {
         services.TryAddSingleton<IHttpApi, HttpApi>();
         services.TryAddSingleton<IStoreApi, StoreApi>();
+        services.TryAddSingleton<ICookieApi, CookieApi>();
         services.TryAddSingleton<IPackageApi, PackageApi>();
         services.TryAddSingleton<IProcessApi, ProcessApi>();
         services.TryAddSingleton<Api2CliApi>();

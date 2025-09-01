@@ -1,21 +1,18 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 using Cliffer;
 using ParksComputing.Api2Cli.Workspace;
 using ParksComputing.Api2Cli.Workspace.Services;
+using ParksComputing.Api2Cli.Cli.Services;
 
 namespace ParksComputing.Api2Cli.Cli.Commands.StoreCommand.SubCommands;
 
-[Command("set", "Retrieve the value for a given key", Parent = "store")]
+[Command("set", "Set the value for a key", Parent = "store")]
 [Argument(typeof(string), "key", "The key to set")]
-[Argument(typeof(string), "key", "The value to set")]
+[Argument(typeof(string), "value", "The value to set")]
 internal class SetCommand(
-    IStoreService store
-    ) 
+    IStoreService store,
+    IConsoleWriter console
+    )
 {
     public int Execute(
         string key,
@@ -23,7 +20,7 @@ internal class SetCommand(
         )
     {
         store[key] = value;
-        Console.WriteLine($"Set key '{key}' to '{value}'.");
+        console.WriteLine($"Set key '{key}' to '{value}'.", category: "cli.store.set", code: "store.set.ok");
         return Result.Success;
     }
 }

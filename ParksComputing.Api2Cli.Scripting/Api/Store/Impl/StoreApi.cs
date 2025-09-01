@@ -3,33 +3,29 @@ using System.Linq;
 
 #nullable enable
 
-using ParksComputing.Api2Cli.DataStore;
-using ParksComputing.Api2Cli.DataStore.Services;
+using ParksComputing.Api2Cli.Workspace.Services;
+using ParksComputing.Api2Cli.Scripting.Api.Store; // IStoreScriptApi
 
-namespace ParksComputing.Api2Cli.Api.Store.Impl;
+namespace ParksComputing.Api2Cli.Scripting.Api.Store.Impl;
 
-internal class StoreApi : IStoreApi {
-    private readonly IKeyValueStore _store;
+internal class StoreApi : IStoreScriptApi {
+    private readonly IStoreService _storeService; // resolves current workspace dynamically
 
-    public StoreApi(IKeyValueStore store) {
-        _store = store ?? throw new ArgumentNullException(nameof(store));
+    public StoreApi(IStoreService storeService) {
+        _storeService = storeService ?? throw new ArgumentNullException(nameof(storeService));
     }
 
-    public object? Get(string key) => _store.TryGetValue(key, out var value) ? value : null;
-
-    public void Set(string key, object value) => _store[key] = value;
-
-    public void Delete(string key) => _store.Remove(key);
-
-    public void Clear() => _store.Clear();
-
-    public string[] Keys => _store.Keys.ToArray();
+    public object? Get(string key) => _storeService.TryGetValue(key, out var value) ? value : null;
+    public void Set(string key, object value) => _storeService[key] = value;
+    public void Delete(string key) => _storeService.Remove(key);
+    public void Clear() => _storeService.Clear();
+    public string[] Keys => _storeService.Keys.ToArray();
 
     // Return non-null array; elements may be null.
     [System.Diagnostics.CodeAnalysis.DisallowNull]
     public object?[] Values {
         get {
-            var values = _store.Values; // ICollection<object?>
+            var values = _storeService.Values; // ICollection<object?> dynamic per workspace
             var result = new object?[values.Count];
             int i = 0;
             foreach (var v in values) {

@@ -4,6 +4,7 @@ using System.Dynamic;
 using System.Runtime.CompilerServices;
 
 using ParksComputing.Api2Cli.Api.Http;
+using ParksComputing.Api2Cli.Api.Cookies;
 using ParksComputing.Api2Cli.Api.Package;
 using ParksComputing.Api2Cli.Api.Process;
 using ParksComputing.Api2Cli.Api.Store;
@@ -22,6 +23,7 @@ public class Api2CliApi : DynamicObject {
     public string currentWorkspaceName => _workspaceService.CurrentWorkspaceName;
 
     public IHttpApi http { get; }
+    public ICookieApi cookies { get; }
 
     public IStoreApi store { get; }
 
@@ -32,12 +34,13 @@ public class Api2CliApi : DynamicObject {
     public dynamic workspaces { get; } = new ExpandoObject() as dynamic;
 
     public Api2CliApi(
-        IWorkspaceService workspaceService, 
+        IWorkspaceService workspaceService,
         IHttpApi httpApi,
+        ICookieApi cookieApi,
         IStoreApi storeApi,
         IPackageApi packageApi,
         IProcessApi processApi
-        ) 
+        )
     {
         _workspaceService = workspaceService;
         var workspacesDict = new ExpandoObject() as IDictionary<string, object>;
@@ -51,6 +54,7 @@ public class Api2CliApi : DynamicObject {
 #endif
 
         http = httpApi;
+        cookies = cookieApi;
         store = storeApi;
         package = packageApi;
         process = processApi;

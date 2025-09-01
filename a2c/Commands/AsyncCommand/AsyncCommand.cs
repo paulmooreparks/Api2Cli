@@ -2,6 +2,7 @@ using Cliffer;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using ParksComputing.Api2Cli.Cli.Services;
+using ParksComputing.Api2Cli.Cli.Services.Impl;
 using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Api2Cli.Scripting.Services;
 using ParksComputing.Api2Cli.Runtime.Services.Jobs;
@@ -9,9 +10,27 @@ using ParksComputing.Api2Cli.Runtime.Services.Jobs;
 namespace ParksComputing.Api2Cli.Cli.Commands.Async;
 
 [Command("async", "Asynchronous (queued) operations")]
-internal class AsyncCommand {
+internal class AsyncCommand(
+    IServiceProvider serviceProvider,
+    IWorkspaceService workspaceService
+    )
+{
     // Root async command currently just provides help; subcommands implement behavior.
-    public int Execute(Command command, InvocationContext ctx) => Result.Success;
+    public async Task<int> Execute(Command command, InvocationContext context) {
+        var replContext = new SubcommandReplContext(
+            command,
+            workspaceService,
+            new CommandSplitter()
+            );
+
+        var result = await command.Repl(
+            serviceProvider,
+            context,
+            replContext
+            );
+
+        return result;
+    }
 }
 
 [Command("run", "Queue a script for asynchronous execution", Parent = "async")]
@@ -28,7 +47,8 @@ internal class AsyncRunCommand {
         IApi2CliScriptEngineFactory engineFactory,
         IConsoleWriter consoleWriter,
         IJobManager jobManager
-        ) {
+        )
+    {
         _workspaceService = workspaceService;
         _engineFactory = engineFactory;
         _console = consoleWriter;
@@ -39,7 +59,8 @@ internal class AsyncRunCommand {
         string script,
         string? workspace,
         InvocationContext context
-        ) {
+        )
+    {
         var engine = _engineFactory.GetEngine(ParksComputing.Api2Cli.Scripting.Services.ScriptEngineKinds.JavaScript);
         var handler = new RunWsScriptCommand(_workspaceService, _engineFactory, engine, _console);
         var job = _jobs.Enqueue(new JobRequest("script", string.IsNullOrEmpty(workspace)? script : workspace+"."+script, async ct => {

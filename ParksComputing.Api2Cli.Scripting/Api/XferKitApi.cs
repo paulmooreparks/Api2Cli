@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
-using System.Runtime.CompilerServices;
+// using System.Runtime.CompilerServices;
 
 using Microsoft.ClearScript;
 
-using ParksComputing.Api2Cli.Api.Http;
-using ParksComputing.Api2Cli.Api.Store;
+using ParksComputing.Api2Cli.Scripting.Api.Http; // IHttpScriptApi
+using ParksComputing.Api2Cli.Api.Cookies;
+using ParksComputing.Api2Cli.Scripting.Api.Store;
 using ParksComputing.Api2Cli.Scripting.Api.FileSystem;
 using ParksComputing.Api2Cli.Scripting.Api.Package;
 using ParksComputing.Api2Cli.Scripting.Api.Process;
@@ -28,10 +29,13 @@ public class A2CApi : DynamicObject {
     public string CurrentWorkspaceName => _workspaceService.CurrentWorkspaceName;
 
     [ScriptMember("http")]
-    public IHttpApi Http { get; }
+    public IHttpScriptApi Http { get; }
+
+    [ScriptMember("cookies")]
+    public ICookieApi Cookies { get; }
 
     [ScriptMember("store")]
-    public IStoreApi Store { get; }
+    public IStoreScriptApi Store { get; }
 
     [ScriptMember("package")]
     public IPackageApi Package { get; }
@@ -47,8 +51,9 @@ public class A2CApi : DynamicObject {
 
     public A2CApi(
         IWorkspaceService workspaceService,
-        IHttpApi httpApi,
-        IStoreApi storeApi,
+        IHttpScriptApi httpApi,
+        ICookieApi cookieApi,
+        IStoreScriptApi storeApi,
         IPackageApi packageApi,
         IProcessApi processApi,
         IFileSystemApi fileSystemApi
@@ -65,7 +70,8 @@ public class A2CApi : DynamicObject {
         workspaces = workspacesDict;
 #endif
 
-        Http = httpApi;
+    Http = httpApi;
+    Cookies = cookieApi;
         Store = storeApi;
         Package = packageApi;
         Process = processApi;
@@ -104,19 +110,13 @@ public class A2CApi : DynamicObject {
     public WorkspaceDefinition ActiveWorkspace => _workspaceService.ActiveWorkspace;
 
     [ScriptMember("trySetProperty")]
-    public bool TrySetProperty(string name, object? value) {
-        return _properties.TryAdd(name, value);
-    }
+    public bool TrySetProperty(string name, object? value) => _properties.TryAdd(name, value);
 
     [ScriptMember("tryGetProperty")]
-    public bool TryGetProperty(string name, out object? value) {
-        return _properties.TryGetValue(name, out value);
-    }
+    public bool TryGetProperty(string name, out object? value) => _properties.TryGetValue(name, out value);
 
     [ScriptMember("tryGetMember")]
-    public override bool TryGetMember(GetMemberBinder binder, out object? result) {
-        return _properties.TryGetValue(binder.Name, out result);
-    }
+    public override bool TryGetMember(GetMemberBinder binder, out object? result) => _properties.TryGetValue(binder.Name, out result);
 
     [ScriptMember("trySetMember")]
     public override bool TrySetMember(SetMemberBinder binder, object? value) {
@@ -126,4 +126,6 @@ public class A2CApi : DynamicObject {
 
     [ScriptMember("getDynamicMemberNames")]
     public override IEnumerable<string> GetDynamicMemberNames() => _properties.Keys;
+
 }
+

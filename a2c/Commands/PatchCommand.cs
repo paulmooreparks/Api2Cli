@@ -5,6 +5,7 @@ using Cliffer;
 
 using ParksComputing.Api2Cli.Api;
 using ParksComputing.Api2Cli.Workspace;
+using ParksComputing.Api2Cli.Cli.Services;
 
 namespace ParksComputing.Api2Cli.Cli.Commands;
 
@@ -13,22 +14,26 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 [Option(typeof(string), "--endpoint", "The endpoint to send the PATCH request to.", new[] { "-e" }, IsRequired = false)]
 [Option(typeof(string), "--baseurl", "The base URL of the API.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(IEnumerable<string>), "--headers", "Headers to include in the request.", new[] { "-h" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
-internal class PatchCommand(A2CApi a2c) {
+[Option(typeof(IEnumerable<string>), "--cookies", "Cookies to include in the request (name=value).", new[] { "-c" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
+internal class PatchCommand(A2CApi a2c, IConsoleWriter consoleWriter) {
     public string ResponseContent { get; protected set; } = string.Empty;
     public int StatusCode { get; protected set; } = 0;
     public HttpResponseHeaders? Headers { get; protected set; }
+
+    private readonly IConsoleWriter _console = consoleWriter;
 
     public int Execute(
         [ArgumentParam("payload")] string? payload,
         [OptionParam("--endpoint")] string endpoint,
         [OptionParam("--baseurl")] string? baseUrl,
-        [OptionParam("--headers")] IEnumerable<string>? headers
+        [OptionParam("--headers")] IEnumerable<string>? headers,
+        [OptionParam("--cookies")] IEnumerable<string>? cookies
     ) {
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
             baseUrl ??= a2c.ActiveWorkspace.BaseUrl;
 
             if (string.IsNullOrEmpty(baseUrl) || !Uri.TryCreate(new Uri(baseUrl), endpoint, out baseUri) || string.IsNullOrWhiteSpace(baseUri.Scheme)) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}");
+                _console.WriteError($"{Constants.ErrorChar} Error: Invalid base URL: {baseUrl}", category: "cli.patch", code: "baseurl.invalid", ctx: new Dictionary<string, object?> { ["baseUrl"] = baseUrl, ["endpoint"] = endpoint });
                 return Result.InvalidArguments;
             }
         }
@@ -41,14 +46,15 @@ internal class PatchCommand(A2CApi a2c) {
         int result = Result.Success;
 
         try {
-            var response = a2c.Http.Patch(baseUri.ToString(), payload, headers);
+            var headerList = ParksComputing.Api2Cli.Cli.Utilities.CookieHeaderHelper.MergeCookies(headers, cookies);
+            var response = a2c.Http.Patch(baseUri.ToString(), payload, headerList);
 
             if (response is null) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} Error: No response received from {baseUri}");
+                _console.WriteError($"{Constants.ErrorChar} Error: No response received from {baseUri}", category: "cli.patch", code: "response.none", ctx: new Dictionary<string, object?> { ["url"] = baseUri.ToString() });
                 result = Result.Error;
             }
             else if (!response.IsSuccessStatusCode) {
-                Console.Error.WriteLine($"{Constants.ErrorChar} {(int)response.StatusCode} {response.ReasonPhrase} at {baseUri}");
+                _console.WriteError($"{Constants.ErrorChar} {(int)response.StatusCode} {response.ReasonPhrase} at {baseUri}", category: "cli.patch", code: "http.status.error", ctx: new Dictionary<string, object?> { ["url"] = baseUri.ToString(), ["status"] = (int)response.StatusCode, ["reason"] = response.ReasonPhrase });
                 result = Result.Error;
             }
 
@@ -56,8 +62,12 @@ internal class PatchCommand(A2CApi a2c) {
             ResponseContent = a2c.Http.ResponseContent;
             StatusCode = a2c.Http.StatusCode;
         }
+        catch (HttpRequestException ex) {
+            _console.WriteError($"{Constants.ErrorChar} Error: HTTP request failed - {ex.Message}", category: "cli.patch", code: "http.request.failed", ex: ex, ctx: new Dictionary<string, object?> { ["url"] = baseUri.ToString() });
+            result = Result.Error;
+        }
         catch (Exception ex) {
-            Console.Error.WriteLine($"{Constants.ErrorChar} Error: {ex.Message}");
+            _console.WriteError($"{Constants.ErrorChar} Error: {ex.Message}", category: "cli.patch", code: "unexpected", ex: ex, ctx: new Dictionary<string, object?> { ["url"] = baseUri.ToString() });
             result = Result.Error;
         }
 

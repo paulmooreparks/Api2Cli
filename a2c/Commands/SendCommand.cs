@@ -350,7 +350,7 @@ public class SendCommand {
 
                     var finalPayload = payload ?? definition.Payload ?? string.Empty;
                     finalPayload = finalPayload.ReplaceApi2CliPlaceholders(_propertyResolver, _settingsService, workspaceName, requestName, argsDict);
-                    result = postCommand.Execute(finalPayload, endpoint, baseUrl, finalHeaders);
+                    result = postCommand.Execute(finalPayload, endpoint, baseUrl, finalHeaders, finalCookies);
 
                     try {
                         CommandResult = _orchestrator.InvokePostResponse(

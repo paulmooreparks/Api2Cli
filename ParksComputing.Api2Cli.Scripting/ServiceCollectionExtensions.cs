@@ -3,9 +3,11 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using ParksComputing.Api2Cli.Api;
 using ParksComputing.Api2Cli.Api.Http;
-using ParksComputing.Api2Cli.Api.Http.Impl;
-using ParksComputing.Api2Cli.Api.Store;
-using ParksComputing.Api2Cli.Api.Store.Impl;
+using ParksComputing.Api2Cli.Api.Store; // API layer store
+using ParksComputing.Api2Cli.Scripting.Api.Http;
+using ParksComputing.Api2Cli.Scripting.Api.Http.Impl;
+using ParksComputing.Api2Cli.Scripting.Api.Store;
+using ParksComputing.Api2Cli.Scripting.Api.Store.Impl;
 using ParksComputing.Api2Cli.Scripting.Api.FileSystem;
 using ParksComputing.Api2Cli.Scripting.Api.FileSystem.Impl;
 using ParksComputing.Api2Cli.Scripting.Api.Package;
@@ -23,12 +25,13 @@ public static class ServiceCollectionExtensions {
         services.TryAddSingleton<ClearScriptEngine>();
         services.TryAddSingleton<CSharpScriptEngine>();
         services.TryAddSingleton<IPropertyResolver, PropertyResolver>();
-        services.TryAddSingleton<IHttpApi, HttpApi>();
-        services.TryAddSingleton<IStoreApi, StoreApi>();
+    // Register scripting-specific wrappers (renamed to *ScriptApi to avoid conflicts with API layer interfaces)
+    services.TryAddSingleton<IHttpScriptApi, HttpApi>();
+    services.TryAddSingleton<IStoreScriptApi, StoreApi>();
         services.TryAddSingleton<IPackageApi, PackageApi>();
         services.TryAddSingleton<IProcessApi, ProcessApi>();
         services.TryAddSingleton<IFileSystemApi, FileSystemApi>();
-        services.TryAddSingleton<A2CApi>();
+    services.TryAddSingleton<A2CApi>();
         return services;
     }
 }

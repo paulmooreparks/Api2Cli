@@ -72,7 +72,8 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
 
     public void Reset() {
         // Dispose existing V8 engine and clear all cached projection/init state so reload behaves like fresh start
-        try { _engine?.Dispose(); } catch { /* ignore dispose failures */ }
+    try { _engine?.Dispose(); }
+    catch (Exception ex) { DebugLog($"[JS:reset] engine dispose failed: {ex.Message}"); }
         _engine = null;
         _isInitialized = false;
         // Clear all internal caches so that subsequent InitializeScriptEnvironment() performs a clean re-projection
@@ -92,7 +93,8 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
                 wsDict.Clear();
                 // Also remove any top-level dynamic properties (set to null invokes removal via indexer)
                 foreach (var k in keys) {
-                    try { _a2c[k] = null; } catch { /* ignore */ }
+                    try { _a2c[k] = null; }
+                    catch (Exception ex) { DebugLog($"[JS:reset] clear workspace key '{k}' failed: {ex.Message}"); }
                 }
             }
             // Remove any remaining non-workspace dynamic properties (e.g., hideReplMessages) so they can be re-added
@@ -100,12 +102,13 @@ internal class ClearScriptEngine : IApi2CliScriptEngine {
                 var dynNames = _a2c.GetDynamicMemberNames()?.ToList();
                 if (dynNames is not null) {
                     foreach (var name in dynNames) {
-                        try { _a2c[name] = null; } catch { /* ignore */ }
+                        try { _a2c[name] = null; }
+                        catch (Exception ex) { DebugLog($"[JS:reset] clear dynamic member '{name}' failed: {ex.Message}"); }
                     }
                 }
-            } catch { /* ignore */ }
+            } catch (Exception ex) { DebugLog($"[JS:reset] enumerate dynamic members failed: {ex.Message}"); }
         }
-        catch { /* non-fatal; worst case duplicate detection will log later */ }
+        catch (Exception ex) { DebugLog($"[JS:reset] clearing dynamic workspace objects failed: {ex.Message}"); }
 
         // Any other per-run state (e.g., packages) will be reloaded lazily during InitializeScriptEnvironment()
     }

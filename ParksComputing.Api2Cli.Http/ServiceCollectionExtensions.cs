@@ -13,8 +13,15 @@ public static class ServiceCollectionExtensions {
             services.AddHttpClient();
         }
 
+        // Register HttpService with cookie support; ICookieJar depends on store services
+        services.TryAddSingleton<ICookieJar, CookieJar>();
+
         if (!services.Any(s => s.ServiceType == typeof(IHttpService))) {
-            services.AddHttpClient<IHttpService, Services.Impl.HttpService>();
+            services.AddHttpClient<Services.Impl.HttpService>();
+            services.AddSingleton<IHttpService>(sp => new Services.Impl.HttpService(
+                sp.GetRequiredService<HttpClient>(),
+                sp.GetRequiredService<IAppDiagnostics<IHttpService>>(),
+                sp.GetRequiredService<ICookieJar>()));
         }
 
         services.AddSingleton<IAppDiagnostics<IHttpService>, AppDiagnostics<IHttpService>>();

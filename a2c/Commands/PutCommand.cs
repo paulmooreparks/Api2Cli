@@ -14,6 +14,7 @@ namespace ParksComputing.Api2Cli.Cli.Commands;
 [Option(typeof(string), "--endpoint", "The endpoint to send the PUT request to.", new[] { "-e" }, IsRequired = false, Arity = ArgumentArity.ExactlyOne)]
 [Option(typeof(string), "--baseurl", "The base URL of the API.", new[] { "-b" }, IsRequired = false)]
 [Option(typeof(IEnumerable<string>), "--headers", "Headers to include in the request.", new[] { "-h" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
+[Option(typeof(IEnumerable<string>), "--cookies", "Cookies to include in the request (name=value).", new[] { "-c" }, AllowMultipleArgumentsPerToken = true, Arity = ArgumentArity.ZeroOrMore)]
 internal class PutCommand(
     A2CApi a2c,
     IConsoleWriter consoleWriter
@@ -28,7 +29,8 @@ internal class PutCommand(
         [ArgumentParam("payload")] string? payload,
         [OptionParam("--endpoint")] string endpoint,
         [OptionParam("--baseurl")] string? baseUrl,
-        [OptionParam("--headers")] IEnumerable<string>? headers
+    [OptionParam("--headers")] IEnumerable<string>? headers,
+    [OptionParam("--cookies")] IEnumerable<string>? cookies
         )
     {
         // Validate URL format
@@ -51,7 +53,8 @@ internal class PutCommand(
         int result = Result.Success;
 
         try {
-            var response = a2c.Http.Put(baseUrl, payload, headers);
+            var headerList = ParksComputing.Api2Cli.Cli.Utilities.CookieHeaderHelper.MergeCookies(headers, cookies);
+            var response = a2c.Http.Put(baseUrl, payload, headerList);
 
             if (response is null) {
                 _console.WriteError($"{Constants.ErrorChar} Error: No response received from {baseUrl}", category: "cli.put", code: "response.none", ctx: new Dictionary<string, object?> { ["baseUrl"] = baseUrl, ["endpoint"] = endpoint });

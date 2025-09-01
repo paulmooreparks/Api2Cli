@@ -33,21 +33,21 @@ internal class Program {
     }
 
     static async Task<int> Main(string[] args) {
-    // Internal timing: measure only time spent inside a2c (exclude dotnet host/restore/build)
-    var __a2cOverallSw = Stopwatch.StartNew();
-    bool __a2cTimings = "1".Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), StringComparison.OrdinalIgnoreCase)
-                || "true".Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), StringComparison.OrdinalIgnoreCase);
-    bool __a2cShowVersionBanner = "1".Equals(Environment.GetEnvironmentVariable("A2C_SHOW_VERSION"), StringComparison.OrdinalIgnoreCase)
-                || "true".Equals(Environment.GetEnvironmentVariable("A2C_SHOW_VERSION"), StringComparison.OrdinalIgnoreCase);
-    var __a2cBuildSw = new Stopwatch();
-    var __a2cConfigWsSw = new Stopwatch();
-    var __a2cRunSw = new Stopwatch();
-    var __a2cTimingsPrinted = false;
-    bool __a2cTimingsBannerPending = __a2cTimings; // delay emission until IConsoleWriter resolved
+        // Internal timing: measure only time spent inside a2c (exclude dotnet host/restore/build)
+        var __a2cOverallSw = Stopwatch.StartNew();
+        bool __a2cTimings = "1".Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), StringComparison.OrdinalIgnoreCase)
+                    || "true".Equals(Environment.GetEnvironmentVariable("A2C_TIMINGS"), StringComparison.OrdinalIgnoreCase);
+        bool __a2cShowVersionBanner = "1".Equals(Environment.GetEnvironmentVariable("A2C_SHOW_VERSION"), StringComparison.OrdinalIgnoreCase)
+                    || "true".Equals(Environment.GetEnvironmentVariable("A2C_SHOW_VERSION"), StringComparison.OrdinalIgnoreCase);
+        var __a2cBuildSw = new Stopwatch();
+        var __a2cConfigWsSw = new Stopwatch();
+        var __a2cRunSw = new Stopwatch();
+        var __a2cTimingsPrinted = false;
+        bool __a2cTimingsBannerPending = __a2cTimings; // delay emission until IConsoleWriter resolved
 
-    IConsoleWriter? __console = null; // will resolve after building container
+        IConsoleWriter? __console = null; // will resolve after building container
 
-    IUnifiedDiagnostics? __unified = null; // will resolve after building container
+        IUnifiedDiagnostics? __unified = null; // will resolve after building container
 
         // Optional verbose diagnostics event echo (disabled by default). Enable with A2C_DIAG_EVENTS=1|true
         bool __a2cDiagEvents = "1".Equals(Environment.GetEnvironmentVariable("A2C_DIAG_EVENTS"), StringComparison.OrdinalIgnoreCase)
@@ -56,9 +56,9 @@ internal class Program {
             DiagnosticListener.AllListeners.Subscribe(new DiagnosticsEventObserver());
         }
 
-    // Fast-path: handle --version/-v before building services (avoid heavy startup)
-    // Trigger this regardless of other options (e.g., --config) to prevent full DI initialization on version queries.
-    if (args.Any(a => string.Equals(a, "--version", StringComparison.OrdinalIgnoreCase) || string.Equals(a, "-v", StringComparison.OrdinalIgnoreCase))) {
+        // Fast-path: handle --version/-v before building services (avoid heavy startup)
+        // Trigger this regardless of other options (e.g., --config) to prevent full DI initialization on version queries.
+        if (args.Any(a => string.Equals(a, "--version", StringComparison.OrdinalIgnoreCase) || string.Equals(a, "-v", StringComparison.OrdinalIgnoreCase))) {
             var asm = Assembly.GetExecutingAssembly();
             var ver = asm.GetName().Version;
             var verStr = ver != null ? $"{ver.Major}.{ver.Minor}.{ver.Build}" : "Unknown";
@@ -67,13 +67,14 @@ internal class Program {
             return 0;
         }
 
-    // REPL mode: if no command is provided, Cliffer will enter interactive mode.
-    // Keep fast --version path above and allow option-only invocations to still reach REPL.
+        // REPL mode: if no command is provided, Cliffer will enter interactive mode.
+        // Keep fast --version path above and allow option-only invocations to still reach REPL.
 
         // Early parse: capture --config/-c and --packages/-P before services initialize; pass via options, not env vars.
         string? __configRootOpt = null;
         string? __packagesDirOpt = null;
         string? __langOpt = null;
+
         for (int i = 0; i < args.Length; i++) {
             if (string.Equals(args[i], "--config", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-c", StringComparison.OrdinalIgnoreCase)) {
                 var next = (i + 1) < args.Length ? args[i + 1] : null;
@@ -81,6 +82,7 @@ internal class Program {
                 break;
             }
         }
+
         for (int i = 0; i < args.Length; i++) {
             if (string.Equals(args[i], "--packages", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-P", StringComparison.OrdinalIgnoreCase)) {
                 var next = (i + 1) < args.Length ? args[i + 1] : null;
@@ -88,6 +90,7 @@ internal class Program {
                 break;
             }
         }
+
         for (int i = 0; i < args.Length; i++) {
             if (string.Equals(args[i], "--lang", StringComparison.OrdinalIgnoreCase) || string.Equals(args[i], "-L", StringComparison.OrdinalIgnoreCase)) {
                 var next = (i + 1) < args.Length ? args[i + 1] : null;
@@ -98,9 +101,11 @@ internal class Program {
 
         // Resolve desired UI culture: precedence CLI option > env var (A2C_LANG) > system default
         string? cultureCandidate = __langOpt ?? Environment.GetEnvironmentVariable("A2C_LANG");
+
         if (!string.IsNullOrWhiteSpace(cultureCandidate)) {
             // Normalization helpers (allow short forms)
             string norm = cultureCandidate!.Trim();
+
             norm = norm switch {
                 "en" or "en-GB" or "en-gb" => "en-GB", // prefer en-GB variant when explicitly chosen
                 "zh" or "zh-CN" or "zh-cn" or "zh-hans" => "zh-Hans",
@@ -108,6 +113,7 @@ internal class Program {
                 "ta" or "ta-IN" or "ta-in" => "ta",
                 _ => norm
             };
+
             try {
                 var ci = CultureInfo.GetCultureInfo(norm);
                 CultureInfo.CurrentCulture = ci; // number/date formatting if needed
@@ -122,9 +128,14 @@ internal class Program {
         // Validate --config when provided: if the path exists and is a file, fail fast with a clear message.
         if (!string.IsNullOrWhiteSpace(__configRootOpt)) {
             var p = __configRootOpt!;
+
             if (File.Exists(p) || Directory.Exists(p)) {
                 var attr = File.GetAttributes(p);
-                if (!attr.HasFlag(FileAttributes.Directory)) {
+
+                if (attr.HasFlag(FileAttributes.Directory)) {
+                    // It's a directory, all good
+                }
+                else {
                     var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                     var suggested = Path.GetDirectoryName(p) ?? Path.Combine(home, Constants.Api2CliDirectoryName);
                     var msg = $"--config must be a directory, but a file path was provided: '{p}'. Use '--config '{suggested}' instead.";
@@ -139,8 +150,10 @@ internal class Program {
         // Validate --packages when provided: if the path exists and is a file, fail fast with a clear message.
         if (!string.IsNullOrWhiteSpace(__packagesDirOpt)) {
             var q = __packagesDirOpt!;
+
             if (File.Exists(q) || Directory.Exists(q)) {
                 var attr = File.GetAttributes(q);
+
                 if (!attr.HasFlag(FileAttributes.Directory)) {
                     var msg = $"--packages must be a directory, but a file path was provided: '{q}'.";
                     // Write to stderr so tests (and callers) can detect failure; DI not initialized yet.
@@ -151,50 +164,67 @@ internal class Program {
             }
         }
 
-    __a2cBuildSw.Start();
-    var wsOptions = new WorkspaceRuntimeOptions {
-        ConfigRoot = __configRootOpt,
-        PackagesDir = __packagesDirOpt
-    };
+        __a2cBuildSw.Start();
+        var wsOptions = new WorkspaceRuntimeOptions {
+            ConfigRoot = __configRootOpt,
+            PackagesDir = __packagesDirOpt
+        };
 
-    var cli = new ClifferBuilder()
-                .ConfigureServices(services => {
-                    // Provide runtime options to workspace services
-                    services.AddSingleton(wsOptions);
-                    services.AddApi2CliWorkspaceServices();
-                    services.AddApi2CliHttpServices();
-                    services.AddApi2CliScriptingServices();
-                    services.AddApi2CliOrchestration();
-                    services.AddApi2CliDiagnosticsServices("Api2Cli");
-                    services.AddSingleton<ICommandSplitter, CommandSplitter>();
-                    services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();
-                    services.AddSingleton<ILocalizer, ResourceLocalizer>();
-                    services.AddSingleton<IConsoleWriter, ConsoleWriter>();
-                    services.AddJobManager();
-                    services.AddSingleton<JobManagerStatusWriter>();
-                    services.AddMcpServer();
+        var cli = new ClifferBuilder()
+            .ConfigureServices(services => {
+                // Provide runtime options to workspace services
+                services.AddSingleton(wsOptions);
+                services.AddApi2CliWorkspaceServices();
+                services.AddApi2CliHttpServices();
+                services.AddApi2CliScriptingServices();
+                services.AddApi2CliOrchestration();
+                services.AddApi2CliDiagnosticsServices("Api2Cli");
+                services.AddSingleton<ICommandSplitter, CommandSplitter>();
+                services.AddSingleton<IScriptCliBridge, ScriptCliBridge>();
+                services.AddSingleton<ILocalizer, ResourceLocalizer>();
+                services.AddSingleton<IConsoleWriter, ConsoleWriter>();
+                services.AddJobManager();
+                services.AddSingleton<JobManagerStatusWriter>();
+                services.AddMcpServer();
 
-                    // Align data store path to the selected config root
-                    string defaultRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Constants.Api2CliDirectoryName);
-                    string configRoot = string.IsNullOrWhiteSpace(wsOptions.ConfigRoot) ? defaultRoot : wsOptions.ConfigRoot!;
-                    string databasePath = Path.Combine(configRoot, Constants.StoreFileName);
+                // Align data store path to the selected config root
+                string defaultRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Constants.Api2CliDirectoryName);
+                string configRoot = string.IsNullOrWhiteSpace(wsOptions.ConfigRoot) ? defaultRoot : wsOptions.ConfigRoot!;
+                string databasePath = Path.Combine(configRoot, Constants.StoreFileName);
 
-                    if (!Directory.Exists(Path.GetDirectoryName(databasePath))) {
-                        Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
-                    }
+                if (!Directory.Exists(Path.GetDirectoryName(databasePath))) {
+                    Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
+                }
 
-                    services.AddApi2CliDataStore(databasePath);
-                })
-                .Build();
+                // Root (legacy) store registration (provides base sqlite file for root workspace)
+                services.AddApi2CliDataStore(databasePath);
+                // Multi-workspace dynamic store provider + IStoreService wrapper
+                services.AddSingleton<ParksComputing.Api2Cli.Workspace.Services.IWorkspaceKeyValueStoreProvider>(sp =>
+                    new ParksComputing.Api2Cli.Workspace.Services.WorkspaceKeyValueStoreProvider(
+                        sp.GetRequiredService<ParksComputing.Api2Cli.Workspace.Services.IWorkspaceService>(),
+                        databasePath));
+                services.AddSingleton<ParksComputing.Api2Cli.Workspace.Services.IStoreService, ParksComputing.Api2Cli.Workspace.Services.Impl.SqliteStoreService>();
+            })
+            .Build();
+
         __unified = cli.ServiceProvider.GetService<IUnifiedDiagnostics>();
         __console = cli.ServiceProvider.GetService<IConsoleWriter>();
-    // Wire job status events
-    try { cli.ServiceProvider.GetService<JobManagerStatusWriter>()?.Wire(); } catch { }
+
+        // Wire job status events (log failures for visibility)
+        try { cli.ServiceProvider.GetService<JobManagerStatusWriter>()?.Wire(); }
+        catch (Exception ex) {
+            __unified?.Debug("startup.jobs", "jobStatusWireFailed", ctx: new Dictionary<string, object?> { ["error"] = ex.Message });
+        }
+
         // Inject localization delegate for scripting console helper (makes script.console.* resource keys available)
         try {
             var __localizer = cli.ServiceProvider.GetService<ILocalizer>();
             ParksComputing.Api2Cli.Scripting.Services.ConsoleScriptObject.Localize = key => __localizer?.Get(key) ?? key;
-        } catch { /* non-fatal */ }
+        }
+        catch (Exception ex) {
+            __unified?.Debug("startup.localization", "localizer.setup.failed", ctx: new Dictionary<string, object?> { ["error"] = ex.Message });
+        }
+
         __unified?.Debug("startup", "container.built");
         __a2cBuildSw.Stop();
 
@@ -255,7 +285,8 @@ internal class Program {
 
                     __a2cTimingsPrinted = true;
                 }
-            } catch (Exception ex) {
+            }
+            catch (Exception ex) {
                 __unified?.Error("timings", "emit.failure", ex: ex);
             }
         };
@@ -267,7 +298,7 @@ internal class Program {
         var exitCode = await cli.RunAsync(args);
         __a2cRunSw.Stop();
 
-    __a2cOverallSw.Stop();
+        __a2cOverallSw.Stop();
 
         return exitCode;
     }
@@ -316,12 +347,18 @@ public class DiagnosticsEventObserver : IObserver<DiagnosticListener>, IObserver
     }
 
     public void OnNext(KeyValuePair<string, object?> evt) {
-    // Only emit event lines when the observer is enabled (A2C_DIAG_EVENTS set before subscription)
-    try {
-        var console = ParksComputing.Api2Cli.Cli.Services.Utility.GetService<ParksComputing.Api2Cli.Cli.Services.IConsoleWriter>();
-        console?.WriteLine($"{evt.Key}:", category: "cli.diag.events", code: "event.name", ctx: new Dictionary<string, object?> { ["event"] = evt.Key });
-        console?.WriteLine($"  {evt.Value}", category: "cli.diag.events", code: "event.payload", ctx: new Dictionary<string, object?> { ["event"] = evt.Key, ["payload"] = evt.Value });
-    } catch { /* ignore if services not ready */ }
+        // Only emit event lines when the observer is enabled (A2C_DIAG_EVENTS set before subscription)
+        try {
+            var console = ParksComputing.Api2Cli.Cli.Services.Utility.GetService<ParksComputing.Api2Cli.Cli.Services.IConsoleWriter>();
+            console?.WriteLine($"{evt.Key}:", category: "cli.diag.events", code: "event.name", ctx: new Dictionary<string, object?> { ["event"] = evt.Key });
+            console?.WriteLine($"  {evt.Value}", category: "cli.diag.events", code: "event.payload", ctx: new Dictionary<string, object?> { ["event"] = evt.Key, ["payload"] = evt.Value });
+        }
+        catch (Exception ex) {
+            try {
+                var unified = ParksComputing.Api2Cli.Cli.Services.Utility.GetService<ParksComputing.Api2Cli.Diagnostics.Services.Unified.IUnifiedDiagnostics>();
+                unified?.Debug("diag.events", "emit.failed", ctx: new Dictionary<string, object?> { ["error"] = ex.Message, ["event"] = evt.Key });
+            } catch { /* last resort: ignore */ }
+        }
     }
 
     public void OnCompleted() { }

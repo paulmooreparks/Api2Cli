@@ -2,13 +2,33 @@ using Cliffer;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using ParksComputing.Api2Cli.Cli.Services;
+using ParksComputing.Api2Cli.Cli.Services.Impl;
+using ParksComputing.Api2Cli.Workspace.Services;
 using ParksComputing.Api2Cli.Runtime.Services.Mcp;
 
 namespace ParksComputing.Api2Cli.Cli.Commands.Mcp;
 
 [Command("mcp", "Manage the MCP (Model Context Protocol) server")]
-internal class McpCommand {
-    public int Execute(Command cmd, InvocationContext ctx) => Result.Success; // help only
+internal class McpCommand(
+    IServiceProvider serviceProvider,
+    IWorkspaceService workspaceService
+    )
+{
+    public async Task<int> Execute(Command command, InvocationContext context) {
+        var replContext = new SubcommandReplContext(
+            command,
+            workspaceService,
+            new CommandSplitter()
+            );
+
+        var result = await command.Repl(
+            serviceProvider,
+            context,
+            replContext
+            );
+
+        return result;
+    }
 }
 
 [Command("status", "Show MCP server status", Parent = "mcp")]

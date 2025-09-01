@@ -132,10 +132,13 @@ internal sealed class McpServerManager : IMcpServerManager, IDisposable {
             _port = null;
             TryDeleteLock();
         }
-        try { listener?.Stop(); } catch { }
-        try { if (cts is not null && !cts.IsCancellationRequested) cts.Cancel(); } catch { }
+        try { listener?.Stop(); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[McpServer] listener stop failed: {ex.Message}"); }
+        try { if (cts is not null && !cts.IsCancellationRequested) cts.Cancel(); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[McpServer] cancel token failed: {ex.Message}"); }
         if (loop is not null) {
-            try { await loop.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken); } catch { }
+            try { await loop.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[McpServer] server loop wait failed: {ex.Message}"); }
         }
         return BuildStatus();
     }
@@ -187,8 +190,9 @@ internal sealed class McpServerManager : IMcpServerManager, IDisposable {
                 try {
                     root = JsonNode.Parse(line);
                     id = root?["id"]?.ToString();
-                } catch {
+                } catch (Exception pex) {
                     await SendErrorAsync(writer, id, -32700, "Parse error").ConfigureAwait(false);
+                    System.Diagnostics.Debug.WriteLine($"[McpServer] parse error: {pex.Message}");
                     continue;
                 }
                 var method = root?["method"]?.ToString();
@@ -277,8 +281,8 @@ internal sealed class McpServerManager : IMcpServerManager, IDisposable {
                         break;
                 }
             }
-        } catch {
-            // swallow connection-level errors
+        } catch (Exception ex) {
+            System.Diagnostics.Debug.WriteLine($"[McpServer] connection handler error: {ex.Message}");
         }
     }
 
@@ -876,22 +880,24 @@ internal sealed class McpServerManager : IMcpServerManager, IDisposable {
             var doc = JsonSerializer.Deserialize<LockFileModel>(text);
             if (doc is null) return null;
             return (doc.ProcessId, doc.Port, doc.StartedUtc);
-        } catch { return null; }
+    } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[McpServer] read lock file failed: {ex.Message}"); return null; }
     }
 
     private void WriteLockFile() {
         try {
             var model = new LockFileModel { ProcessId = Environment.ProcessId, Port = _port ?? 0, StartedUtc = _startedUtc ?? DateTime.UtcNow };
             File.WriteAllText(_lockFilePath, JsonSerializer.Serialize(model));
-        } catch { }
+        } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[McpServer] write lock file failed: {ex.Message}"); }
     }
 
     private void TryDeleteLock() {
-        try { if (File.Exists(_lockFilePath)) File.Delete(_lockFilePath); } catch { }
+    try { if (File.Exists(_lockFilePath)) File.Delete(_lockFilePath); }
+    catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[McpServer] delete lock file failed: {ex.Message}"); }
     }
 
     private static bool IsProcessAlive(int pid) {
-        try { var p = Process.GetProcessById(pid); return !p.HasExited; } catch { return false; }
+    try { var p = Process.GetProcessById(pid); return !p.HasExited; }
+    catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[McpServer] process check failed for {pid}: {ex.Message}"); return false; }
     }
 
     public void Dispose() {
